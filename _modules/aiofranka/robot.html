@@ -1,0 +1,492 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="../../">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>aiofranka.robot &mdash; aiofranka 0.5.1 documentation</title>
+      <link rel="stylesheet" type="text/css" href="../../_static/pygments.css?v=b86133f3" />
+      <link rel="stylesheet" type="text/css" href="../../_static/css/theme.css?v=9edc463e" />
+
+  
+      <script src="../../_static/jquery.js?v=5d32c60e"></script>
+      <script src="../../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="../../_static/documentation_options.js?v=b9afe91b"></script>
+      <script src="../../_static/doctools.js?v=fd6eb6e6"></script>
+      <script src="../../_static/sphinx_highlight.js?v=6ffebe34"></script>
+    <script src="../../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../../genindex.html" />
+    <link rel="search" title="Search" href="../../search.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../../index.html" class="icon icon-home">
+            aiofranka
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">Getting Started</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../installation.html">Installation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../quickstart.html">Quick Start</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../controllers.html">Controllers</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../cli.html">CLI Reference</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../async_mode.html">Async Mode Guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../examples.html">Examples</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../troubleshooting.html">Troubleshooting</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">API Reference</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../api/remote.html">FrankaRemoteController (Server Mode)</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../api/controller.html">Franka Controller</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../api/robot.html">Robot Interface</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../api/server.html">Server Functions</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../api/gripper.html">GripperController</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../api/utilities.html">Async Utilities</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../../index.html">aiofranka</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../../index.html" class="icon icon-home" aria-label="Home"></a></li>
+          <li class="breadcrumb-item"><a href="../index.html">Module code</a></li>
+      <li class="breadcrumb-item active">aiofranka.robot</li>
+      <li class="wy-breadcrumbs-aside">
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <h1>Source code for aiofranka.robot</h1><div class="highlight"><pre>
+<span></span><span class="kn">import</span><span class="w"> </span><span class="nn">os</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">sys</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">mujoco</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">mujoco.viewer</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">pathlib</span><span class="w"> </span><span class="kn">import</span> <span class="n">Path</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">time</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">requests</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">aiofranka.client</span><span class="w"> </span><span class="kn">import</span> <span class="n">FrankaLockUnlock</span>
+
+<span class="n">CUR_DIR</span> <span class="o">=</span> <span class="n">Path</span><span class="p">(</span><span class="vm">__file__</span><span class="p">)</span><span class="o">.</span><span class="n">parent</span><span class="o">.</span><span class="n">resolve</span><span class="p">()</span>
+
+
+<div class="viewcode-block" id="set_macos_control_thread_qos">
+<a class="viewcode-back" href="../../api/robot.html#aiofranka.robot.set_macos_control_thread_qos">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">set_macos_control_thread_qos</span><span class="p">():</span>
+<span class="w">    </span><span class="sd">"""</span>
+<span class="sd">    Give the calling thread the scheduling that libfranka needs on macOS.</span>
+
+<span class="sd">    On macOS, libfranka busy-waits for robot states, which only keeps up with the</span>
+<span class="sd">    1 kHz control loop on a performance core. libfranka sets the QoS class</span>
+<span class="sd">    USER_INTERACTIVE for the thread that creates the Robot; call this at the start</span>
+<span class="sd">    of the thread that runs the control loop. Does nothing on other platforms or</span>
+<span class="sd">    when busy-waiting is disabled with LIBFRANKA_MACOS_BUSY_WAIT=0.</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        bool: True if the QoS class was set.</span>
+<span class="sd">    """</span>
+    <span class="k">if</span> <span class="n">sys</span><span class="o">.</span><span class="n">platform</span> <span class="o">!=</span> <span class="s2">"darwin"</span> <span class="ow">or</span> <span class="n">os</span><span class="o">.</span><span class="n">environ</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"LIBFRANKA_MACOS_BUSY_WAIT"</span><span class="p">)</span> <span class="o">==</span> <span class="s2">"0"</span><span class="p">:</span>
+        <span class="k">return</span> <span class="kc">False</span>
+    <span class="kn">import</span><span class="w"> </span><span class="nn">ctypes</span>
+
+    <span class="n">QOS_CLASS_USER_INTERACTIVE</span> <span class="o">=</span> <span class="mh">0x21</span>
+    <span class="n">libc</span> <span class="o">=</span> <span class="n">ctypes</span><span class="o">.</span><span class="n">CDLL</span><span class="p">(</span><span class="kc">None</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">libc</span><span class="o">.</span><span class="n">pthread_set_qos_class_self_np</span><span class="p">(</span><span class="n">QOS_CLASS_USER_INTERACTIVE</span><span class="p">,</span> <span class="mi">0</span><span class="p">)</span> <span class="o">==</span> <span class="mi">0</span></div>
+
+
+
+<span class="n">_MACOS_PYLIBFRANKA_MISSING</span> <span class="o">=</span> <span class="s2">"""pylibfranka is not installed.</span>
+
+<span class="s2">PyPI has no official macOS build of pylibfranka. On Apple Silicon Macs with</span>
+<span class="s2">macOS 15 or newer, install the unofficial build:</span>
+
+<span class="s2">    pip install pylibfranka-macos</span>
+
+<span class="s2">On other Macs, build it from source from younghyopark/libfranka, a fork with</span>
+<span class="s2">macOS support, see https://github.com/younghyopark/aiofranka#macos-apple-silicon"""</span>
+
+
+<div class="viewcode-block" id="require_pylibfranka">
+<a class="viewcode-back" href="../../api/robot.html#aiofranka.robot.require_pylibfranka">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">require_pylibfranka</span><span class="p">():</span>
+<span class="w">    </span><span class="sd">"""</span>
+<span class="sd">    Import pylibfranka, explaining how to install it on macOS if it is missing.</span>
+
+<span class="sd">    On macOS, aiofranka only depends on pylibfranka-macos, an unofficial build of</span>
+<span class="sd">    pylibfranka, for Apple Silicon and macOS 15 or newer.</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        module: The pylibfranka module.</span>
+
+<span class="sd">    Raises:</span>
+<span class="sd">        ModuleNotFoundError: If pylibfranka is not installed.</span>
+<span class="sd">    """</span>
+    <span class="k">try</span><span class="p">:</span>
+        <span class="kn">import</span><span class="w"> </span><span class="nn">pylibfranka</span>
+    <span class="k">except</span> <span class="ne">ModuleNotFoundError</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+        <span class="k">if</span> <span class="n">sys</span><span class="o">.</span><span class="n">platform</span> <span class="o">==</span> <span class="s2">"darwin"</span> <span class="ow">and</span> <span class="n">e</span><span class="o">.</span><span class="n">name</span> <span class="o">==</span> <span class="s2">"pylibfranka"</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ModuleNotFoundError</span><span class="p">(</span><span class="n">_MACOS_PYLIBFRANKA_MISSING</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="n">e</span><span class="o">.</span><span class="n">name</span><span class="p">)</span> <span class="kn">from</span><span class="w"> </span><span class="nn">e</span>
+        <span class="k">raise</span>
+    <span class="k">return</span> <span class="n">pylibfranka</span></div>
+
+
+
+<div class="viewcode-block" id="RobotInterface">
+<a class="viewcode-back" href="../../api/robot.html#aiofranka.robot.RobotInterface">[docs]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">RobotInterface</span><span class="p">:</span> 
+<span class="w">    </span><span class="sd">"""</span>
+<span class="sd">    High-level interface for Franka FR3 robot control.</span>
+<span class="sd">    </span>
+<span class="sd">    This class provides a unified interface for both real robot control (via pylibfranka)</span>
+<span class="sd">    and simulation (via MuJoCo). It handles low-level communication, state synchronization,</span>
+<span class="sd">    and kinematics/dynamics computation.</span>
+<span class="sd">    </span>
+<span class="sd">    Attributes:</span>
+<span class="sd">        real (bool): True if connected to real robot, False for simulation</span>
+<span class="sd">        model (mujoco.MjModel): MuJoCo model for kinematics/dynamics</span>
+<span class="sd">        data (mujoco.MjData): MuJoCo data structure with current state</span>
+<span class="sd">        robot (pylibfranka.Robot): Real robot interface (if real=True)</span>
+<span class="sd">        torque_controller: Active torque control interface</span>
+<span class="sd">        site_name (str): Name of end-effector site in MuJoCo model</span>
+<span class="sd">        site_id (int): MuJoCo site ID for end-effector</span>
+<span class="sd">        viewer (mujoco.viewer): MuJoCo viewer window (if real=False)</span>
+<span class="sd">        </span>
+<span class="sd">    Examples:</span>
+<span class="sd">        Real robot:</span>
+<span class="sd">            &gt;&gt;&gt; robot = RobotInterface("172.16.0.2")</span>
+<span class="sd">            &gt;&gt;&gt; robot.start()</span>
+<span class="sd">            &gt;&gt;&gt; state = robot.state</span>
+<span class="sd">            &gt;&gt;&gt; robot.step(np.zeros(7))  # Send zero torques</span>
+<span class="sd">            &gt;&gt;&gt; robot.stop()</span>
+<span class="sd">            </span>
+<span class="sd">        Simulation:</span>
+<span class="sd">            &gt;&gt;&gt; robot = RobotInterface(None)</span>
+<span class="sd">            &gt;&gt;&gt; state = robot.state</span>
+<span class="sd">            &gt;&gt;&gt; robot.step(np.zeros(7))  # Updates MuJoCo simulation</span>
+<span class="sd">        </span>
+<span class="sd">    Caveats:</span>
+<span class="sd">        - Must call start() before step() on real robot</span>
+<span class="sd">        - Collision behavior is set to high thresholds by default</span>
+<span class="sd">        - State is synced from robot on every access (thread-safe)</span>
+<span class="sd">        - MuJoCo model must match real robot configuration</span>
+<span class="sd">    """</span>
+
+<div class="viewcode-block" id="RobotInterface.__init__">
+<a class="viewcode-back" href="../../api/robot.html#aiofranka.robot.RobotInterface.__init__">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">ip</span> <span class="o">=</span> <span class="kc">None</span><span class="p">):</span> 
+<span class="w">        </span><span class="sd">"""</span>
+<span class="sd">        Initialize robot interface.</span>
+<span class="sd">        </span>
+<span class="sd">        Args:</span>
+<span class="sd">            ip (str | None): Robot IP address (e.g., "172.16.0.2") for real robot,</span>
+<span class="sd">                           or None for simulation mode.</span>
+<span class="sd">                           </span>
+<span class="sd">        Raises:</span>
+<span class="sd">            ModuleNotFoundError: If pylibfranka is not installed (real robot mode)</span>
+<span class="sd">            ConnectionError: If cannot connect to robot at given IP</span>
+<span class="sd">            </span>
+<span class="sd">        Note:</span>
+<span class="sd">            In real mode, collision thresholds are set to [100.0] * 7 for joints</span>
+<span class="sd">            and [100.0] * 6 for Cartesian space. Adjust via robot.robot.set_collision_behavior()</span>
+<span class="sd">            for more conservative behavior.</span>
+<span class="sd">        """</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">real</span> <span class="o">=</span> <span class="n">ip</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">model</span> <span class="o">=</span> <span class="n">mujoco</span><span class="o">.</span><span class="n">MjModel</span><span class="o">.</span><span class="n">from_xml_path</span><span class="p">(</span><span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">CUR_DIR</span><span class="si">}</span><span class="s2">/model/fr3.xml"</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">data</span> <span class="o">=</span> <span class="n">mujoco</span><span class="o">.</span><span class="n">MjData</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">model</span><span class="p">)</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">torque_controller</span> <span class="o">=</span> <span class="kc">None</span>
+
+        <span class="c1"># End-effector site we wish to control.</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">site_name</span> <span class="o">=</span> <span class="s2">"attachment_site"</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">site_id</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">model</span><span class="o">.</span><span class="n">site</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">site_name</span><span class="p">)</span><span class="o">.</span><span class="n">id</span>
+
+        <span class="c1"># The first calls of these take a few hundred microseconds, which would miss</span>
+        <span class="c1"># the first control cycles. Make them once before the 1 kHz loop starts.</span>
+        <span class="n">mujoco</span><span class="o">.</span><span class="n">mj_forward</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">model</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">data</span><span class="p">)</span>
+        <span class="n">_</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">data</span><span class="o">.</span><span class="n">site</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">site_id</span><span class="p">)</span><span class="o">.</span><span class="n">xmat</span>
+        <span class="n">jac</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">((</span><span class="mi">6</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">model</span><span class="o">.</span><span class="n">nv</span><span class="p">))</span>
+        <span class="n">mujoco</span><span class="o">.</span><span class="n">mj_jacSite</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">model</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">data</span><span class="p">,</span> <span class="n">jac</span><span class="p">[:</span><span class="mi">3</span><span class="p">],</span> <span class="n">jac</span><span class="p">[</span><span class="mi">3</span><span class="p">:],</span> <span class="bp">self</span><span class="o">.</span><span class="n">site_id</span><span class="p">)</span>
+        <span class="n">mujoco</span><span class="o">.</span><span class="n">mj_fullM</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">model</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">data</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">((</span><span class="bp">self</span><span class="o">.</span><span class="n">model</span><span class="o">.</span><span class="n">nv</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">model</span><span class="o">.</span><span class="n">nv</span><span class="p">)))</span>
+
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">real</span><span class="p">:</span> 
+            <span class="n">pylibfranka</span> <span class="o">=</span> <span class="n">require_pylibfranka</span><span class="p">()</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">robot</span> <span class="o">=</span> <span class="n">pylibfranka</span><span class="o">.</span><span class="n">Robot</span><span class="p">(</span><span class="n">ip</span><span class="p">,</span> <span class="n">pylibfranka</span><span class="o">.</span><span class="n">RealtimeConfig</span><span class="o">.</span><span class="n">kIgnore</span><span class="p">)</span>
+
+            <span class="bp">self</span><span class="o">.</span><span class="n">robot</span><span class="o">.</span><span class="n">set_collision_behavior</span><span class="p">(</span>
+                <span class="p">[</span><span class="mf">100.0</span><span class="p">,</span> <span class="mf">100.0</span><span class="p">,</span> <span class="mf">100.0</span><span class="p">,</span> <span class="mf">100.0</span><span class="p">,</span> <span class="mf">100.0</span><span class="p">,</span> <span class="mf">100.0</span><span class="p">,</span> <span class="mf">100.0</span><span class="p">],</span>
+                <span class="p">[</span><span class="mf">100.0</span><span class="p">,</span> <span class="mf">100.0</span><span class="p">,</span> <span class="mf">100.0</span><span class="p">,</span> <span class="mf">100.0</span><span class="p">,</span> <span class="mf">100.0</span><span class="p">,</span> <span class="mf">100.0</span><span class="p">,</span> <span class="mf">100.0</span><span class="p">],</span>
+                <span class="p">[</span><span class="mf">100.0</span><span class="p">,</span> <span class="mf">100.0</span><span class="p">,</span> <span class="mf">100.0</span><span class="p">,</span> <span class="mf">100.0</span><span class="p">,</span> <span class="mf">100.0</span><span class="p">,</span> <span class="mf">100.0</span><span class="p">],</span>
+                <span class="p">[</span><span class="mf">100.0</span><span class="p">,</span> <span class="mf">100.0</span><span class="p">,</span> <span class="mf">100.0</span><span class="p">,</span> <span class="mf">100.0</span><span class="p">,</span> <span class="mf">100.0</span><span class="p">,</span> <span class="mf">100.0</span><span class="p">],</span>
+            <span class="p">)</span>
+            
+            <span class="bp">self</span><span class="o">.</span><span class="n">sync_mj</span><span class="p">()</span>
+
+
+        <span class="k">else</span><span class="p">:</span> 
+            <span class="bp">self</span><span class="o">.</span><span class="n">viewer</span> <span class="o">=</span> <span class="n">mujoco</span><span class="o">.</span><span class="n">viewer</span><span class="o">.</span><span class="n">launch_passive</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">model</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">data</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">data</span><span class="o">.</span><span class="n">qpos</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="o">-</span><span class="mf">1.57079</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mf">1.57079</span><span class="p">,</span> <span class="o">-</span><span class="mf">0.7853</span><span class="p">])</span>
+            <span class="n">mujoco</span><span class="o">.</span><span class="n">mj_forward</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">model</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">data</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">viewer</span><span class="o">.</span><span class="n">sync</span><span class="p">()</span> </div>
+
+        
+<div class="viewcode-block" id="RobotInterface.start">
+<a class="viewcode-back" href="../../api/robot.html#aiofranka.robot.RobotInterface.start">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">start</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span> 
+<span class="w">        </span><span class="sd">"""</span>
+<span class="sd">        Start torque control mode on the real robot.</span>
+<span class="sd">        </span>
+<span class="sd">        This must be called before sending torque commands. Does nothing in simulation.</span>
+<span class="sd">        </span>
+<span class="sd">        Raises:</span>
+<span class="sd">            RuntimeError: If robot is not ready or already in control mode</span>
+<span class="sd">            </span>
+<span class="sd">        Caveat:</span>
+<span class="sd">            After calling start(), you must send torque commands at ~1kHz to maintain</span>
+<span class="sd">            control. Use FrankaController for automatic control loop management.</span>
+<span class="sd">        """</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">real</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">torque_controller</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">robot</span><span class="o">.</span><span class="n">start_torque_control</span><span class="p">()</span></div>
+
+
+<div class="viewcode-block" id="RobotInterface.stop">
+<a class="viewcode-back" href="../../api/robot.html#aiofranka.robot.RobotInterface.stop">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">stop</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span> 
+<span class="w">        </span><span class="sd">"""</span>
+<span class="sd">        Stop torque control mode on the real robot.</span>
+<span class="sd">        </span>
+<span class="sd">        This gracefully terminates the control session. Does nothing in simulation.</span>
+<span class="sd">        </span>
+<span class="sd">        Caveat:</span>
+<span class="sd">            Robot will hold position briefly then release brakes. Ensure robot</span>
+<span class="sd">            is in a safe configuration before stopping.</span>
+<span class="sd">        """</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">real</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">robot</span><span class="o">.</span><span class="n">stop</span><span class="p">()</span>
+            <span class="c1"># Release the torque controller right away. Its destructor cleans up the</span>
+            <span class="c1"># stopped motion, which should not happen at an arbitrary later point,</span>
+            <span class="c1"># e.g. when the interpreter exits.</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">torque_controller</span> <span class="o">=</span> <span class="kc">None</span></div>
+
+
+
+
+<div class="viewcode-block" id="RobotInterface.sync_mj">
+<a class="viewcode-back" href="../../api/robot.html#aiofranka.robot.RobotInterface.sync_mj">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">sync_mj</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span> 
+<span class="w">        </span><span class="sd">""" Sync mujoco state with real robot state """</span>
+
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">torque_controller</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">robot_state</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">robot</span><span class="o">.</span><span class="n">read_once</span><span class="p">()</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">robot_state</span><span class="p">,</span> <span class="n">_</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">torque_controller</span><span class="o">.</span><span class="n">readOnce</span><span class="p">()</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">data</span><span class="o">.</span><span class="n">qpos</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">robot_state</span><span class="o">.</span><span class="n">q</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">data</span><span class="o">.</span><span class="n">qvel</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">robot_state</span><span class="o">.</span><span class="n">dq</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">data</span><span class="o">.</span><span class="n">ctrl</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">robot_state</span><span class="o">.</span><span class="n">tau_J_d</span><span class="p">)</span>
+        <span class="n">mujoco</span><span class="o">.</span><span class="n">mj_forward</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">model</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">data</span><span class="p">)</span></div>
+
+
+    <span class="nd">@property</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">state</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">"""</span>
+<span class="sd">        Get current robot state with kinematics and dynamics.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            dict: Dictionary containing:</span>
+<span class="sd">                - qpos (np.ndarray): Joint positions [rad] (7,)</span>
+<span class="sd">                - qvel (np.ndarray): Joint velocities [rad/s] (7,)</span>
+<span class="sd">                - ee (np.ndarray): End-effector pose as 4x4 homogeneous transform</span>
+<span class="sd">                                  [[R, p], [0, 1]] where R is rotation, p is position</span>
+<span class="sd">                - jac (np.ndarray): End-effector Jacobian (6, 7) - [linear; angular]</span>
+<span class="sd">                - mm (np.ndarray): Joint-space mass matrix (7, 7)</span>
+<span class="sd">                - last_torque (np.ndarray): Last commanded torques [Nm] (7,)</span>
+
+<span class="sd">        Note:</span>
+<span class="sd">            State is synchronized from real robot on every access. MuJoCo model</span>
+<span class="sd">            is updated with latest robot state before computing kinematics/dynamics.</span>
+
+<span class="sd">        Example:</span>
+<span class="sd">            &gt;&gt;&gt; state = robot.state</span>
+<span class="sd">            &gt;&gt;&gt; print(f"Joint 1 position: {state['qpos'][0]:.3f} rad")</span>
+<span class="sd">            &gt;&gt;&gt; print(f"EE position: {state['ee'][:3, 3]}")</span>
+<span class="sd">            &gt;&gt;&gt; print(f"EE orientation: {state['ee'][:3, :3]}")</span>
+<span class="sd">        """</span>
+
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">real</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">sync_mj</span><span class="p">()</span>
+
+        <span class="n">state</span> <span class="o">=</span> <span class="p">{</span>
+            <span class="s2">"qpos"</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">data</span><span class="o">.</span><span class="n">qpos</span><span class="p">),</span>
+            <span class="s2">"qvel"</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">data</span><span class="o">.</span><span class="n">qvel</span><span class="p">),</span>
+            <span class="s2">"ee"</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">_ee</span><span class="p">(),</span>
+            <span class="s2">"jac"</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">_jacobian</span><span class="p">(),</span>
+            <span class="s2">"mm"</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">_mass_matrix</span><span class="p">(),</span>
+            <span class="s2">"last_torque"</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">data</span><span class="o">.</span><span class="n">ctrl</span><span class="p">),</span>
+        <span class="p">}</span>
+
+        <span class="k">return</span> <span class="n">state</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">state_minimal</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">"""</span>
+<span class="sd">        Get minimal robot state (fast, no kinematics/dynamics computation).</span>
+
+<span class="sd">        Use this for impedance/PID control where Jacobian and mass matrix</span>
+<span class="sd">        are not needed. ~10x faster than full state property.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            dict: Dictionary containing only:</span>
+<span class="sd">                - qpos (np.ndarray): Joint positions [rad] (7,)</span>
+<span class="sd">                - qvel (np.ndarray): Joint velocities [rad/s] (7,)</span>
+<span class="sd">                - last_torque (np.ndarray): Last commanded torques [Nm] (7,)</span>
+<span class="sd">        """</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">real</span><span class="p">:</span>
+            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">torque_controller</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="n">robot_state</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">robot</span><span class="o">.</span><span class="n">read_once</span><span class="p">()</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">robot_state</span><span class="p">,</span> <span class="n">_</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">torque_controller</span><span class="o">.</span><span class="n">readOnce</span><span class="p">()</span>
+
+            <span class="k">return</span> <span class="p">{</span>
+                <span class="s2">"qpos"</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">robot_state</span><span class="o">.</span><span class="n">q</span><span class="p">),</span>
+                <span class="s2">"qvel"</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">robot_state</span><span class="o">.</span><span class="n">dq</span><span class="p">),</span>
+                <span class="s2">"last_torque"</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">robot_state</span><span class="o">.</span><span class="n">tau_J_d</span><span class="p">),</span>
+            <span class="p">}</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="c1"># Simulation: still need mj_forward for accurate velocities</span>
+            <span class="n">mujoco</span><span class="o">.</span><span class="n">mj_forward</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">model</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">data</span><span class="p">)</span>
+            <span class="k">return</span> <span class="p">{</span>
+                <span class="s2">"qpos"</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">data</span><span class="o">.</span><span class="n">qpos</span><span class="p">),</span>
+                <span class="s2">"qvel"</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">data</span><span class="o">.</span><span class="n">qvel</span><span class="p">),</span>
+                <span class="s2">"last_torque"</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">data</span><span class="o">.</span><span class="n">ctrl</span><span class="p">),</span>
+            <span class="p">}</span> 
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_mass_matrix</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span> 
+<span class="w">        </span><span class="sd">""" Compute mass matrix at current state """</span>
+
+        <span class="n">mm</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">((</span><span class="mi">7</span><span class="p">,</span><span class="mi">7</span><span class="p">))</span>
+        <span class="n">mujoco</span><span class="o">.</span><span class="n">mj_fullM</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">model</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">data</span><span class="p">,</span> <span class="n">mm</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">mm</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_ee</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="n">ee_xyz</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">data</span><span class="o">.</span><span class="n">site</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">site_id</span><span class="p">)</span><span class="o">.</span><span class="n">xpos</span>
+        <span class="n">ee_mat</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">data</span><span class="o">.</span><span class="n">site</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">site_id</span><span class="p">)</span><span class="o">.</span><span class="n">xmat</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="mi">3</span><span class="p">,</span><span class="mi">3</span><span class="p">)</span>
+        <span class="n">ee</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">eye</span><span class="p">(</span><span class="mi">4</span><span class="p">)</span>
+        <span class="n">ee</span><span class="p">[:</span><span class="mi">3</span><span class="p">,</span> <span class="p">:</span><span class="mi">3</span><span class="p">]</span> <span class="o">=</span> <span class="n">ee_mat</span>
+        <span class="n">ee</span><span class="p">[:</span><span class="mi">3</span><span class="p">,</span> <span class="mi">3</span><span class="p">]</span> <span class="o">=</span> <span class="n">ee_xyz</span>
+
+        <span class="k">return</span> <span class="n">ee</span>
+
+        
+    <span class="k">def</span><span class="w"> </span><span class="nf">_jacobian</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="n">jac</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">((</span><span class="mi">6</span><span class="p">,</span> <span class="mi">7</span><span class="p">))</span>
+        <span class="n">mujoco</span><span class="o">.</span><span class="n">mj_jacSite</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">model</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">data</span><span class="p">,</span> <span class="n">jac</span><span class="p">[:</span><span class="mi">3</span><span class="p">],</span> <span class="n">jac</span><span class="p">[</span><span class="mi">3</span><span class="p">:],</span> <span class="bp">self</span><span class="o">.</span><span class="n">site_id</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">jac</span>
+
+<div class="viewcode-block" id="RobotInterface.step">
+<a class="viewcode-back" href="../../api/robot.html#aiofranka.robot.RobotInterface.step">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">step</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">torque</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">):</span> 
+<span class="w">        </span><span class="sd">"""</span>
+<span class="sd">        Send torque command to robot or step simulation.</span>
+<span class="sd">        </span>
+<span class="sd">        Args:</span>
+<span class="sd">            torque (np.ndarray): Joint torques [Nm] (7,)</span>
+<span class="sd">            </span>
+<span class="sd">        Raises:</span>
+<span class="sd">            RuntimeError: If real robot not started or communication error</span>
+<span class="sd">            </span>
+<span class="sd">        Note:</span>
+<span class="sd">            - Real robot: Sends torque command via pylibfranka at current timestep</span>
+<span class="sd">            - Simulation: Updates MuJoCo with torques and advances one timestep</span>
+<span class="sd">            </span>
+<span class="sd">        Caveats:</span>
+<span class="sd">            - Must be called at ~1kHz for real robot to maintain control</span>
+<span class="sd">            - Large torque changes may trigger safety limits</span>
+<span class="sd">            - Torques should respect robot limits: ``|tau_i| &lt; 87 Nm`` for joints 1-4,</span>
+<span class="sd">              ``|tau_i| &lt; 12 Nm`` for joints 5-7</span>
+<span class="sd">              </span>
+<span class="sd">        Example:</span>
+<span class="sd">            &gt;&gt;&gt; # Send gravity compensation torques</span>
+<span class="sd">            &gt;&gt;&gt; torque = robot.state['mm'] @ np.array([0, 0, 0, 0, 0, 0, -9.81])</span>
+<span class="sd">            &gt;&gt;&gt; robot.step(torque)</span>
+<span class="sd">        """</span>
+
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">real</span><span class="p">:</span> 
+            <span class="kn">import</span><span class="w"> </span><span class="nn">pylibfranka</span>
+            <span class="n">torque_command</span> <span class="o">=</span> <span class="n">pylibfranka</span><span class="o">.</span><span class="n">Torques</span><span class="p">(</span><span class="n">torque</span><span class="o">.</span><span class="n">tolist</span><span class="p">())</span>
+            <span class="n">torque_command</span><span class="o">.</span><span class="n">motion_finished</span> <span class="o">=</span> <span class="kc">False</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">torque_controller</span><span class="o">.</span><span class="n">writeOnce</span><span class="p">(</span><span class="n">torque_command</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span> 
+            <span class="bp">self</span><span class="o">.</span><span class="n">data</span><span class="o">.</span><span class="n">ctrl</span> <span class="o">=</span> <span class="n">torque</span>
+            <span class="n">mujoco</span><span class="o">.</span><span class="n">mj_step</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">model</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">data</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">viewer</span><span class="o">.</span><span class="n">sync</span><span class="p">()</span></div>
+</div>
+
+
+<span class="k">if</span> <span class="vm">__name__</span> <span class="o">==</span> <span class="s2">"__main__"</span><span class="p">:</span> 
+
+    <span class="n">robot</span> <span class="o">=</span> <span class="n">RobotInterface</span><span class="p">(</span><span class="s2">"172.16.0.2"</span><span class="p">)</span>
+    <span class="k">while</span> <span class="kc">True</span><span class="p">:</span> 
+
+        <span class="n">zero_torque</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="mi">7</span><span class="p">)</span>
+        <span class="n">robot</span><span class="o">.</span><span class="n">step</span><span class="p">(</span><span class="n">zero_torque</span><span class="p">)</span>
+        <span class="n">time</span><span class="o">.</span><span class="n">sleep</span><span class="p">(</span><span class="mf">0.1</span><span class="p">)</span>
+        <span class="nb">print</span><span class="p">(</span><span class="n">zero_torque</span><span class="p">)</span>
+</pre></div>
+
+           </div>
+          </div>
+          <footer>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2025, MIT Improbable AI Lab.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

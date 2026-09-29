@@ -1,0 +1,259 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="./">
+<head>
+  <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Welcome to aiofranka’s documentation! &mdash; aiofranka 0.5.1 documentation</title>
+      <link rel="stylesheet" type="text/css" href="_static/pygments.css?v=b86133f3" />
+      <link rel="stylesheet" type="text/css" href="_static/css/theme.css?v=9edc463e" />
+
+  
+      <script src="_static/jquery.js?v=5d32c60e"></script>
+      <script src="_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="_static/documentation_options.js?v=b9afe91b"></script>
+      <script src="_static/doctools.js?v=fd6eb6e6"></script>
+      <script src="_static/sphinx_highlight.js?v=6ffebe34"></script>
+    <script src="_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Search" href="search.html" />
+    <link rel="next" title="Installation" href="installation.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="#" class="icon icon-home">
+            aiofranka
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">Getting Started</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="installation.html">Installation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="quickstart.html">Quick Start</a></li>
+<li class="toctree-l1"><a class="reference internal" href="controllers.html">Controllers</a></li>
+<li class="toctree-l1"><a class="reference internal" href="cli.html">CLI Reference</a></li>
+<li class="toctree-l1"><a class="reference internal" href="async_mode.html">Async Mode Guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="examples.html">Examples</a></li>
+<li class="toctree-l1"><a class="reference internal" href="troubleshooting.html">Troubleshooting</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">API Reference</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="api/remote.html">FrankaRemoteController (Server Mode)</a></li>
+<li class="toctree-l1"><a class="reference internal" href="api/controller.html">Franka Controller</a></li>
+<li class="toctree-l1"><a class="reference internal" href="api/robot.html">Robot Interface</a></li>
+<li class="toctree-l1"><a class="reference internal" href="api/server.html">Server Functions</a></li>
+<li class="toctree-l1"><a class="reference internal" href="api/gripper.html">GripperController</a></li>
+<li class="toctree-l1"><a class="reference internal" href="api/utilities.html">Async Utilities</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="#">aiofranka</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="#" class="icon icon-home" aria-label="Home"></a></li>
+      <li class="breadcrumb-item active">Welcome to aiofranka’s documentation!</li>
+      <li class="wy-breadcrumbs-aside">
+            <a href="_sources/index.rst.txt" rel="nofollow"> View page source</a>
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <section id="welcome-to-aiofranka-s-documentation">
+<h1>Welcome to aiofranka’s documentation!<a class="headerlink" href="#welcome-to-aiofranka-s-documentation" title="Link to this heading"></a></h1>
+<a class="reference internal image-reference" href="_images/image.png"><img alt="aiofranka logo" class="align-center" src="_images/image.png" width="340" />
+</a>
+<a class="reference external image-reference" href="https://pypi.org/project/aiofranka/"><img alt="PyPI version" src="https://img.shields.io/pypi/v/aiofranka" />
+</a>
+<a class="reference external image-reference" href="https://opensource.org/licenses/MIT"><img alt="License: MIT" src="https://img.shields.io/badge/License-MIT-yellow.svg" />
+</a>
+<p><strong>aiofranka</strong> is an asyncio-based Python library for controlling Franka Emika robots. It provides a high-level interface that combines <strong>pylibfranka</strong> for real-time 1kHz torque control, <strong>MuJoCo</strong> for kinematics/dynamics computation, and <strong>Ruckig</strong> for smooth trajectory generation.</p>
+<p>The library is designed for research applications requiring precise, real-time control with minimal latency and maximum flexibility.</p>
+<section id="contents">
+<h2>Contents<a class="headerlink" href="#contents" title="Link to this heading"></a></h2>
+<div class="toctree-wrapper compound">
+<p class="caption" role="heading"><span class="caption-text">Getting Started</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="installation.html">Installation</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="installation.html#system-requirements">System Requirements</a></li>
+<li class="toctree-l2"><a class="reference internal" href="installation.html#installing-aiofranka">Installing aiofranka</a></li>
+<li class="toctree-l2"><a class="reference internal" href="installation.html#verifying-installation">Verifying Installation</a></li>
+<li class="toctree-l2"><a class="reference internal" href="installation.html#first-time-robot-setup">First-Time Robot Setup</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="quickstart.html">Quick Start</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="quickstart.html#server-mode">Server Mode</a></li>
+<li class="toctree-l2"><a class="reference internal" href="quickstart.html#async-mode">Async Mode</a></li>
+<li class="toctree-l2"><a class="reference internal" href="quickstart.html#server-mode-vs-async-mode">Server Mode vs Async Mode</a></li>
+<li class="toctree-l2"><a class="reference internal" href="quickstart.html#unlocking-and-locking">Unlocking and Locking</a></li>
+<li class="toctree-l2"><a class="reference internal" href="quickstart.html#reading-robot-state">Reading Robot State</a></li>
+<li class="toctree-l2"><a class="reference internal" href="quickstart.html#rate-limiting">Rate Limiting</a></li>
+<li class="toctree-l2"><a class="reference internal" href="quickstart.html#simulation-mode">Simulation Mode</a></li>
+<li class="toctree-l2"><a class="reference internal" href="quickstart.html#next-steps">Next Steps</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="controllers.html">Controllers</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="controllers.html#impedance-control">Impedance Control</a></li>
+<li class="toctree-l2"><a class="reference internal" href="controllers.html#pid-control">PID Control</a></li>
+<li class="toctree-l2"><a class="reference internal" href="controllers.html#operational-space-control-osc">Operational Space Control (OSC)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="controllers.html#direct-torque-control">Direct Torque Control</a></li>
+<li class="toctree-l2"><a class="reference internal" href="controllers.html#switching-controllers">Switching Controllers</a></li>
+<li class="toctree-l2"><a class="reference internal" href="controllers.html#trajectory-motion">Trajectory Motion</a></li>
+<li class="toctree-l2"><a class="reference internal" href="controllers.html#safety-features">Safety Features</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="cli.html">CLI Reference</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="cli.html#unlock-lock">unlock / lock</a></li>
+<li class="toctree-l2"><a class="reference internal" href="cli.html#gravcomp">gravcomp</a></li>
+<li class="toctree-l2"><a class="reference internal" href="cli.html#status">status</a></li>
+<li class="toctree-l2"><a class="reference internal" href="cli.html#stop">stop</a></li>
+<li class="toctree-l2"><a class="reference internal" href="cli.html#mode">mode</a></li>
+<li class="toctree-l2"><a class="reference internal" href="cli.html#config">config</a></li>
+<li class="toctree-l2"><a class="reference internal" href="cli.html#selftest">selftest</a></li>
+<li class="toctree-l2"><a class="reference internal" href="cli.html#log">log</a></li>
+<li class="toctree-l2"><a class="reference internal" href="cli.html#common-flags">Common Flags</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="async_mode.html">Async Mode Guide</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="async_mode.html#the-core-rule">The Core Rule</a></li>
+<li class="toctree-l2"><a class="reference internal" href="async_mode.html#what-blocks-the-event-loop">What Blocks the Event Loop</a></li>
+<li class="toctree-l2"><a class="reference internal" href="async_mode.html#how-to-fix-it">How to Fix It</a></li>
+<li class="toctree-l2"><a class="reference internal" href="async_mode.html#time-sleep-vs-asyncio-sleep">time.sleep vs asyncio.sleep</a></li>
+<li class="toctree-l2"><a class="reference internal" href="async_mode.html#quick-checklist">Quick Checklist</a></li>
+<li class="toctree-l2"><a class="reference internal" href="async_mode.html#cuda-and-run-in-executor">CUDA and run_in_executor</a></li>
+<li class="toctree-l2"><a class="reference internal" href="async_mode.html#initialization-order">Initialization Order</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="examples.html">Examples</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="examples.html#example-1-simple-motion-server-mode">Example 1: Simple Motion (Server Mode)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="examples.html#example-2-simple-motion-async-mode">Example 2: Simple Motion (Async Mode)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="examples.html#example-3-impedance-control">Example 3: Impedance Control</a></li>
+<li class="toctree-l2"><a class="reference internal" href="examples.html#example-4-operational-space-control">Example 4: Operational Space Control</a></li>
+<li class="toctree-l2"><a class="reference internal" href="examples.html#example-5-data-collection">Example 5: Data Collection</a></li>
+<li class="toctree-l2"><a class="reference internal" href="examples.html#example-6-gain-tuning">Example 6: Gain Tuning</a></li>
+<li class="toctree-l2"><a class="reference internal" href="examples.html#example-7-end-effector-configuration">Example 7: End-Effector Configuration</a></li>
+<li class="toctree-l2"><a class="reference internal" href="examples.html#example-8-gripper-control">Example 8: Gripper Control</a></li>
+<li class="toctree-l2"><a class="reference internal" href="examples.html#example-9-simulation-testing">Example 9: Simulation Testing</a></li>
+<li class="toctree-l2"><a class="reference internal" href="examples.html#more-examples">More Examples</a></li>
+<li class="toctree-l2"><a class="reference internal" href="examples.html#next-steps">Next Steps</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="troubleshooting.html">Troubleshooting</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="troubleshooting.html#connection-issues">Connection Issues</a></li>
+<li class="toctree-l2"><a class="reference internal" href="troubleshooting.html#robot-behavior-issues">Robot Behavior Issues</a></li>
+<li class="toctree-l2"><a class="reference internal" href="troubleshooting.html#control-loop-issues">Control Loop Issues</a></li>
+<li class="toctree-l2"><a class="reference internal" href="troubleshooting.html#osc-issues">OSC Issues</a></li>
+<li class="toctree-l2"><a class="reference internal" href="troubleshooting.html#programming-issues">Programming Issues</a></li>
+<li class="toctree-l2"><a class="reference internal" href="troubleshooting.html#getting-help">Getting Help</a></li>
+</ul>
+</li>
+</ul>
+</div>
+<div class="toctree-wrapper compound">
+<p class="caption" role="heading"><span class="caption-text">API Reference</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="api/remote.html">FrankaRemoteController (Server Mode)</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="api/remote.html#aiofranka.remote.ServerDiedError"><code class="docutils literal notranslate"><span class="pre">ServerDiedError</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="api/remote.html#aiofranka.remote.FrankaRemoteController"><code class="docutils literal notranslate"><span class="pre">FrankaRemoteController</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="api/controller.html">Franka Controller</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="api/controller.html#aiofranka.controller.FrankaController"><code class="docutils literal notranslate"><span class="pre">FrankaController</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="api/robot.html">Robot Interface</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="api/robot.html#aiofranka.robot.set_macos_control_thread_qos"><code class="docutils literal notranslate"><span class="pre">set_macos_control_thread_qos()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="api/robot.html#aiofranka.robot.require_pylibfranka"><code class="docutils literal notranslate"><span class="pre">require_pylibfranka()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="api/robot.html#aiofranka.robot.RobotInterface"><code class="docutils literal notranslate"><span class="pre">RobotInterface</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="api/server.html">Server Functions</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="api/server.html#aiofranka.server.unlock"><code class="docutils literal notranslate"><span class="pre">unlock()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="api/server.html#aiofranka.server.lock"><code class="docutils literal notranslate"><span class="pre">lock()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="api/server.html#aiofranka.server.start"><code class="docutils literal notranslate"><span class="pre">start()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="api/server.html#aiofranka.server.stop"><code class="docutils literal notranslate"><span class="pre">stop()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="api/server.html#aiofranka.server.set_configuration"><code class="docutils literal notranslate"><span class="pre">set_configuration()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="api/gripper.html">GripperController</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="api/gripper.html#aiofranka.gripper.GripperController"><code class="docutils literal notranslate"><span class="pre">GripperController</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="api/utilities.html">Async Utilities</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="api/utilities.html#aiofranka.async_utils.asyncify"><code class="docutils literal notranslate"><span class="pre">asyncify()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="api/utilities.html#aiofranka.async_utils.CudaInferenceThread"><code class="docutils literal notranslate"><span class="pre">CudaInferenceThread</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="api/utilities.html#aiofranka.async_utils.ProcessProxy"><code class="docutils literal notranslate"><span class="pre">ProcessProxy</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="api/utilities.html#aiofranka.async_utils.mpify"><code class="docutils literal notranslate"><span class="pre">mpify()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="api/utilities.html#aiofranka.async_utils.async_input"><code class="docutils literal notranslate"><span class="pre">async_input()</span></code></a></li>
+</ul>
+</li>
+</ul>
+</div>
+</section>
+</section>
+<section id="indices-and-tables">
+<h1>Indices and tables<a class="headerlink" href="#indices-and-tables" title="Link to this heading"></a></h1>
+<ul class="simple">
+<li><p><a class="reference internal" href="genindex.html"><span class="std std-ref">Index</span></a></p></li>
+<li><p><a class="reference internal" href="py-modindex.html"><span class="std std-ref">Module Index</span></a></p></li>
+<li><p><a class="reference internal" href="search.html"><span class="std std-ref">Search Page</span></a></p></li>
+</ul>
+</section>
+
+
+           </div>
+          </div>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="installation.html" class="btn btn-neutral float-right" title="Installation" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2025, MIT Improbable AI Lab.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

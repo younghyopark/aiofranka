@@ -1,0 +1,268 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="./">
+<head>
+  <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>CLI Reference &mdash; aiofranka 0.5.1 documentation</title>
+      <link rel="stylesheet" type="text/css" href="_static/pygments.css?v=b86133f3" />
+      <link rel="stylesheet" type="text/css" href="_static/css/theme.css?v=9edc463e" />
+
+  
+      <script src="_static/jquery.js?v=5d32c60e"></script>
+      <script src="_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="_static/documentation_options.js?v=b9afe91b"></script>
+      <script src="_static/doctools.js?v=fd6eb6e6"></script>
+      <script src="_static/sphinx_highlight.js?v=6ffebe34"></script>
+    <script src="_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Search" href="search.html" />
+    <link rel="next" title="Async Mode Guide" href="async_mode.html" />
+    <link rel="prev" title="Controllers" href="controllers.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="index.html" class="icon icon-home">
+            aiofranka
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">Getting Started</span></p>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="installation.html">Installation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="quickstart.html">Quick Start</a></li>
+<li class="toctree-l1"><a class="reference internal" href="controllers.html">Controllers</a></li>
+<li class="toctree-l1 current"><a class="current reference internal" href="#">CLI Reference</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="#unlock-lock">unlock / lock</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#gravcomp">gravcomp</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#status">status</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#stop">stop</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#mode">mode</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#config">config</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#selftest">selftest</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#log">log</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#common-flags">Common Flags</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="async_mode.html">Async Mode Guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="examples.html">Examples</a></li>
+<li class="toctree-l1"><a class="reference internal" href="troubleshooting.html">Troubleshooting</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">API Reference</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="api/remote.html">FrankaRemoteController (Server Mode)</a></li>
+<li class="toctree-l1"><a class="reference internal" href="api/controller.html">Franka Controller</a></li>
+<li class="toctree-l1"><a class="reference internal" href="api/robot.html">Robot Interface</a></li>
+<li class="toctree-l1"><a class="reference internal" href="api/server.html">Server Functions</a></li>
+<li class="toctree-l1"><a class="reference internal" href="api/gripper.html">GripperController</a></li>
+<li class="toctree-l1"><a class="reference internal" href="api/utilities.html">Async Utilities</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="index.html">aiofranka</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="index.html" class="icon icon-home" aria-label="Home"></a></li>
+      <li class="breadcrumb-item active">CLI Reference</li>
+      <li class="wy-breadcrumbs-aside">
+            <a href="_sources/cli.rst.txt" rel="nofollow"> View page source</a>
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <section id="cli-reference">
+<h1>CLI Reference<a class="headerlink" href="#cli-reference" title="Link to this heading"></a></h1>
+<p>The CLI handles robot setup, server lifecycle, and diagnostics.</p>
+<div class="highlight-text notranslate"><div class="highlight"><pre><span></span>aiofranka start-server [--ip IP] [--no-home]  Start the control server
+aiofranka unlock   [--ip IP]              Unlock joints + activate FCI
+aiofranka lock     [--ip IP]              Lock joints + deactivate FCI
+aiofranka gravcomp [--ip IP] [--damping]  Gravity compensation (freedrive)
+aiofranka home     [--ip IP]              Move the robot to its home pose
+aiofranka status   [--ip IP]              Show robot &amp; server status
+aiofranka stop     [--ip IP]              Stop a running server
+aiofranka mode     [--ip IP] [--set MODE] View/change operating mode
+aiofranka config   [--ip IP] [--mass M]   View/set end-effector config
+aiofranka selftest [--ip IP] [--force]    Run safety self-tests
+aiofranka log      [-n LINES] [-f]        View server logs
+aiofranka gripper  --open|--close          Control the Robotiq gripper
+aiofranka rt-benchmark [--duration SEC]    Benchmark the 1 kHz control loop
+</pre></div>
+</div>
+<section id="unlock-lock">
+<h2>unlock / lock<a class="headerlink" href="#unlock-lock" title="Link to this heading"></a></h2>
+<p>Unlock opens the brakes and activates FCI so the robot is ready for torque control.
+Lock does the reverse. Credentials are prompted on first use and saved to <code class="docutils literal notranslate"><span class="pre">~/.aiofranka/config.json</span></code>.</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="c1"># Unlock before running your script</span>
+aiofranka<span class="w"> </span>unlock
+
+<span class="c1"># Lock when you're done</span>
+aiofranka<span class="w"> </span>lock
+</pre></div>
+</div>
+<p>You can also do this from Python:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span><span class="w"> </span><span class="nn">aiofranka</span>
+<span class="n">aiofranka</span><span class="o">.</span><span class="n">unlock</span><span class="p">()</span>   <span class="c1"># opens brakes + activates FCI</span>
+<span class="c1"># ... run your control script ...</span>
+<span class="n">aiofranka</span><span class="o">.</span><span class="n">lock</span><span class="p">()</span>     <span class="c1"># closes brakes + deactivates FCI</span>
+</pre></div>
+</div>
+</section>
+<section id="gravcomp">
+<h2>gravcomp<a class="headerlink" href="#gravcomp" title="Link to this heading"></a></h2>
+<p>Runs gravity compensation mode in the foreground. The robot is freely movable by hand.
+Press Ctrl+C to stop control; the joints remain unlocked with FCI active.
+Run <code class="docutils literal notranslate"><span class="pre">aiofranka</span> <span class="pre">lock</span></code> when finished.</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>aiofranka<span class="w"> </span>gravcomp<span class="w">                  </span><span class="c1"># default: zero damping</span>
+aiofranka<span class="w"> </span>gravcomp<span class="w"> </span>--damping<span class="w"> </span><span class="m">2</span>.0<span class="w">    </span><span class="c1"># add velocity damping</span>
+</pre></div>
+</div>
+</section>
+<section id="status">
+<h2>status<a class="headerlink" href="#status" title="Link to this heading"></a></h2>
+<p>Shows robot state (joints locked/unlocked, FCI active/inactive, control token,
+self-test status, end-effector configuration) and server status if running.</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>aiofranka<span class="w"> </span>status
+</pre></div>
+</div>
+</section>
+<section id="stop">
+<h2>stop<a class="headerlink" href="#stop" title="Link to this heading"></a></h2>
+<p>Sends a shutdown signal to a running server process. The server deactivates FCI,
+locks joints, and releases the control token.</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>aiofranka<span class="w"> </span>stop
+</pre></div>
+</div>
+</section>
+<section id="mode">
+<h2>mode<a class="headerlink" href="#mode" title="Link to this heading"></a></h2>
+<p>View or change the operating mode. <code class="docutils literal notranslate"><span class="pre">Execution</span></code> is needed for FCI control.
+<code class="docutils literal notranslate"><span class="pre">Programming</span></code> enables freedrive via the pilot interface button near the end-effector.</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>aiofranka<span class="w"> </span>mode<span class="w">                  </span><span class="c1"># view current mode</span>
+aiofranka<span class="w"> </span>mode<span class="w"> </span>--set<span class="w"> </span>Execution<span class="w">  </span><span class="c1"># switch to FCI mode</span>
+</pre></div>
+</div>
+</section>
+<section id="config">
+<h2>config<a class="headerlink" href="#config" title="Link to this heading"></a></h2>
+<p>View or set the end-effector configuration (mass, center of mass, inertia,
+flange-to-EE transform). Changes are applied via the Franka Desk API.</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>aiofranka<span class="w"> </span>config<span class="w">                                </span><span class="c1"># view current config</span>
+aiofranka<span class="w"> </span>config<span class="w"> </span>--mass<span class="w"> </span><span class="m">0</span>.5<span class="w"> </span>--com<span class="w"> </span><span class="m">0</span>,0,0.03<span class="w">      </span><span class="c1"># set mass + CoM</span>
+aiofranka<span class="w"> </span>config<span class="w"> </span>--translation<span class="w"> </span><span class="m">0</span>,0,0.1<span class="w">           </span><span class="c1"># set flange-to-EE offset</span>
+</pre></div>
+</div>
+<p>You can also set end-effector configuration from Python:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span><span class="w"> </span><span class="nn">aiofranka</span>
+<span class="n">aiofranka</span><span class="o">.</span><span class="n">unlock</span><span class="p">()</span>
+<span class="n">aiofranka</span><span class="o">.</span><span class="n">set_configuration</span><span class="p">(</span><span class="n">mass</span><span class="o">=</span><span class="mf">0.5</span><span class="p">,</span> <span class="n">com</span><span class="o">=</span><span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mf">0.03</span><span class="p">])</span>
+<span class="n">aiofranka</span><span class="o">.</span><span class="n">lock</span><span class="p">()</span>
+</pre></div>
+</div>
+</section>
+<section id="selftest">
+<h2>selftest<a class="headerlink" href="#selftest" title="Link to this heading"></a></h2>
+<p>Run the robot’s safety self-tests. The robot will lock joints during the test.</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>aiofranka<span class="w"> </span>selftest<span class="w">          </span><span class="c1"># run if due</span>
+aiofranka<span class="w"> </span>selftest<span class="w"> </span>--force<span class="w">  </span><span class="c1"># run even if not due</span>
+</pre></div>
+</div>
+</section>
+<section id="log">
+<h2>log<a class="headerlink" href="#log" title="Link to this heading"></a></h2>
+<p>View recent server log entries from <code class="docutils literal notranslate"><span class="pre">~/.aiofranka/server.log</span></code>.</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>aiofranka<span class="w"> </span>log<span class="w">              </span><span class="c1"># last 20 lines</span>
+aiofranka<span class="w"> </span>log<span class="w"> </span>-n<span class="w"> </span><span class="m">100</span><span class="w">       </span><span class="c1"># last 100 lines</span>
+aiofranka<span class="w"> </span>log<span class="w"> </span>-f<span class="w">           </span><span class="c1"># follow (like tail -f)</span>
+</pre></div>
+</div>
+</section>
+<section id="common-flags">
+<h2>Common Flags<a class="headerlink" href="#common-flags" title="Link to this heading"></a></h2>
+<p>Most commands accept these flags:</p>
+<table class="docutils align-default">
+<colgroup>
+<col style="width: 30.0%" />
+<col style="width: 70.0%" />
+</colgroup>
+<thead>
+<tr class="row-odd"><th class="head"><p>Flag</p></th>
+<th class="head"><p>Description</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">--ip</span> <span class="pre">IP</span></code></p></td>
+<td><p>Robot IP address (default: last used, or <code class="docutils literal notranslate"><span class="pre">172.16.0.2</span></code>)</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">--username</span> <span class="pre">USER</span></code></p></td>
+<td><p>Franka Desk web UI username (default: saved or prompted)</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">--password</span> <span class="pre">PASS</span></code></p></td>
+<td><p>Franka Desk web UI password (default: saved or prompted)</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">--protocol</span> <span class="pre">http|https</span></code></p></td>
+<td><p>Web UI protocol (default: <code class="docutils literal notranslate"><span class="pre">https</span></code>)</p></td>
+</tr>
+</tbody>
+</table>
+</section>
+</section>
+
+
+           </div>
+          </div>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="controllers.html" class="btn btn-neutral float-left" title="Controllers" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="async_mode.html" class="btn btn-neutral float-right" title="Async Mode Guide" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2025, MIT Improbable AI Lab.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

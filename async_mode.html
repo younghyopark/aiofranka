@@ -1,0 +1,328 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="./">
+<head>
+  <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Async Mode Guide &mdash; aiofranka 0.5.1 documentation</title>
+      <link rel="stylesheet" type="text/css" href="_static/pygments.css?v=b86133f3" />
+      <link rel="stylesheet" type="text/css" href="_static/css/theme.css?v=9edc463e" />
+
+  
+      <script src="_static/jquery.js?v=5d32c60e"></script>
+      <script src="_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="_static/documentation_options.js?v=b9afe91b"></script>
+      <script src="_static/doctools.js?v=fd6eb6e6"></script>
+      <script src="_static/sphinx_highlight.js?v=6ffebe34"></script>
+    <script src="_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Search" href="search.html" />
+    <link rel="next" title="Examples" href="examples.html" />
+    <link rel="prev" title="CLI Reference" href="cli.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="index.html" class="icon icon-home">
+            aiofranka
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">Getting Started</span></p>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="installation.html">Installation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="quickstart.html">Quick Start</a></li>
+<li class="toctree-l1"><a class="reference internal" href="controllers.html">Controllers</a></li>
+<li class="toctree-l1"><a class="reference internal" href="cli.html">CLI Reference</a></li>
+<li class="toctree-l1 current"><a class="current reference internal" href="#">Async Mode Guide</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="#the-core-rule">The Core Rule</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#what-blocks-the-event-loop">What Blocks the Event Loop</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#how-to-fix-it">How to Fix It</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#asyncify">asyncify</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#async-input">async_input</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="#time-sleep-vs-asyncio-sleep">time.sleep vs asyncio.sleep</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#quick-checklist">Quick Checklist</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#cuda-and-run-in-executor">CUDA and run_in_executor</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#cudainferencethread">CudaInferenceThread</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#mpify-process-isolation">mpify — Process Isolation</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="#initialization-order">Initialization Order</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="examples.html">Examples</a></li>
+<li class="toctree-l1"><a class="reference internal" href="troubleshooting.html">Troubleshooting</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">API Reference</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="api/remote.html">FrankaRemoteController (Server Mode)</a></li>
+<li class="toctree-l1"><a class="reference internal" href="api/controller.html">Franka Controller</a></li>
+<li class="toctree-l1"><a class="reference internal" href="api/robot.html">Robot Interface</a></li>
+<li class="toctree-l1"><a class="reference internal" href="api/server.html">Server Functions</a></li>
+<li class="toctree-l1"><a class="reference internal" href="api/gripper.html">GripperController</a></li>
+<li class="toctree-l1"><a class="reference internal" href="api/utilities.html">Async Utilities</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="index.html">aiofranka</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="index.html" class="icon icon-home" aria-label="Home"></a></li>
+      <li class="breadcrumb-item active">Async Mode Guide</li>
+      <li class="wy-breadcrumbs-aside">
+            <a href="_sources/async_mode.rst.txt" rel="nofollow"> View page source</a>
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <section id="async-mode-guide">
+<h1>Async Mode Guide<a class="headerlink" href="#async-mode-guide" title="Link to this heading"></a></h1>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p><strong>Using server mode</strong> (<code class="docutils literal notranslate"><span class="pre">FrankaRemoteController</span></code>)? You can skip this entire document.
+The 1kHz loop runs in a separate process, so your script can’t starve it.</p>
+</div>
+<p>This guide covers the sharp edges of <strong>async mode</strong> (<code class="docutils literal notranslate"><span class="pre">FrankaController</span></code>) — the in-process
+control loop that requires careful async discipline.</p>
+<section id="the-core-rule">
+<h2>The Core Rule<a class="headerlink" href="#the-core-rule" title="Link to this heading"></a></h2>
+<p>After <code class="docutils literal notranslate"><span class="pre">controller.start()</span></code>, a <strong>1kHz async control loop</strong> runs in the background
+communicating with the robot via libfranka. If this loop is starved (i.e., doesn’t
+get to run on time), the robot triggers a <code class="docutils literal notranslate"><span class="pre">communication_constraints_violation</span></code>
+reflex and aborts the motion.</p>
+<p><strong>Never block the asyncio event loop after</strong> <code class="docutils literal notranslate"><span class="pre">controller.start()</span></code>.</p>
+</section>
+<section id="what-blocks-the-event-loop">
+<h2>What Blocks the Event Loop<a class="headerlink" href="#what-blocks-the-event-loop" title="Link to this heading"></a></h2>
+<p>Any synchronous (non-awaiting) work that takes more than ~1ms will starve the 1kHz loop:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="c1"># BAD — blocks the event loop, will trigger reflex</span>
+<span class="k">await</span> <span class="n">controller</span><span class="o">.</span><span class="n">start</span><span class="p">()</span>
+<span class="n">result</span> <span class="o">=</span> <span class="n">model</span><span class="p">(</span><span class="n">input_tensor</span><span class="p">)</span>          <span class="c1"># 2ms+ of GPU compute</span>
+<span class="n">frame</span> <span class="o">=</span> <span class="n">cv2</span><span class="o">.</span><span class="n">imread</span><span class="p">(</span><span class="s2">"image.png"</span><span class="p">)</span>       <span class="c1"># disk I/O</span>
+<span class="n">time</span><span class="o">.</span><span class="n">sleep</span><span class="p">(</span><span class="mf">0.1</span><span class="p">)</span>                       <span class="c1"># synchronous sleep</span>
+<span class="n">data</span> <span class="o">=</span> <span class="n">requests</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"http://..."</span><span class="p">)</span>     <span class="c1"># network I/O</span>
+</pre></div>
+</div>
+</section>
+<section id="how-to-fix-it">
+<h2>How to Fix It<a class="headerlink" href="#how-to-fix-it" title="Link to this heading"></a></h2>
+<section id="asyncify">
+<h3>asyncify<a class="headerlink" href="#asyncify" title="Link to this heading"></a></h3>
+<p>aiofranka provides <code class="docutils literal notranslate"><span class="pre">asyncify</span></code> to offload blocking work to a thread executor:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">aiofranka</span><span class="w"> </span><span class="kn">import</span> <span class="n">asyncify</span>
+
+<span class="c1"># As a decorator — turns any function/method into an awaitable</span>
+<span class="k">class</span><span class="w"> </span><span class="nc">MyPolicy</span><span class="p">:</span>
+    <span class="nd">@asyncify</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">get_action</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">obs</span><span class="p">):</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">model</span><span class="p">(</span><span class="n">obs</span><span class="p">)</span>  <span class="c1"># blocking, but now safe to await</span>
+
+<span class="c1"># Wrapping an existing function you don't own</span>
+<span class="n">model_async</span> <span class="o">=</span> <span class="n">asyncify</span><span class="p">(</span><span class="n">model</span><span class="p">)</span>
+
+<span class="c1"># Now safe to use in the control loop</span>
+<span class="k">await</span> <span class="n">controller</span><span class="o">.</span><span class="n">start</span><span class="p">()</span>
+<span class="k">for</span> <span class="n">step</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">100</span><span class="p">):</span>
+    <span class="n">action</span> <span class="o">=</span> <span class="k">await</span> <span class="n">policy</span><span class="o">.</span><span class="n">get_action</span><span class="p">(</span><span class="n">obs</span><span class="p">)</span>          <span class="c1"># non-blocking</span>
+    <span class="n">result</span> <span class="o">=</span> <span class="k">await</span> <span class="n">model_async</span><span class="p">(</span><span class="n">input_tensor</span><span class="p">)</span>       <span class="c1"># non-blocking</span>
+    <span class="k">await</span> <span class="n">controller</span><span class="o">.</span><span class="n">set</span><span class="p">(</span><span class="s2">"ee_desired"</span><span class="p">,</span> <span class="n">action</span><span class="p">)</span>     <span class="c1"># non-blocking</span>
+</pre></div>
+</div>
+<p>The original sync function is still accessible as <code class="docutils literal notranslate"><span class="pre">policy.get_action.sync(obs)</span></code> if needed.</p>
+</section>
+<section id="async-input">
+<h3>async_input<a class="headerlink" href="#async-input" title="Link to this heading"></a></h3>
+<p><code class="docutils literal notranslate"><span class="pre">input()</span></code> blocks the event loop. Use <code class="docutils literal notranslate"><span class="pre">async_input</span></code> instead:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">aiofranka</span><span class="w"> </span><span class="kn">import</span> <span class="n">async_input</span>
+
+<span class="k">await</span> <span class="n">async_input</span><span class="p">(</span><span class="s2">"Press Enter to start..."</span><span class="p">)</span>
+</pre></div>
+</div>
+</section>
+</section>
+<section id="time-sleep-vs-asyncio-sleep">
+<h2>time.sleep vs asyncio.sleep<a class="headerlink" href="#time-sleep-vs-asyncio-sleep" title="Link to this heading"></a></h2>
+<p>A common gotcha: <code class="docutils literal notranslate"><span class="pre">time.sleep()</span></code> blocks the entire event loop, which <strong>will</strong> starve
+the 1kHz control loop. Always use <code class="docutils literal notranslate"><span class="pre">await</span> <span class="pre">asyncio.sleep()</span></code> instead:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="c1"># BAD — blocks the event loop</span>
+<span class="n">time</span><span class="o">.</span><span class="n">sleep</span><span class="p">(</span><span class="mf">0.1</span><span class="p">)</span>
+
+<span class="c1"># GOOD — yields control back to the event loop</span>
+<span class="k">await</span> <span class="n">asyncio</span><span class="o">.</span><span class="n">sleep</span><span class="p">(</span><span class="mf">0.1</span><span class="p">)</span>
+</pre></div>
+</div>
+<p>This applies anywhere after <code class="docutils literal notranslate"><span class="pre">controller.start()</span></code>. Even a short <code class="docutils literal notranslate"><span class="pre">time.sleep(0.002)</span></code>
+can cause a violation.</p>
+</section>
+<section id="quick-checklist">
+<h2>Quick Checklist<a class="headerlink" href="#quick-checklist" title="Link to this heading"></a></h2>
+<table class="docutils align-default">
+<colgroup>
+<col style="width: 50.0%" />
+<col style="width: 50.0%" />
+</colgroup>
+<thead>
+<tr class="row-odd"><th class="head"><p>Safe (non-blocking)</p></th>
+<th class="head"><p>Unsafe (blocking)</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">await</span> <span class="pre">asyncio.sleep(dt)</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">time.sleep(dt)</span></code></p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">await</span> <span class="pre">loop.run_in_executor(None,</span> <span class="pre">fn)</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">fn()</span></code> directly if <code class="docutils literal notranslate"><span class="pre">fn</span></code> takes &gt;1ms</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">await</span> <span class="pre">controller.set(...)</span></code></p></td>
+<td><p>Heavy computation inline</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">await</span> <span class="pre">controller.move(...)</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">cv2.imread(...)</span></code>, <code class="docutils literal notranslate"><span class="pre">np.load(...)</span></code> on large files</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">await</span> <span class="pre">async_input(...)</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">input(...)</span></code></p></td>
+</tr>
+</tbody>
+</table>
+</section>
+<section id="cuda-and-run-in-executor">
+<h2>CUDA and run_in_executor<a class="headerlink" href="#cuda-and-run-in-executor" title="Link to this heading"></a></h2>
+<p>If your model runs on GPU, <strong>avoid</strong> <code class="docutils literal notranslate"><span class="pre">run_in_executor</span></code> for CUDA operations. The
+default <code class="docutils literal notranslate"><span class="pre">ThreadPoolExecutor</span></code> causes GIL contention between the worker thread
+(launching CUDA kernels) and the main thread (running the 1kHz loop). This can
+inflate a 1ms forward pass to 50ms+.</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="c1"># BAD — GIL contention makes CUDA ~40x slower in a worker thread</span>
+<span class="n">ee_desired</span> <span class="o">=</span> <span class="k">await</span> <span class="n">loop</span><span class="o">.</span><span class="n">run_in_executor</span><span class="p">(</span><span class="kc">None</span><span class="p">,</span> <span class="n">model</span><span class="p">,</span> <span class="n">input_tensor</span><span class="p">)</span>
+
+<span class="c1"># GOOD — if your GPU forward pass is &lt;2ms, call it directly</span>
+<span class="n">ee_desired</span> <span class="o">=</span> <span class="n">model</span><span class="p">(</span><span class="n">input_tensor</span><span class="p">)</span>  <span class="c1"># fast enough to not starve the 1kHz loop</span>
+</pre></div>
+</div>
+<p><strong>Rule of thumb</strong>: profile your model’s forward pass. If it’s under ~2ms on GPU,
+call it directly on the event loop. If it’s slower, use <code class="docutils literal notranslate"><span class="pre">CudaInferenceThread</span></code>
+or <code class="docutils literal notranslate"><span class="pre">mpify</span></code>.</p>
+<section id="cudainferencethread">
+<h3>CudaInferenceThread<a class="headerlink" href="#cudainferencethread" title="Link to this heading"></a></h3>
+<p>For CUDA inference that’s too slow to run inline but suffers from <code class="docutils literal notranslate"><span class="pre">run_in_executor</span></code>
+GIL contention, use <code class="docutils literal notranslate"><span class="pre">CudaInferenceThread</span></code>. It keeps a single dedicated thread alive
+with an initialized CUDA context, so the per-call cost is just a queue round-trip:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">aiofranka</span><span class="w"> </span><span class="kn">import</span> <span class="n">CudaInferenceThread</span>
+
+<span class="n">infer</span> <span class="o">=</span> <span class="n">CudaInferenceThread</span><span class="p">()</span>
+<span class="n">infer</span><span class="o">.</span><span class="n">start</span><span class="p">()</span>
+
+<span class="c1"># Wrap any callable</span>
+<span class="n">action</span> <span class="o">=</span> <span class="k">await</span> <span class="n">infer</span><span class="o">.</span><span class="n">run</span><span class="p">(</span><span class="n">policy</span><span class="o">.</span><span class="n">get_action</span><span class="p">,</span> <span class="n">obs</span><span class="p">)</span>
+
+<span class="c1"># Or use as a decorator</span>
+<span class="nd">@infer</span><span class="o">.</span><span class="n">wrap</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">get_action</span><span class="p">(</span><span class="n">obs</span><span class="p">):</span>
+    <span class="k">return</span> <span class="n">model</span><span class="p">(</span><span class="n">obs</span><span class="p">)</span>
+
+<span class="n">action</span> <span class="o">=</span> <span class="k">await</span> <span class="n">get_action</span><span class="p">(</span><span class="n">obs</span><span class="p">)</span>
+<span class="n">action</span> <span class="o">=</span> <span class="n">get_action</span><span class="o">.</span><span class="n">sync</span><span class="p">(</span><span class="n">obs</span><span class="p">)</span>  <span class="c1"># original sync version</span>
+
+<span class="n">infer</span><span class="o">.</span><span class="n">stop</span><span class="p">()</span>
+</pre></div>
+</div>
+</section>
+<section id="mpify-process-isolation">
+<h3>mpify — Process Isolation<a class="headerlink" href="#mpify-process-isolation" title="Link to this heading"></a></h3>
+<p>For heavy models where even a dedicated thread isn’t enough (GIL still contends),
+<code class="docutils literal notranslate"><span class="pre">mpify</span></code> runs your model in a completely separate process with its own GIL:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">aiofranka</span><span class="w"> </span><span class="kn">import</span> <span class="n">mpify</span>
+
+<span class="k">def</span><span class="w"> </span><span class="nf">make_policy</span><span class="p">(</span><span class="n">checkpoint</span><span class="p">,</span> <span class="n">device</span><span class="p">):</span>
+    <span class="n">model</span><span class="p">,</span> <span class="n">config</span> <span class="o">=</span> <span class="n">load_model</span><span class="p">(</span><span class="n">checkpoint</span><span class="p">,</span> <span class="n">device</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">PolicyWrapper</span><span class="p">(</span><span class="n">model</span><span class="p">,</span> <span class="n">config</span><span class="p">,</span> <span class="n">device</span><span class="p">)</span>
+
+<span class="c1"># Spawns a child process, returns a transparent async proxy</span>
+<span class="n">policy</span> <span class="o">=</span> <span class="n">mpify</span><span class="p">(</span><span class="n">make_policy</span><span class="p">,</span> <span class="s2">"checkpoint.pt"</span><span class="p">,</span> <span class="s2">"cuda:0"</span><span class="p">)</span>
+
+<span class="c1"># All access is forwarded to the child process via pipe</span>
+<span class="k">await</span> <span class="n">policy</span><span class="o">.</span><span class="n">reset</span><span class="p">(</span><span class="n">initial_ee</span><span class="p">)</span>
+<span class="n">action</span> <span class="o">=</span> <span class="k">await</span> <span class="n">policy</span><span class="o">.</span><span class="n">get_action</span><span class="p">(</span><span class="n">obs</span><span class="p">)</span>
+
+<span class="n">policy</span><span class="o">.</span><span class="n">stop</span><span class="p">()</span>  <span class="c1"># clean shutdown</span>
+</pre></div>
+</div>
+<p><code class="docutils literal notranslate"><span class="pre">mpify</span></code> is the safest option for heavy GPU workloads — zero GIL contention.</p>
+</section>
+</section>
+<section id="initialization-order">
+<h2>Initialization Order<a class="headerlink" href="#initialization-order" title="Link to this heading"></a></h2>
+<p>Do heavy setup (model loading, CUDA warmup, calibration) <strong>before</strong> <code class="docutils literal notranslate"><span class="pre">controller.start()</span></code>:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="c1"># 1. Load model, warm up CUDA, connect cameras — all before start()</span>
+<span class="n">model</span> <span class="o">=</span> <span class="n">load_model</span><span class="p">(</span><span class="n">checkpoint</span><span class="p">)</span>
+<span class="n">warm_up_inference</span><span class="p">(</span><span class="n">model</span><span class="p">)</span>
+
+<span class="c1"># 2. Now start the real-time loop</span>
+<span class="k">await</span> <span class="n">controller</span><span class="o">.</span><span class="n">start</span><span class="p">()</span>
+<span class="k">await</span> <span class="n">controller</span><span class="o">.</span><span class="n">move</span><span class="p">()</span>
+
+<span class="c1"># 3. From here on, only use await-based calls</span>
+</pre></div>
+</div>
+</section>
+</section>
+
+
+           </div>
+          </div>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="cli.html" class="btn btn-neutral float-left" title="CLI Reference" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="examples.html" class="btn btn-neutral float-right" title="Examples" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2025, MIT Improbable AI Lab.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

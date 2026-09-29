@@ -1,0 +1,461 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="../">
+<head>
+  <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Robot Interface &mdash; aiofranka 0.5.1 documentation</title>
+      <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=b86133f3" />
+      <link rel="stylesheet" type="text/css" href="../_static/css/theme.css?v=9edc463e" />
+
+  
+      <script src="../_static/jquery.js?v=5d32c60e"></script>
+      <script src="../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="../_static/documentation_options.js?v=b9afe91b"></script>
+      <script src="../_static/doctools.js?v=fd6eb6e6"></script>
+      <script src="../_static/sphinx_highlight.js?v=6ffebe34"></script>
+    <script src="../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="next" title="Server Functions" href="server.html" />
+    <link rel="prev" title="Franka Controller" href="controller.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../index.html" class="icon icon-home">
+            aiofranka
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">Getting Started</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../installation.html">Installation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../quickstart.html">Quick Start</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../controllers.html">Controllers</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../cli.html">CLI Reference</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../async_mode.html">Async Mode Guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../examples.html">Examples</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../troubleshooting.html">Troubleshooting</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">API Reference</span></p>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="remote.html">FrankaRemoteController (Server Mode)</a></li>
+<li class="toctree-l1"><a class="reference internal" href="controller.html">Franka Controller</a></li>
+<li class="toctree-l1 current"><a class="current reference internal" href="#">Robot Interface</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="#aiofranka.robot.set_macos_control_thread_qos"><code class="docutils literal notranslate"><span class="pre">set_macos_control_thread_qos()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="#aiofranka.robot.require_pylibfranka"><code class="docutils literal notranslate"><span class="pre">require_pylibfranka()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="#aiofranka.robot.RobotInterface"><code class="docutils literal notranslate"><span class="pre">RobotInterface</span></code></a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#aiofranka.robot.RobotInterface.real"><code class="docutils literal notranslate"><span class="pre">RobotInterface.real</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#aiofranka.robot.RobotInterface.model"><code class="docutils literal notranslate"><span class="pre">RobotInterface.model</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#aiofranka.robot.RobotInterface.data"><code class="docutils literal notranslate"><span class="pre">RobotInterface.data</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#aiofranka.robot.RobotInterface.robot"><code class="docutils literal notranslate"><span class="pre">RobotInterface.robot</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#aiofranka.robot.RobotInterface.torque_controller"><code class="docutils literal notranslate"><span class="pre">RobotInterface.torque_controller</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#aiofranka.robot.RobotInterface.site_name"><code class="docutils literal notranslate"><span class="pre">RobotInterface.site_name</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#aiofranka.robot.RobotInterface.site_id"><code class="docutils literal notranslate"><span class="pre">RobotInterface.site_id</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#aiofranka.robot.RobotInterface.viewer"><code class="docutils literal notranslate"><span class="pre">RobotInterface.viewer</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#aiofranka.robot.RobotInterface.__init__"><code class="docutils literal notranslate"><span class="pre">RobotInterface.__init__()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#aiofranka.robot.RobotInterface.start"><code class="docutils literal notranslate"><span class="pre">RobotInterface.start()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#aiofranka.robot.RobotInterface.stop"><code class="docutils literal notranslate"><span class="pre">RobotInterface.stop()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#aiofranka.robot.RobotInterface.sync_mj"><code class="docutils literal notranslate"><span class="pre">RobotInterface.sync_mj()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#aiofranka.robot.RobotInterface.state"><code class="docutils literal notranslate"><span class="pre">RobotInterface.state</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#aiofranka.robot.RobotInterface.state_minimal"><code class="docutils literal notranslate"><span class="pre">RobotInterface.state_minimal</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#aiofranka.robot.RobotInterface.step"><code class="docutils literal notranslate"><span class="pre">RobotInterface.step()</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="server.html">Server Functions</a></li>
+<li class="toctree-l1"><a class="reference internal" href="gripper.html">GripperController</a></li>
+<li class="toctree-l1"><a class="reference internal" href="utilities.html">Async Utilities</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../index.html">aiofranka</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../index.html" class="icon icon-home" aria-label="Home"></a></li>
+      <li class="breadcrumb-item active">Robot Interface</li>
+      <li class="wy-breadcrumbs-aside">
+            <a href="../_sources/api/robot.rst.txt" rel="nofollow"> View page source</a>
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <section id="module-aiofranka.robot">
+<span id="robot-interface"></span><h1>Robot Interface<a class="headerlink" href="#module-aiofranka.robot" title="Link to this heading"></a></h1>
+<dl class="py function">
+<dt class="sig sig-object py" id="aiofranka.robot.set_macos_control_thread_qos">
+<span class="sig-prename descclassname"><span class="pre">aiofranka.robot.</span></span><span class="sig-name descname"><span class="pre">set_macos_control_thread_qos</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../_modules/aiofranka/robot.html#set_macos_control_thread_qos"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#aiofranka.robot.set_macos_control_thread_qos" title="Link to this definition"></a></dt>
+<dd><p>Give the calling thread the scheduling that libfranka needs on macOS.</p>
+<p>On macOS, libfranka busy-waits for robot states, which only keeps up with the
+1 kHz control loop on a performance core. libfranka sets the QoS class
+USER_INTERACTIVE for the thread that creates the Robot; call this at the start
+of the thread that runs the control loop. Does nothing on other platforms or
+when busy-waiting is disabled with LIBFRANKA_MACOS_BUSY_WAIT=0.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Returns<span class="colon">:</span></dt>
+<dd class="field-odd"><p>True if the QoS class was set.</p>
+</dd>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p><a class="reference external" href="https://docs.python.org/3/builtins/functions.html#bool" title="(in Python v3.14)">bool</a></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="aiofranka.robot.require_pylibfranka">
+<span class="sig-prename descclassname"><span class="pre">aiofranka.robot.</span></span><span class="sig-name descname"><span class="pre">require_pylibfranka</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../_modules/aiofranka/robot.html#require_pylibfranka"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#aiofranka.robot.require_pylibfranka" title="Link to this definition"></a></dt>
+<dd><p>Import pylibfranka, explaining how to install it on macOS if it is missing.</p>
+<p>On macOS, aiofranka only depends on pylibfranka-macos, an unofficial build of
+pylibfranka, for Apple Silicon and macOS 15 or newer.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Returns<span class="colon">:</span></dt>
+<dd class="field-odd"><p>The pylibfranka module.</p>
+</dd>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p>module</p>
+</dd>
+<dt class="field-odd">Raises<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/builtins/exceptions.html#ModuleNotFoundError" title="(in Python v3.14)"><strong>ModuleNotFoundError</strong></a> – If pylibfranka is not installed.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="aiofranka.robot.RobotInterface">
+<span class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></span><span class="sig-prename descclassname"><span class="pre">aiofranka.robot.</span></span><span class="sig-name descname"><span class="pre">RobotInterface</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">ip</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/aiofranka/robot.html#RobotInterface"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#aiofranka.robot.RobotInterface" title="Link to this definition"></a></dt>
+<dd><p>Bases: <a class="reference external" href="https://docs.python.org/3/builtins/functions.html#object" title="(in Python v3.14)"><code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></a></p>
+<p>High-level interface for Franka FR3 robot control.</p>
+<p>This class provides a unified interface for both real robot control (via pylibfranka)
+and simulation (via MuJoCo). It handles low-level communication, state synchronization,
+and kinematics/dynamics computation.</p>
+<dl class="py attribute">
+<dt class="sig sig-object py" id="aiofranka.robot.RobotInterface.real">
+<span class="sig-name descname"><span class="pre">real</span></span><a class="headerlink" href="#aiofranka.robot.RobotInterface.real" title="Link to this definition"></a></dt>
+<dd><p>True if connected to real robot, False for simulation</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/builtins/functions.html#bool" title="(in Python v3.14)">bool</a></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="aiofranka.robot.RobotInterface.model">
+<span class="sig-name descname"><span class="pre">model</span></span><a class="headerlink" href="#aiofranka.robot.RobotInterface.model" title="Link to this definition"></a></dt>
+<dd><p>MuJoCo model for kinematics/dynamics</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>mujoco.MjModel</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="aiofranka.robot.RobotInterface.data">
+<span class="sig-name descname"><span class="pre">data</span></span><a class="headerlink" href="#aiofranka.robot.RobotInterface.data" title="Link to this definition"></a></dt>
+<dd><p>MuJoCo data structure with current state</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>mujoco.MjData</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="aiofranka.robot.RobotInterface.robot">
+<span class="sig-name descname"><span class="pre">robot</span></span><a class="headerlink" href="#aiofranka.robot.RobotInterface.robot" title="Link to this definition"></a></dt>
+<dd><p>Real robot interface (if real=True)</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>pylibfranka.Robot</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="aiofranka.robot.RobotInterface.torque_controller">
+<span class="sig-name descname"><span class="pre">torque_controller</span></span><a class="headerlink" href="#aiofranka.robot.RobotInterface.torque_controller" title="Link to this definition"></a></dt>
+<dd><p>Active torque control interface</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="aiofranka.robot.RobotInterface.site_name">
+<span class="sig-name descname"><span class="pre">site_name</span></span><a class="headerlink" href="#aiofranka.robot.RobotInterface.site_name" title="Link to this definition"></a></dt>
+<dd><p>Name of end-effector site in MuJoCo model</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#str" title="(in Python v3.14)">str</a></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="aiofranka.robot.RobotInterface.site_id">
+<span class="sig-name descname"><span class="pre">site_id</span></span><a class="headerlink" href="#aiofranka.robot.RobotInterface.site_id" title="Link to this definition"></a></dt>
+<dd><p>MuJoCo site ID for end-effector</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/builtins/functions.html#int" title="(in Python v3.14)">int</a></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="aiofranka.robot.RobotInterface.viewer">
+<span class="sig-name descname"><span class="pre">viewer</span></span><a class="headerlink" href="#aiofranka.robot.RobotInterface.viewer" title="Link to this definition"></a></dt>
+<dd><p>MuJoCo viewer window (if real=False)</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>mujoco.viewer</p>
+</dd>
+</dl>
+</dd></dl>
+
+<p class="rubric">Examples</p>
+<dl>
+<dt>Real robot:</dt><dd><div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">robot</span> <span class="o">=</span> <span class="n">RobotInterface</span><span class="p">(</span><span class="s2">"172.16.0.2"</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">robot</span><span class="o">.</span><span class="n">start</span><span class="p">()</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">state</span> <span class="o">=</span> <span class="n">robot</span><span class="o">.</span><span class="n">state</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">robot</span><span class="o">.</span><span class="n">step</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="mi">7</span><span class="p">))</span>  <span class="c1"># Send zero torques</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">robot</span><span class="o">.</span><span class="n">stop</span><span class="p">()</span>
+</pre></div>
+</div>
+</dd>
+<dt>Simulation:</dt><dd><div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">robot</span> <span class="o">=</span> <span class="n">RobotInterface</span><span class="p">(</span><span class="kc">None</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">state</span> <span class="o">=</span> <span class="n">robot</span><span class="o">.</span><span class="n">state</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">robot</span><span class="o">.</span><span class="n">step</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="mi">7</span><span class="p">))</span>  <span class="c1"># Updates MuJoCo simulation</span>
+</pre></div>
+</div>
+</dd>
+<dt>Caveats:</dt><dd><ul class="simple">
+<li><p>Must call start() before step() on real robot</p></li>
+<li><p>Collision behavior is set to high thresholds by default</p></li>
+<li><p>State is synced from robot on every access (thread-safe)</p></li>
+<li><p>MuJoCo model must match real robot configuration</p></li>
+</ul>
+</dd>
+</dl>
+<dl class="py method">
+<dt class="sig sig-object py" id="aiofranka.robot.RobotInterface.__init__">
+<span class="sig-name descname"><span class="pre">__init__</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">ip</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/aiofranka/robot.html#RobotInterface.__init__"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#aiofranka.robot.RobotInterface.__init__" title="Link to this definition"></a></dt>
+<dd><p>Initialize robot interface.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>ip</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a><em> | </em><em>None</em>) – Robot IP address (e.g., “172.16.0.2”) for real robot,
+or None for simulation mode.</p>
+</dd>
+<dt class="field-even">Raises<span class="colon">:</span></dt>
+<dd class="field-even"><ul class="simple">
+<li><p><a class="reference external" href="https://docs.python.org/3/builtins/exceptions.html#ModuleNotFoundError" title="(in Python v3.14)"><strong>ModuleNotFoundError</strong></a> – If pylibfranka is not installed (real robot mode)</p></li>
+<li><p><a class="reference external" href="https://docs.python.org/3/builtins/exceptions.html#ConnectionError" title="(in Python v3.14)"><strong>ConnectionError</strong></a> – If cannot connect to robot at given IP</p></li>
+</ul>
+</dd>
+</dl>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>In real mode, collision thresholds are set to [100.0] * 7 for joints
+and [100.0] * 6 for Cartesian space. Adjust via robot.robot.set_collision_behavior()
+for more conservative behavior.</p>
+</div>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="aiofranka.robot.RobotInterface.start">
+<span class="sig-name descname"><span class="pre">start</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../_modules/aiofranka/robot.html#RobotInterface.start"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#aiofranka.robot.RobotInterface.start" title="Link to this definition"></a></dt>
+<dd><p>Start torque control mode on the real robot.</p>
+<p>This must be called before sending torque commands. Does nothing in simulation.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Raises<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/builtins/exceptions.html#RuntimeError" title="(in Python v3.14)"><strong>RuntimeError</strong></a> – If robot is not ready or already in control mode</p>
+</dd>
+</dl>
+<dl class="simple">
+<dt>Caveat:</dt><dd><p>After calling start(), you must send torque commands at ~1kHz to maintain
+control. Use FrankaController for automatic control loop management.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="aiofranka.robot.RobotInterface.stop">
+<span class="sig-name descname"><span class="pre">stop</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../_modules/aiofranka/robot.html#RobotInterface.stop"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#aiofranka.robot.RobotInterface.stop" title="Link to this definition"></a></dt>
+<dd><p>Stop torque control mode on the real robot.</p>
+<p>This gracefully terminates the control session. Does nothing in simulation.</p>
+<dl class="simple">
+<dt>Caveat:</dt><dd><p>Robot will hold position briefly then release brakes. Ensure robot
+is in a safe configuration before stopping.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="aiofranka.robot.RobotInterface.sync_mj">
+<span class="sig-name descname"><span class="pre">sync_mj</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../_modules/aiofranka/robot.html#RobotInterface.sync_mj"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#aiofranka.robot.RobotInterface.sync_mj" title="Link to this definition"></a></dt>
+<dd><p>Sync mujoco state with real robot state</p>
+</dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="aiofranka.robot.RobotInterface.state">
+<span class="property"><span class="k"><span class="pre">property</span></span><span class="w"> </span></span><span class="sig-name descname"><span class="pre">state</span></span><a class="headerlink" href="#aiofranka.robot.RobotInterface.state" title="Link to this definition"></a></dt>
+<dd><p>Get current robot state with kinematics and dynamics.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Returns<span class="colon">:</span></dt>
+<dd class="field-odd"><p><dl class="simple">
+<dt>Dictionary containing:</dt><dd><ul class="simple">
+<li><p>qpos (np.ndarray): Joint positions [rad] (7,)</p></li>
+<li><p>qvel (np.ndarray): Joint velocities [rad/s] (7,)</p></li>
+<li><dl class="simple">
+<dt>ee (np.ndarray): End-effector pose as 4x4 homogeneous transform</dt><dd><p>[[R, p], [0, 1]] where R is rotation, p is position</p>
+</dd>
+</dl>
+</li>
+<li><p>jac (np.ndarray): End-effector Jacobian (6, 7) - [linear; angular]</p></li>
+<li><p>mm (np.ndarray): Joint-space mass matrix (7, 7)</p></li>
+<li><p>last_torque (np.ndarray): Last commanded torques [Nm] (7,)</p></li>
+</ul>
+</dd>
+</dl>
+</p>
+</dd>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p><a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#dict" title="(in Python v3.14)">dict</a></p>
+</dd>
+</dl>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>State is synchronized from real robot on every access. MuJoCo model
+is updated with latest robot state before computing kinematics/dynamics.</p>
+</div>
+<p class="rubric">Example</p>
+<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">state</span> <span class="o">=</span> <span class="n">robot</span><span class="o">.</span><span class="n">state</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Joint 1 position: </span><span class="si">{</span><span class="n">state</span><span class="p">[</span><span class="s1">'qpos'</span><span class="p">][</span><span class="mi">0</span><span class="p">]</span><span class="si">:</span><span class="s2">.3f</span><span class="si">}</span><span class="s2"> rad"</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"EE position: </span><span class="si">{</span><span class="n">state</span><span class="p">[</span><span class="s1">'ee'</span><span class="p">][:</span><span class="mi">3</span><span class="p">,</span><span class="w"> </span><span class="mi">3</span><span class="p">]</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"EE orientation: </span><span class="si">{</span><span class="n">state</span><span class="p">[</span><span class="s1">'ee'</span><span class="p">][:</span><span class="mi">3</span><span class="p">,</span><span class="w"> </span><span class="p">:</span><span class="mi">3</span><span class="p">]</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
+</pre></div>
+</div>
+</dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="aiofranka.robot.RobotInterface.state_minimal">
+<span class="property"><span class="k"><span class="pre">property</span></span><span class="w"> </span></span><span class="sig-name descname"><span class="pre">state_minimal</span></span><a class="headerlink" href="#aiofranka.robot.RobotInterface.state_minimal" title="Link to this definition"></a></dt>
+<dd><p>Get minimal robot state (fast, no kinematics/dynamics computation).</p>
+<p>Use this for impedance/PID control where Jacobian and mass matrix
+are not needed. ~10x faster than full state property.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Returns<span class="colon">:</span></dt>
+<dd class="field-odd"><p><dl class="simple">
+<dt>Dictionary containing only:</dt><dd><ul class="simple">
+<li><p>qpos (np.ndarray): Joint positions [rad] (7,)</p></li>
+<li><p>qvel (np.ndarray): Joint velocities [rad/s] (7,)</p></li>
+<li><p>last_torque (np.ndarray): Last commanded torques [Nm] (7,)</p></li>
+</ul>
+</dd>
+</dl>
+</p>
+</dd>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p><a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#dict" title="(in Python v3.14)">dict</a></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="aiofranka.robot.RobotInterface.step">
+<span class="sig-name descname"><span class="pre">step</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">torque</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/aiofranka/robot.html#RobotInterface.step"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#aiofranka.robot.RobotInterface.step" title="Link to this definition"></a></dt>
+<dd><p>Send torque command to robot or step simulation.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>torque</strong> (<em>np.ndarray</em>) – Joint torques [Nm] (7,)</p>
+</dd>
+<dt class="field-even">Raises<span class="colon">:</span></dt>
+<dd class="field-even"><p><a class="reference external" href="https://docs.python.org/3/builtins/exceptions.html#RuntimeError" title="(in Python v3.14)"><strong>RuntimeError</strong></a> – If real robot not started or communication error</p>
+</dd>
+</dl>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<ul class="simple">
+<li><p>Real robot: Sends torque command via pylibfranka at current timestep</p></li>
+<li><p>Simulation: Updates MuJoCo with torques and advances one timestep</p></li>
+</ul>
+</div>
+<dl class="simple">
+<dt>Caveats:</dt><dd><ul class="simple">
+<li><p>Must be called at ~1kHz for real robot to maintain control</p></li>
+<li><p>Large torque changes may trigger safety limits</p></li>
+<li><p>Torques should respect robot limits: <code class="docutils literal notranslate"><span class="pre">|tau_i|</span> <span class="pre">&lt;</span> <span class="pre">87</span> <span class="pre">Nm</span></code> for joints 1-4,
+<code class="docutils literal notranslate"><span class="pre">|tau_i|</span> <span class="pre">&lt;</span> <span class="pre">12</span> <span class="pre">Nm</span></code> for joints 5-7</p></li>
+</ul>
+</dd>
+</dl>
+<p class="rubric">Example</p>
+<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="c1"># Send gravity compensation torques</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">torque</span> <span class="o">=</span> <span class="n">robot</span><span class="o">.</span><span class="n">state</span><span class="p">[</span><span class="s1">'mm'</span><span class="p">]</span> <span class="o">@</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="o">-</span><span class="mf">9.81</span><span class="p">])</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">robot</span><span class="o">.</span><span class="n">step</span><span class="p">(</span><span class="n">torque</span><span class="p">)</span>
+</pre></div>
+</div>
+</dd></dl>
+
+</dd></dl>
+
+</section>
+
+
+           </div>
+          </div>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="controller.html" class="btn btn-neutral float-left" title="Franka Controller" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="server.html" class="btn btn-neutral float-right" title="Server Functions" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2025, MIT Improbable AI Lab.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

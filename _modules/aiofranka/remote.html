@@ -1,0 +1,532 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="../../">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>aiofranka.remote &mdash; aiofranka 0.5.1 documentation</title>
+      <link rel="stylesheet" type="text/css" href="../../_static/pygments.css?v=b86133f3" />
+      <link rel="stylesheet" type="text/css" href="../../_static/css/theme.css?v=9edc463e" />
+
+  
+      <script src="../../_static/jquery.js?v=5d32c60e"></script>
+      <script src="../../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="../../_static/documentation_options.js?v=b9afe91b"></script>
+      <script src="../../_static/doctools.js?v=fd6eb6e6"></script>
+      <script src="../../_static/sphinx_highlight.js?v=6ffebe34"></script>
+    <script src="../../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../../genindex.html" />
+    <link rel="search" title="Search" href="../../search.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../../index.html" class="icon icon-home">
+            aiofranka
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">Getting Started</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../installation.html">Installation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../quickstart.html">Quick Start</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../controllers.html">Controllers</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../cli.html">CLI Reference</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../async_mode.html">Async Mode Guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../examples.html">Examples</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../troubleshooting.html">Troubleshooting</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">API Reference</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../api/remote.html">FrankaRemoteController (Server Mode)</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../api/controller.html">Franka Controller</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../api/robot.html">Robot Interface</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../api/server.html">Server Functions</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../api/gripper.html">GripperController</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../api/utilities.html">Async Utilities</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../../index.html">aiofranka</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../../index.html" class="icon icon-home" aria-label="Home"></a></li>
+          <li class="breadcrumb-item"><a href="../index.html">Module code</a></li>
+      <li class="breadcrumb-item active">aiofranka.remote</li>
+      <li class="wy-breadcrumbs-aside">
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <h1>Source code for aiofranka.remote</h1><div class="highlight"><pre>
+<span></span><span class="sd">"""</span>
+<span class="sd">Synchronous remote controller client for aiofranka.</span>
+
+<span class="sd">Communicates with the aiofranka server process via shared memory (state reads)</span>
+<span class="sd">and ZMQ (commands). Drop-in replacement for FrankaController with a sync API.</span>
+<span class="sd">"""</span>
+
+<span class="kn">import</span><span class="w"> </span><span class="nn">atexit</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">contextlib</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">json</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">logging</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">os</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">time</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">threading</span>
+
+<span class="kn">import</span><span class="w"> </span><span class="nn">msgpack</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">zmq</span>
+
+<span class="kn">from</span><span class="w"> </span><span class="nn">aiofranka.ipc</span><span class="w"> </span><span class="kn">import</span> <span class="n">StateBlock</span><span class="p">,</span> <span class="n">zmq_endpoint_for_ip</span><span class="p">,</span> <span class="n">STATUS_ERROR</span>
+
+<span class="n">logger</span> <span class="o">=</span> <span class="n">logging</span><span class="o">.</span><span class="n">getLogger</span><span class="p">(</span><span class="s2">"aiofranka.remote"</span><span class="p">)</span>
+
+<span class="n">DEFAULT_IP</span> <span class="o">=</span> <span class="s2">"172.16.0.2"</span>
+
+<span class="c1"># Attributes that get sent to server via ZMQ when assigned</span>
+<span class="n">_REMOTE_ATTRS</span> <span class="o">=</span> <span class="p">{</span>
+    <span class="s2">"kp"</span><span class="p">,</span> <span class="s2">"kd"</span><span class="p">,</span> <span class="s2">"ki"</span><span class="p">,</span> <span class="s2">"ee_kp"</span><span class="p">,</span> <span class="s2">"ee_kd"</span><span class="p">,</span> <span class="s2">"null_kp"</span><span class="p">,</span> <span class="s2">"null_kd"</span><span class="p">,</span>
+    <span class="s2">"torque_diff_limit"</span><span class="p">,</span> <span class="s2">"torque_limit"</span><span class="p">,</span> <span class="s2">"clip"</span><span class="p">,</span>
+    <span class="s2">"q_desired"</span><span class="p">,</span> <span class="s2">"ee_desired"</span><span class="p">,</span> <span class="s2">"torque"</span><span class="p">,</span>
+<span class="p">}</span>
+
+<span class="n">_BOLD</span> <span class="o">=</span> <span class="s2">"</span><span class="se">\033</span><span class="s2">[1m"</span>
+<span class="n">_DIM</span> <span class="o">=</span> <span class="s2">"</span><span class="se">\033</span><span class="s2">[2m"</span>
+<span class="n">_RED</span> <span class="o">=</span> <span class="s2">"</span><span class="se">\033</span><span class="s2">[31m"</span>
+<span class="n">_YELLOW</span> <span class="o">=</span> <span class="s2">"</span><span class="se">\033</span><span class="s2">[33m"</span>
+<span class="n">_RST</span> <span class="o">=</span> <span class="s2">"</span><span class="se">\033</span><span class="s2">[0m"</span>
+
+
+<div class="viewcode-block" id="ServerDiedError">
+<a class="viewcode-back" href="../../api/remote.html#aiofranka.remote.ServerDiedError">[docs]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">ServerDiedError</span><span class="p">(</span><span class="ne">RuntimeError</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">"""Raised when the server process dies (e.g. reflex error).</span>
+
+<span class="sd">    Attributes:</span>
+<span class="sd">        server_error: The error message from the server (e.g. libfranka reflex details).</span>
+<span class="sd">    """</span>
+<div class="viewcode-block" id="ServerDiedError.__init__">
+<a class="viewcode-back" href="../../api/remote.html#aiofranka.remote.ServerDiedError.__init__">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">server_error</span><span class="p">:</span> <span class="nb">str</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">server_error</span> <span class="o">=</span> <span class="n">server_error</span>
+        <span class="c1"># Build a user-friendly message</span>
+        <span class="n">lines</span> <span class="o">=</span> <span class="p">[</span>
+            <span class="sa">f</span><span class="s2">"</span><span class="se">\n</span><span class="s2">  </span><span class="si">{</span><span class="n">_RED</span><span class="si">}</span><span class="s2">Server died:</span><span class="si">{</span><span class="n">_RST</span><span class="si">}</span><span class="s2"> </span><span class="si">{</span><span class="n">server_error</span><span class="si">}</span><span class="se">\n</span><span class="s2">"</span><span class="p">,</span>
+        <span class="p">]</span>
+        <span class="k">if</span> <span class="s2">"reflex"</span> <span class="ow">in</span> <span class="n">server_error</span><span class="o">.</span><span class="n">lower</span><span class="p">():</span>
+            <span class="n">lines</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="sa">f</span><span class="s2">"  The robot entered </span><span class="si">{</span><span class="n">_BOLD</span><span class="si">}</span><span class="s2">Reflex</span><span class="si">{</span><span class="n">_RST</span><span class="si">}</span><span class="s2"> mode (safety stop)."</span><span class="p">)</span>
+            <span class="n">lines</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="sa">f</span><span class="s2">"  This usually means the robot hit a joint/velocity/torque limit.</span><span class="se">\n</span><span class="s2">"</span><span class="p">)</span>
+        <span class="n">lines</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="sa">f</span><span class="s2">"  To recover:"</span><span class="p">)</span>
+        <span class="n">lines</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="sa">f</span><span class="s2">"    1. Run </span><span class="si">{</span><span class="n">_BOLD</span><span class="si">}</span><span class="s2">aiofranka gravcomp</span><span class="si">{</span><span class="n">_RST</span><span class="si">}</span><span class="s2"> to freely move the robot"</span><span class="p">)</span>
+        <span class="n">lines</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="sa">f</span><span class="s2">"       to a safe configuration, then Ctrl+C and restart your script."</span><span class="p">)</span>
+        <span class="n">lines</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="sa">f</span><span class="s2">"    2. Or just restart your script (it will auto-recover if possible).</span><span class="se">\n</span><span class="s2">"</span><span class="p">)</span>
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="s2">"</span><span class="se">\n</span><span class="s2">"</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">lines</span><span class="p">))</span></div>
+</div>
+
+
+
+<div class="viewcode-block" id="FrankaRemoteController">
+<a class="viewcode-back" href="../../api/remote.html#aiofranka.remote.FrankaRemoteController">[docs]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">FrankaRemoteController</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">"""</span>
+<span class="sd">    Synchronous remote controller for Franka robots.</span>
+
+<span class="sd">    Connects to a running aiofranka server process and provides the same</span>
+<span class="sd">    API as FrankaController, but fully synchronous (no async/await needed).</span>
+
+<span class="sd">    The 1kHz control loop runs in the server process. This client sends</span>
+<span class="sd">    commands via ZMQ and reads state from shared memory (zero-copy).</span>
+
+<span class="sd">    Examples:</span>
+<span class="sd">        &gt;&gt;&gt; controller = FrankaRemoteController()  # default IP</span>
+<span class="sd">        &gt;&gt;&gt; controller.start()</span>
+<span class="sd">        &gt;&gt;&gt; controller.switch("impedance")</span>
+<span class="sd">        &gt;&gt;&gt; controller.set_freq(50)</span>
+<span class="sd">        &gt;&gt;&gt; for i in range(100):</span>
+<span class="sd">        ...     state = controller.state</span>
+<span class="sd">        ...     controller.set("q_desired", target)</span>
+<span class="sd">        &gt;&gt;&gt; controller.stop()</span>
+<span class="sd">    """</span>
+
+<div class="viewcode-block" id="FrankaRemoteController.__init__">
+<a class="viewcode-back" href="../../api/remote.html#aiofranka.remote.FrankaRemoteController.__init__">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">robot_ip</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">home</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">):</span>
+        <span class="k">if</span> <span class="n">robot_ip</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">robot_ip</span> <span class="o">=</span> <span class="n">_load_last_ip</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">robot_ip</span> <span class="o">=</span> <span class="n">robot_ip</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_home</span> <span class="o">=</span> <span class="n">home</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">_shm</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_zmq_ctx</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_zmq_sock</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_connected</span> <span class="o">=</span> <span class="kc">False</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_server_proc</span> <span class="o">=</span> <span class="kc">None</span>
+
+        <span class="c1"># Rate limiting (mirrors FrankaController)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_update_freq</span> <span class="o">=</span> <span class="mf">50.0</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_last_update_time</span> <span class="o">=</span> <span class="p">{}</span>
+
+        <span class="c1"># Compatibility: no-op lock for code that uses `with controller.state_lock:`</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">state_lock</span> <span class="o">=</span> <span class="n">threading</span><span class="o">.</span><span class="n">Lock</span><span class="p">()</span></div>
+
+
+<div class="viewcode-block" id="FrankaRemoteController.start">
+<a class="viewcode-back" href="../../api/remote.html#aiofranka.remote.FrankaRemoteController.start">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">start</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">"""Start the server subprocess and connect.</span>
+
+<span class="sd">        Spawns a 1kHz control loop in a child process, then connects to it</span>
+<span class="sd">        via shared memory and ZMQ. The subprocess terminates automatically</span>
+<span class="sd">        when this script exits.</span>
+
+<span class="sd">        The robot must already be unlocked with FCI active (via</span>
+<span class="sd">        ``aiofranka.unlock()`` or the Franka Desk web GUI). If not, the</span>
+<span class="sd">        server subprocess will fail to start and a helpful error message</span>
+<span class="sd">        is printed.</span>
+
+<span class="sd">        Raises:</span>
+<span class="sd">            RuntimeError: If the server fails to start.</span>
+<span class="sd">        """</span>
+        <span class="kn">from</span><span class="w"> </span><span class="nn">aiofranka.robot</span><span class="w"> </span><span class="kn">import</span> <span class="n">require_pylibfranka</span>
+        <span class="kn">from</span><span class="w"> </span><span class="nn">aiofranka.server</span><span class="w"> </span><span class="kn">import</span> <span class="n">start_subprocess</span>
+
+        <span class="c1"># Fail with installation instructions here, not in the server subprocess</span>
+        <span class="n">require_pylibfranka</span><span class="p">()</span>
+
+        <span class="n">_GREEN</span> <span class="o">=</span> <span class="s2">"</span><span class="se">\033</span><span class="s2">[32m"</span>
+
+        <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"</span><span class="se">\n</span><span class="s2">  </span><span class="si">{</span><span class="n">_BOLD</span><span class="si">}</span><span class="s2">aiofranka</span><span class="si">{</span><span class="n">_RST</span><span class="si">}</span><span class="s2"> </span><span class="si">{</span><span class="n">_DIM</span><span class="si">}</span><span class="s2">|</span><span class="si">{</span><span class="n">_RST</span><span class="si">}</span><span class="s2"> "</span>
+              <span class="sa">f</span><span class="s2">"starting server </span><span class="si">{</span><span class="n">_DIM</span><span class="si">}</span><span class="s2">(</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">robot_ip</span><span class="si">}</span><span class="s2">)</span><span class="si">{</span><span class="n">_RST</span><span class="si">}</span><span class="se">\n</span><span class="s2">"</span><span class="p">)</span>
+
+        <span class="c1"># Spawn server subprocess (no homing — user script controls movement)</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_server_proc</span> <span class="o">=</span> <span class="n">start_subprocess</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">robot_ip</span><span class="p">)</span>
+        <span class="k">except</span> <span class="ne">RuntimeError</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+            <span class="n">err</span> <span class="o">=</span> <span class="nb">str</span><span class="p">(</span><span class="n">e</span><span class="p">)</span><span class="o">.</span><span class="n">lower</span><span class="p">()</span>
+            <span class="k">if</span> <span class="s2">"unlock"</span> <span class="ow">in</span> <span class="n">err</span> <span class="ow">or</span> <span class="s2">"fci"</span> <span class="ow">in</span> <span class="n">err</span> <span class="ow">or</span> <span class="s2">"joint"</span> <span class="ow">in</span> <span class="n">err</span> <span class="ow">or</span> <span class="s2">"not ready"</span> <span class="ow">in</span> <span class="n">err</span><span class="p">:</span>
+                <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"  </span><span class="si">{</span><span class="n">_RED</span><span class="si">}</span><span class="s2">Robot is not ready.</span><span class="si">{</span><span class="n">_RST</span><span class="si">}</span><span class="s2"> Unlock first:</span><span class="se">\n</span><span class="s2">"</span><span class="p">)</span>
+                <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"  Add to your script before </span><span class="si">{</span><span class="n">_BOLD</span><span class="si">}</span><span class="s2">ctrl.start()</span><span class="si">{</span><span class="n">_RST</span><span class="si">}</span><span class="s2">:"</span><span class="p">)</span>
+                <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"    </span><span class="si">{</span><span class="n">_BOLD</span><span class="si">}</span><span class="s2">aiofranka.unlock()</span><span class="si">{</span><span class="n">_RST</span><span class="si">}</span><span class="se">\n</span><span class="s2">"</span><span class="p">)</span>
+                <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"  Or run from the terminal right now:"</span><span class="p">)</span>
+                <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"    </span><span class="si">{</span><span class="n">_BOLD</span><span class="si">}</span><span class="s2">$ aiofranka unlock</span><span class="si">{</span><span class="n">_RST</span><span class="si">}</span><span class="se">\n</span><span class="s2">"</span><span class="p">)</span>
+            <span class="k">raise</span>
+
+        <span class="c1"># Register cleanup so the subprocess dies when the script exits.</span>
+        <span class="c1"># Use stop() instead of _terminate_server() to send a graceful ZMQ</span>
+        <span class="c1"># stop command before SIGTERM, giving the control loop time to exit</span>
+        <span class="c1"># cleanly (avoids communication_constraints_violation reflex).</span>
+        <span class="n">atexit</span><span class="o">.</span><span class="n">register</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">stop</span><span class="p">)</span>
+
+        <span class="c1"># Connect to the now-running server</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_shm</span> <span class="o">=</span> <span class="n">StateBlock</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">robot_ip</span><span class="p">,</span> <span class="n">create</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">track</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">_zmq_ctx</span> <span class="o">=</span> <span class="n">zmq</span><span class="o">.</span><span class="n">Context</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_zmq_sock</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_zmq_ctx</span><span class="o">.</span><span class="n">socket</span><span class="p">(</span><span class="n">zmq</span><span class="o">.</span><span class="n">REQ</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_zmq_sock</span><span class="o">.</span><span class="n">setsockopt</span><span class="p">(</span><span class="n">zmq</span><span class="o">.</span><span class="n">RCVTIMEO</span><span class="p">,</span> <span class="mi">2000</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_zmq_sock</span><span class="o">.</span><span class="n">setsockopt</span><span class="p">(</span><span class="n">zmq</span><span class="o">.</span><span class="n">SNDTIMEO</span><span class="p">,</span> <span class="mi">2000</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_zmq_sock</span><span class="o">.</span><span class="n">connect</span><span class="p">(</span><span class="n">zmq_endpoint_for_ip</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">robot_ip</span><span class="p">))</span>
+
+        <span class="n">resp</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_send</span><span class="p">({</span><span class="s2">"cmd"</span><span class="p">:</span> <span class="s2">"status"</span><span class="p">})</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">resp</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"running"</span><span class="p">):</span>
+            <span class="k">raise</span> <span class="ne">RuntimeError</span><span class="p">(</span><span class="s2">"Server started but control loop is not running"</span><span class="p">)</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">_connected</span> <span class="o">=</span> <span class="kc">True</span>
+        <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"  </span><span class="si">{</span><span class="n">_GREEN</span><span class="si">}</span><span class="s2">Ready</span><span class="si">{</span><span class="n">_RST</span><span class="si">}</span><span class="s2"> </span><span class="si">{</span><span class="n">_DIM</span><span class="si">}</span><span class="s2">(PID </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">_server_proc</span><span class="o">.</span><span class="n">pid</span><span class="si">}</span><span class="s2">)</span><span class="si">{</span><span class="n">_RST</span><span class="si">}</span><span class="se">\n</span><span class="s2">"</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="FrankaRemoteController.stop">
+<a class="viewcode-back" href="../../api/remote.html#aiofranka.remote.FrankaRemoteController.stop">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">stop</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">"""Stop the server subprocess and disconnect."""</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_connected</span><span class="p">:</span>
+            <span class="k">try</span><span class="p">:</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">_send</span><span class="p">({</span><span class="s2">"cmd"</span><span class="p">:</span> <span class="s2">"stop"</span><span class="p">})</span>
+            <span class="k">except</span> <span class="ne">Exception</span><span class="p">:</span>
+                <span class="k">pass</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_disconnect</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_terminate_server</span><span class="p">()</span></div>
+
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_disconnect</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_zmq_sock</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_zmq_sock</span><span class="o">.</span><span class="n">close</span><span class="p">()</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_zmq_sock</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_zmq_ctx</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_zmq_ctx</span><span class="o">.</span><span class="n">term</span><span class="p">()</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_zmq_ctx</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_shm</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_shm</span><span class="o">.</span><span class="n">close</span><span class="p">()</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_shm</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_connected</span> <span class="o">=</span> <span class="kc">False</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_terminate_server</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">"""Terminate the server subprocess if it's still alive."""</span>
+        <span class="n">proc</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_server_proc</span>
+        <span class="k">if</span> <span class="n">proc</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">or</span> <span class="ow">not</span> <span class="n">proc</span><span class="o">.</span><span class="n">is_alive</span><span class="p">():</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_server_proc</span> <span class="o">=</span> <span class="kc">None</span>
+            <span class="k">return</span>
+        <span class="n">proc</span><span class="o">.</span><span class="n">terminate</span><span class="p">()</span>
+        <span class="n">proc</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">timeout</span><span class="o">=</span><span class="mi">10</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">proc</span><span class="o">.</span><span class="n">is_alive</span><span class="p">():</span>
+            <span class="n">proc</span><span class="o">.</span><span class="n">kill</span><span class="p">()</span>
+            <span class="n">proc</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">timeout</span><span class="o">=</span><span class="mi">5</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_server_proc</span> <span class="o">=</span> <span class="kc">None</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_check_server_alive</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">"""Raise if the server has died or errored."""</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_shm</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">RuntimeError</span><span class="p">(</span><span class="s2">"Not connected. Call start() first."</span><span class="p">)</span>
+        <span class="n">status</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_shm</span><span class="o">.</span><span class="n">read_status</span><span class="p">()</span>
+        <span class="k">if</span> <span class="n">status</span> <span class="o">==</span> <span class="n">STATUS_ERROR</span><span class="p">:</span>
+            <span class="n">error_msg</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_shm</span><span class="o">.</span><span class="n">read_error</span><span class="p">()</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_connected</span> <span class="o">=</span> <span class="kc">False</span>
+            <span class="k">raise</span> <span class="n">ServerDiedError</span><span class="p">(</span><span class="n">error_msg</span> <span class="ow">or</span> <span class="s2">"Unknown server error"</span><span class="p">)</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">state</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">"""Read current robot state from shared memory (zero-copy, no IPC overhead)."""</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_check_server_alive</span><span class="p">()</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_shm</span><span class="o">.</span><span class="n">read_state</span><span class="p">()</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">q_desired</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">"""Current desired joint positions (7,) from shared memory."""</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">state</span><span class="p">[</span><span class="s2">"q_desired"</span><span class="p">]</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">ee_desired</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">"""Current desired end-effector pose (4,4) from shared memory."""</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">state</span><span class="p">[</span><span class="s2">"ee_desired"</span><span class="p">]</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">torque</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">"""Current commanded torque (7,) from shared memory."""</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">state</span><span class="p">[</span><span class="s2">"torque"</span><span class="p">]</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">initial_qpos</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">"""Initial joint positions (7,) set at last switch() from shared memory."""</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">state</span><span class="p">[</span><span class="s2">"initial_qpos"</span><span class="p">]</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">initial_ee</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">"""Initial end-effector pose (4,4) set at last switch() from shared memory."""</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">state</span><span class="p">[</span><span class="s2">"initial_ee"</span><span class="p">]</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">running</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">_connected</span><span class="p">:</span>
+            <span class="k">return</span> <span class="kc">False</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="n">resp</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_send</span><span class="p">({</span><span class="s2">"cmd"</span><span class="p">:</span> <span class="s2">"status"</span><span class="p">})</span>
+            <span class="k">return</span> <span class="n">resp</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"running"</span><span class="p">,</span> <span class="kc">False</span><span class="p">)</span>
+        <span class="k">except</span> <span class="ne">Exception</span><span class="p">:</span>
+            <span class="k">return</span> <span class="kc">False</span>
+
+<div class="viewcode-block" id="FrankaRemoteController.switch">
+<a class="viewcode-back" href="../../api/remote.html#aiofranka.remote.FrankaRemoteController.switch">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">switch</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">controller_type</span><span class="p">:</span> <span class="nb">str</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">"""Switch control mode on the server ("impedance", "pid", "osc", "torque")."""</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_send</span><span class="p">({</span><span class="s2">"cmd"</span><span class="p">:</span> <span class="s2">"switch"</span><span class="p">,</span> <span class="s2">"type"</span><span class="p">:</span> <span class="n">controller_type</span><span class="p">})</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_last_update_time</span><span class="o">.</span><span class="n">clear</span><span class="p">()</span></div>
+
+
+<div class="viewcode-block" id="FrankaRemoteController.set_freq">
+<a class="viewcode-back" href="../../api/remote.html#aiofranka.remote.FrankaRemoteController.set_freq">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">set_freq</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">freq</span><span class="p">:</span> <span class="nb">float</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">"""Set update frequency for rate-limited set() calls (Hz)."""</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_update_freq</span> <span class="o">=</span> <span class="n">freq</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_send</span><span class="p">({</span><span class="s2">"cmd"</span><span class="p">:</span> <span class="s2">"set_freq"</span><span class="p">,</span> <span class="s2">"freq"</span><span class="p">:</span> <span class="n">freq</span><span class="p">})</span></div>
+
+
+<div class="viewcode-block" id="FrankaRemoteController.set">
+<a class="viewcode-back" href="../../api/remote.html#aiofranka.remote.FrankaRemoteController.set">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">set</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">attr</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">value</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">"""</span>
+<span class="sd">        Rate-limited setter for controller attributes.</span>
+
+<span class="sd">        Sends value to server and sleeps to maintain frequency from set_freq().</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            attr: "q_desired", "ee_desired", or "torque"</span>
+<span class="sd">            value: numpy array</span>
+<span class="sd">        """</span>
+        <span class="n">current_time</span> <span class="o">=</span> <span class="n">time</span><span class="o">.</span><span class="n">perf_counter</span><span class="p">()</span>
+        <span class="n">dt</span> <span class="o">=</span> <span class="mf">1.0</span> <span class="o">/</span> <span class="bp">self</span><span class="o">.</span><span class="n">_update_freq</span>
+        <span class="n">value</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">value</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">float64</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="n">attr</span> <span class="ow">not</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_last_update_time</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_last_update_time</span><span class="p">[</span><span class="n">attr</span><span class="p">]</span> <span class="o">=</span> <span class="n">current_time</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_send_set</span><span class="p">(</span><span class="n">attr</span><span class="p">,</span> <span class="n">value</span><span class="p">)</span>
+            <span class="n">time</span><span class="o">.</span><span class="n">sleep</span><span class="p">(</span><span class="n">dt</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_last_update_time</span><span class="p">[</span><span class="n">attr</span><span class="p">]</span> <span class="o">=</span> <span class="n">current_time</span> <span class="o">+</span> <span class="n">dt</span>
+            <span class="k">return</span>
+
+        <span class="n">target_time</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_last_update_time</span><span class="p">[</span><span class="n">attr</span><span class="p">]</span> <span class="o">+</span> <span class="n">dt</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_send_set</span><span class="p">(</span><span class="n">attr</span><span class="p">,</span> <span class="n">value</span><span class="p">)</span>
+
+        <span class="n">sleep_time</span> <span class="o">=</span> <span class="n">target_time</span> <span class="o">-</span> <span class="n">time</span><span class="o">.</span><span class="n">perf_counter</span><span class="p">()</span>
+        <span class="k">if</span> <span class="n">sleep_time</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="n">time</span><span class="o">.</span><span class="n">sleep</span><span class="p">(</span><span class="n">sleep_time</span><span class="p">)</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">_last_update_time</span><span class="p">[</span><span class="n">attr</span><span class="p">]</span> <span class="o">=</span> <span class="n">target_time</span></div>
+
+
+<div class="viewcode-block" id="FrankaRemoteController.move">
+<a class="viewcode-back" href="../../api/remote.html#aiofranka.remote.FrankaRemoteController.move">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">move</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">qpos</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">"""</span>
+<span class="sd">        Move to target joint position. Blocks until complete.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            qpos: Target joint positions (7,). Default: home position.</span>
+<span class="sd">        """</span>
+        <span class="k">if</span> <span class="n">qpos</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">qpos</span> <span class="o">=</span> <span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">,</span> <span class="o">-</span><span class="mf">1.57079</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mf">1.57079</span><span class="p">,</span> <span class="o">-</span><span class="mf">0.7853</span><span class="p">]</span>
+
+        <span class="n">qpos</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">qpos</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">float64</span><span class="p">)</span>
+        <span class="n">resp</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_send</span><span class="p">({</span><span class="s2">"cmd"</span><span class="p">:</span> <span class="s2">"move"</span><span class="p">,</span> <span class="s2">"qpos"</span><span class="p">:</span> <span class="n">qpos</span><span class="o">.</span><span class="n">tobytes</span><span class="p">()})</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">resp</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"ok"</span><span class="p">):</span>
+            <span class="k">raise</span> <span class="ne">RuntimeError</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Move failed: </span><span class="si">{</span><span class="n">resp</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">'error'</span><span class="p">)</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
+
+        <span class="n">move_id</span> <span class="o">=</span> <span class="n">resp</span><span class="p">[</span><span class="s2">"move_id"</span><span class="p">]</span>
+        <span class="k">while</span> <span class="kc">True</span><span class="p">:</span>
+            <span class="n">resp</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_send</span><span class="p">({</span><span class="s2">"cmd"</span><span class="p">:</span> <span class="s2">"move_status"</span><span class="p">,</span> <span class="s2">"move_id"</span><span class="p">:</span> <span class="n">move_id</span><span class="p">})</span>
+            <span class="k">if</span> <span class="n">resp</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"done"</span><span class="p">):</span>
+                <span class="k">if</span> <span class="n">resp</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"error"</span><span class="p">):</span>
+                    <span class="k">raise</span> <span class="ne">RuntimeError</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Move error: </span><span class="si">{</span><span class="n">resp</span><span class="p">[</span><span class="s1">'error'</span><span class="p">]</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
+                <span class="k">return</span>
+            <span class="n">time</span><span class="o">.</span><span class="n">sleep</span><span class="p">(</span><span class="mf">0.05</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="FrankaRemoteController.initialize">
+<a class="viewcode-back" href="../../api/remote.html#aiofranka.remote.FrankaRemoteController.initialize">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">initialize</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">"""Re-initialize controller state to current robot position."""</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_send</span><span class="p">({</span><span class="s2">"cmd"</span><span class="p">:</span> <span class="s2">"initialize"</span><span class="p">})</span></div>
+
+
+    <span class="k">def</span><span class="w"> </span><span class="fm">__setattr__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">name</span><span class="p">,</span> <span class="n">value</span><span class="p">):</span>
+        <span class="k">if</span> <span class="n">name</span><span class="o">.</span><span class="n">startswith</span><span class="p">(</span><span class="s1">'_'</span><span class="p">)</span> <span class="ow">or</span> <span class="n">name</span> <span class="ow">in</span> <span class="p">(</span><span class="s1">'robot_ip'</span><span class="p">,</span> <span class="s1">'state_lock'</span><span class="p">):</span>
+            <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__setattr__</span><span class="p">(</span><span class="n">name</span><span class="p">,</span> <span class="n">value</span><span class="p">)</span>
+            <span class="k">return</span>
+
+        <span class="k">if</span> <span class="n">name</span> <span class="ow">in</span> <span class="n">_REMOTE_ATTRS</span> <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="vm">__dict__</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">'_connected'</span><span class="p">,</span> <span class="kc">False</span><span class="p">):</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_send_set</span><span class="p">(</span><span class="n">name</span><span class="p">,</span> <span class="n">value</span> <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">value</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">)</span> <span class="k">else</span> <span class="n">value</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__setattr__</span><span class="p">(</span><span class="n">name</span><span class="p">,</span> <span class="n">value</span><span class="p">)</span>
+
+    <span class="c1"># --- Internal ---</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_send_set</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">attr</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">value</span><span class="p">):</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">value</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">):</span>
+            <span class="n">msg</span> <span class="o">=</span> <span class="p">{</span>
+                <span class="s2">"cmd"</span><span class="p">:</span> <span class="s2">"set"</span><span class="p">,</span>
+                <span class="s2">"attr"</span><span class="p">:</span> <span class="n">attr</span><span class="p">,</span>
+                <span class="s2">"value"</span><span class="p">:</span> <span class="n">value</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">float64</span><span class="p">)</span><span class="o">.</span><span class="n">tobytes</span><span class="p">(),</span>
+                <span class="s2">"shape"</span><span class="p">:</span> <span class="nb">list</span><span class="p">(</span><span class="n">value</span><span class="o">.</span><span class="n">shape</span><span class="p">),</span>
+            <span class="p">}</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">msg</span> <span class="o">=</span> <span class="p">{</span><span class="s2">"cmd"</span><span class="p">:</span> <span class="s2">"set"</span><span class="p">,</span> <span class="s2">"attr"</span><span class="p">:</span> <span class="n">attr</span><span class="p">,</span> <span class="s2">"value"</span><span class="p">:</span> <span class="n">value</span><span class="p">}</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_send</span><span class="p">(</span><span class="n">msg</span><span class="p">)</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_send</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">msg</span><span class="p">:</span> <span class="nb">dict</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">:</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_zmq_sock</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">RuntimeError</span><span class="p">(</span><span class="s2">"Not connected. Call start() first."</span><span class="p">)</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_zmq_sock</span><span class="o">.</span><span class="n">send</span><span class="p">(</span><span class="n">msgpack</span><span class="o">.</span><span class="n">packb</span><span class="p">(</span><span class="n">msg</span><span class="p">,</span> <span class="n">use_bin_type</span><span class="o">=</span><span class="kc">True</span><span class="p">))</span>
+            <span class="n">raw</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_zmq_sock</span><span class="o">.</span><span class="n">recv</span><span class="p">()</span>
+            <span class="k">return</span> <span class="n">msgpack</span><span class="o">.</span><span class="n">unpackb</span><span class="p">(</span><span class="n">raw</span><span class="p">,</span> <span class="n">raw</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+        <span class="k">except</span> <span class="n">zmq</span><span class="o">.</span><span class="n">error</span><span class="o">.</span><span class="n">Again</span><span class="p">:</span>
+            <span class="c1"># ZMQ timed out — check if the server died with an error</span>
+            <span class="n">server_error</span> <span class="o">=</span> <span class="kc">None</span>
+            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_shm</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="k">try</span><span class="p">:</span>
+                    <span class="n">status</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_shm</span><span class="o">.</span><span class="n">read_status</span><span class="p">()</span>
+                    <span class="k">if</span> <span class="n">status</span> <span class="o">==</span> <span class="n">STATUS_ERROR</span><span class="p">:</span>
+                        <span class="n">server_error</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_shm</span><span class="o">.</span><span class="n">read_error</span><span class="p">()</span>
+                <span class="k">except</span> <span class="ne">Exception</span><span class="p">:</span>
+                    <span class="k">pass</span>
+
+            <span class="c1"># Fallback: if shm is gone but server process is dead, we know it crashed</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="n">server_error</span> <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">_server_proc</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">_server_proc</span><span class="o">.</span><span class="n">is_alive</span><span class="p">():</span>
+                    <span class="n">server_error</span> <span class="o">=</span> <span class="s2">"Server process died unexpectedly"</span>
+
+            <span class="k">if</span> <span class="n">server_error</span><span class="p">:</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">_connected</span> <span class="o">=</span> <span class="kc">False</span>
+                <span class="k">raise</span> <span class="n">ServerDiedError</span><span class="p">(</span><span class="n">server_error</span><span class="p">)</span> <span class="kn">from</span><span class="w"> </span><span class="kc">None</span>
+
+            <span class="k">raise</span> <span class="ne">ConnectionError</span><span class="p">(</span>
+                <span class="s2">"Server not responding (timeout). Check if server is running."</span>
+            <span class="p">)</span> <span class="kn">from</span><span class="w"> </span><span class="kc">None</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="fm">__del__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_disconnect</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_terminate_server</span><span class="p">()</span></div>
+
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_load_last_ip</span><span class="p">()</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+    <span class="n">config_path</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">expanduser</span><span class="p">(</span><span class="s2">"~/.aiofranka/config.json"</span><span class="p">)</span>
+    <span class="k">try</span><span class="p">:</span>
+        <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="n">config_path</span><span class="p">)</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">json</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="n">f</span><span class="p">)</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"last_ip"</span><span class="p">,</span> <span class="n">DEFAULT_IP</span><span class="p">)</span>
+    <span class="k">except</span> <span class="p">(</span><span class="ne">FileNotFoundError</span><span class="p">,</span> <span class="n">json</span><span class="o">.</span><span class="n">JSONDecodeError</span><span class="p">):</span>
+        <span class="k">return</span> <span class="n">DEFAULT_IP</span>
+</pre></div>
+
+           </div>
+          </div>
+          <footer>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2025, MIT Improbable AI Lab.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

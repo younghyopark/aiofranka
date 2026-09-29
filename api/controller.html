@@ -1,0 +1,729 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="../">
+<head>
+  <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Franka Controller &mdash; aiofranka 0.5.1 documentation</title>
+      <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=b86133f3" />
+      <link rel="stylesheet" type="text/css" href="../_static/css/theme.css?v=9edc463e" />
+
+  
+      <script src="../_static/jquery.js?v=5d32c60e"></script>
+      <script src="../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="../_static/documentation_options.js?v=b9afe91b"></script>
+      <script src="../_static/doctools.js?v=fd6eb6e6"></script>
+      <script src="../_static/sphinx_highlight.js?v=6ffebe34"></script>
+    <script src="../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="next" title="Robot Interface" href="robot.html" />
+    <link rel="prev" title="FrankaRemoteController (Server Mode)" href="remote.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../index.html" class="icon icon-home">
+            aiofranka
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">Getting Started</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../installation.html">Installation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../quickstart.html">Quick Start</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../controllers.html">Controllers</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../cli.html">CLI Reference</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../async_mode.html">Async Mode Guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../examples.html">Examples</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../troubleshooting.html">Troubleshooting</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">API Reference</span></p>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="remote.html">FrankaRemoteController (Server Mode)</a></li>
+<li class="toctree-l1 current"><a class="current reference internal" href="#">Franka Controller</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="#aiofranka.controller.FrankaController"><code class="docutils literal notranslate"><span class="pre">FrankaController</span></code></a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#aiofranka.controller.FrankaController.robot"><code class="docutils literal notranslate"><span class="pre">FrankaController.robot</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#aiofranka.controller.FrankaController.type"><code class="docutils literal notranslate"><span class="pre">FrankaController.type</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#aiofranka.controller.FrankaController.running"><code class="docutils literal notranslate"><span class="pre">FrankaController.running</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#aiofranka.controller.FrankaController.state"><code class="docutils literal notranslate"><span class="pre">FrankaController.state</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#aiofranka.controller.FrankaController.kp"><code class="docutils literal notranslate"><span class="pre">FrankaController.kp</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#aiofranka.controller.FrankaController.kd"><code class="docutils literal notranslate"><span class="pre">FrankaController.kd</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#aiofranka.controller.FrankaController.ee_kp"><code class="docutils literal notranslate"><span class="pre">FrankaController.ee_kp</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#aiofranka.controller.FrankaController.ee_kd"><code class="docutils literal notranslate"><span class="pre">FrankaController.ee_kd</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#aiofranka.controller.FrankaController.null_kp"><code class="docutils literal notranslate"><span class="pre">FrankaController.null_kp</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#aiofranka.controller.FrankaController.null_kd"><code class="docutils literal notranslate"><span class="pre">FrankaController.null_kd</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#aiofranka.controller.FrankaController.q_desired"><code class="docutils literal notranslate"><span class="pre">FrankaController.q_desired</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#aiofranka.controller.FrankaController.ee_desired"><code class="docutils literal notranslate"><span class="pre">FrankaController.ee_desired</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#aiofranka.controller.FrankaController.torque"><code class="docutils literal notranslate"><span class="pre">FrankaController.torque</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#aiofranka.controller.FrankaController.clip"><code class="docutils literal notranslate"><span class="pre">FrankaController.clip</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#aiofranka.controller.FrankaController.torque_diff_limit"><code class="docutils literal notranslate"><span class="pre">FrankaController.torque_diff_limit</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#aiofranka.controller.FrankaController.__init__"><code class="docutils literal notranslate"><span class="pre">FrankaController.__init__()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#aiofranka.controller.FrankaController.test_connection"><code class="docutils literal notranslate"><span class="pre">FrankaController.test_connection()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#aiofranka.controller.FrankaController.initialize"><code class="docutils literal notranslate"><span class="pre">FrankaController.initialize()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#aiofranka.controller.FrankaController.set_freq"><code class="docutils literal notranslate"><span class="pre">FrankaController.set_freq()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#aiofranka.controller.FrankaController.set"><code class="docutils literal notranslate"><span class="pre">FrankaController.set()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#aiofranka.controller.FrankaController.start"><code class="docutils literal notranslate"><span class="pre">FrankaController.start()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#aiofranka.controller.FrankaController.stop"><code class="docutils literal notranslate"><span class="pre">FrankaController.stop()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#aiofranka.controller.FrankaController.switch"><code class="docutils literal notranslate"><span class="pre">FrankaController.switch()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#aiofranka.controller.FrankaController.step"><code class="docutils literal notranslate"><span class="pre">FrankaController.step()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#aiofranka.controller.FrankaController.move"><code class="docutils literal notranslate"><span class="pre">FrankaController.move()</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="robot.html">Robot Interface</a></li>
+<li class="toctree-l1"><a class="reference internal" href="server.html">Server Functions</a></li>
+<li class="toctree-l1"><a class="reference internal" href="gripper.html">GripperController</a></li>
+<li class="toctree-l1"><a class="reference internal" href="utilities.html">Async Utilities</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../index.html">aiofranka</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../index.html" class="icon icon-home" aria-label="Home"></a></li>
+      <li class="breadcrumb-item active">Franka Controller</li>
+      <li class="wy-breadcrumbs-aside">
+            <a href="../_sources/api/controller.rst.txt" rel="nofollow"> View page source</a>
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <section id="module-aiofranka.controller">
+<span id="franka-controller"></span><h1>Franka Controller<a class="headerlink" href="#module-aiofranka.controller" title="Link to this heading"></a></h1>
+<dl class="py class">
+<dt class="sig sig-object py" id="aiofranka.controller.FrankaController">
+<span class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></span><span class="sig-prename descclassname"><span class="pre">aiofranka.controller.</span></span><span class="sig-name descname"><span class="pre">FrankaController</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">robot</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/aiofranka/controller.html#FrankaController"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#aiofranka.controller.FrankaController" title="Link to this definition"></a></dt>
+<dd><p>Bases: <a class="reference external" href="https://docs.python.org/3/builtins/functions.html#object" title="(in Python v3.14)"><code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></a></p>
+<p>High-level asyncio controller for Franka robots with multiple control modes.</p>
+<p>This controller runs a 1kHz torque control loop in the background using asyncio,
+while allowing you to send high-level commands asynchronously. Supports three
+control modes:</p>
+<ol class="arabic simple">
+<li><p>Impedance Control: Joint-space spring-damper control</p></li>
+<li><p>Operational Space Control (OSC): Task-space control with null-space</p></li>
+<li><p>Direct Torque Control: Raw torque commands</p></li>
+</ol>
+<p>The controller automatically handles:
+- Background control loop at 1kHz
+- Torque rate limiting for safety
+- Thread-safe state updates
+- Rate-limited command updates
+- Smooth trajectory generation</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>robot</strong> (<a class="reference internal" href="robot.html#aiofranka.robot.RobotInterface" title="aiofranka.robot.RobotInterface"><em>RobotInterface</em></a>)</p>
+</dd>
+</dl>
+<dl class="py attribute">
+<dt class="sig sig-object py" id="aiofranka.controller.FrankaController.robot">
+<span class="sig-name descname"><span class="pre">robot</span></span><a class="headerlink" href="#aiofranka.controller.FrankaController.robot" title="Link to this definition"></a></dt>
+<dd><p>Robot interface instance</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference internal" href="robot.html#aiofranka.robot.RobotInterface" title="aiofranka.robot.RobotInterface">RobotInterface</a></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="aiofranka.controller.FrankaController.type">
+<span class="sig-name descname"><span class="pre">type</span></span><a class="headerlink" href="#aiofranka.controller.FrankaController.type" title="Link to this definition"></a></dt>
+<dd><p>Current controller type (“impedance”, “osc”, “torque”)</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#str" title="(in Python v3.14)">str</a></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="aiofranka.controller.FrankaController.running">
+<span class="sig-name descname"><span class="pre">running</span></span><a class="headerlink" href="#aiofranka.controller.FrankaController.running" title="Link to this definition"></a></dt>
+<dd><p>Whether control loop is active</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/builtins/functions.html#bool" title="(in Python v3.14)">bool</a></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="aiofranka.controller.FrankaController.state">
+<span class="sig-name descname"><span class="pre">state</span></span><a class="headerlink" href="#aiofranka.controller.FrankaController.state" title="Link to this definition"></a></dt>
+<dd><p>Current robot state (updated at 1kHz)</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#dict" title="(in Python v3.14)">dict</a></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py">
+<span class="sig-name descname"><span class="pre">#</span> <span class="pre">Impedance</span> <span class="pre">control</span> <span class="pre">gains</span></span></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="aiofranka.controller.FrankaController.kp">
+<span class="sig-name descname"><span class="pre">kp</span></span><a class="headerlink" href="#aiofranka.controller.FrankaController.kp" title="Link to this definition"></a></dt>
+<dd><p>Joint position stiffness [Nm/rad] (7,)</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>np.ndarray</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="aiofranka.controller.FrankaController.kd">
+<span class="sig-name descname"><span class="pre">kd</span></span><a class="headerlink" href="#aiofranka.controller.FrankaController.kd" title="Link to this definition"></a></dt>
+<dd><p>Joint damping [Nm⋅s/rad] (7,)</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>np.ndarray</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py">
+<span class="sig-name descname"><span class="pre">#</span> <span class="pre">OSC</span> <span class="pre">gains</span></span></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="aiofranka.controller.FrankaController.ee_kp">
+<span class="sig-name descname"><span class="pre">ee_kp</span></span><a class="headerlink" href="#aiofranka.controller.FrankaController.ee_kp" title="Link to this definition"></a></dt>
+<dd><p>EE stiffness [N/m for xyz, Nm/rad for rpy] (6,)</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>np.ndarray</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="aiofranka.controller.FrankaController.ee_kd">
+<span class="sig-name descname"><span class="pre">ee_kd</span></span><a class="headerlink" href="#aiofranka.controller.FrankaController.ee_kd" title="Link to this definition"></a></dt>
+<dd><p>EE damping [N⋅s/m for xyz, Nm⋅s/rad for rpy] (6,)</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>np.ndarray</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="aiofranka.controller.FrankaController.null_kp">
+<span class="sig-name descname"><span class="pre">null_kp</span></span><a class="headerlink" href="#aiofranka.controller.FrankaController.null_kp" title="Link to this definition"></a></dt>
+<dd><p>Null-space stiffness [Nm/rad] (7,)</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>np.ndarray</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="aiofranka.controller.FrankaController.null_kd">
+<span class="sig-name descname"><span class="pre">null_kd</span></span><a class="headerlink" href="#aiofranka.controller.FrankaController.null_kd" title="Link to this definition"></a></dt>
+<dd><p>Null-space damping [Nm⋅s/rad] (7,)</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>np.ndarray</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py">
+<span class="sig-name descname"><span class="pre">#</span> <span class="pre">Target</span> <span class="pre">states</span></span></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="aiofranka.controller.FrankaController.q_desired">
+<span class="sig-name descname"><span class="pre">q_desired</span></span><a class="headerlink" href="#aiofranka.controller.FrankaController.q_desired" title="Link to this definition"></a></dt>
+<dd><p>Desired joint positions [rad] (7,)</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>np.ndarray</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="aiofranka.controller.FrankaController.ee_desired">
+<span class="sig-name descname"><span class="pre">ee_desired</span></span><a class="headerlink" href="#aiofranka.controller.FrankaController.ee_desired" title="Link to this definition"></a></dt>
+<dd><p>Desired EE pose as 4x4 transform</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>np.ndarray</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="aiofranka.controller.FrankaController.torque">
+<span class="sig-name descname"><span class="pre">torque</span></span><a class="headerlink" href="#aiofranka.controller.FrankaController.torque" title="Link to this definition"></a></dt>
+<dd><p>Direct torque command [Nm] (7,)</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>np.ndarray</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py">
+<span class="sig-name descname"><span class="pre">#</span> <span class="pre">Safety</span></span></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="aiofranka.controller.FrankaController.clip">
+<span class="sig-name descname"><span class="pre">clip</span></span><a class="headerlink" href="#aiofranka.controller.FrankaController.clip" title="Link to this definition"></a></dt>
+<dd><p>Enable torque rate limiting (default: True)</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/builtins/functions.html#bool" title="(in Python v3.14)">bool</a></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="aiofranka.controller.FrankaController.torque_diff_limit">
+<span class="sig-name descname"><span class="pre">torque_diff_limit</span></span><a class="headerlink" href="#aiofranka.controller.FrankaController.torque_diff_limit" title="Link to this definition"></a></dt>
+<dd><p>Max torque rate [Nm/s] (default: 990)</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/builtins/functions.html#float" title="(in Python v3.14)">float</a></p>
+</dd>
+</dl>
+</dd></dl>
+
+<p class="rubric">Examples</p>
+<dl>
+<dt>Basic usage:</dt><dd><div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">robot</span> <span class="o">=</span> <span class="n">RobotInterface</span><span class="p">(</span><span class="s2">"172.16.0.2"</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">controller</span> <span class="o">=</span> <span class="n">FrankaController</span><span class="p">(</span><span class="n">robot</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="k">await</span> <span class="n">controller</span><span class="o">.</span><span class="n">start</span><span class="p">()</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">controller</span><span class="o">.</span><span class="n">switch</span><span class="p">(</span><span class="s2">"impedance"</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">controller</span><span class="o">.</span><span class="n">set_freq</span><span class="p">(</span><span class="mi">50</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="k">await</span> <span class="n">controller</span><span class="o">.</span><span class="n">set</span><span class="p">(</span><span class="s2">"q_desired"</span><span class="p">,</span> <span class="n">target_joints</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="k">await</span> <span class="n">controller</span><span class="o">.</span><span class="n">stop</span><span class="p">()</span>
+</pre></div>
+</div>
+</dd>
+<dt>OSC control:</dt><dd><div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">controller</span><span class="o">.</span><span class="n">switch</span><span class="p">(</span><span class="s2">"osc"</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">controller</span><span class="o">.</span><span class="n">ee_kp</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="mi">300</span><span class="p">,</span> <span class="mi">300</span><span class="p">,</span> <span class="mi">300</span><span class="p">,</span> <span class="mi">1000</span><span class="p">,</span> <span class="mi">1000</span><span class="p">,</span> <span class="mi">1000</span><span class="p">])</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">controller</span><span class="o">.</span><span class="n">set_freq</span><span class="p">(</span><span class="mi">50</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">desired_ee</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">eye</span><span class="p">(</span><span class="mi">4</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">desired_ee</span><span class="p">[:</span><span class="mi">3</span><span class="p">,</span> <span class="mi">3</span><span class="p">]</span> <span class="o">=</span> <span class="p">[</span><span class="mf">0.4</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">,</span> <span class="mf">0.5</span><span class="p">]</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="k">await</span> <span class="n">controller</span><span class="o">.</span><span class="n">set</span><span class="p">(</span><span class="s2">"ee_desired"</span><span class="p">,</span> <span class="n">desired_ee</span><span class="p">)</span>
+</pre></div>
+</div>
+</dd>
+<dt>Direct torque:</dt><dd><div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">controller</span><span class="o">.</span><span class="n">switch</span><span class="p">(</span><span class="s2">"torque"</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">controller</span><span class="o">.</span><span class="n">torque</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="mi">7</span><span class="p">)</span>  <span class="c1"># Zero torques</span>
+</pre></div>
+</div>
+</dd>
+<dt>Caveats:</dt><dd><ul class="simple">
+<li><p>Must await controller.start() before sending commands</p></li>
+<li><p>Use set_freq() before set() to enforce timing</p></li>
+<li><p>High gains can cause instability or safety triggers</p></li>
+<li><p>Switching controllers resets initial state</p></li>
+<li><p>State access is thread-safe but copy if modifying</p></li>
+<li><p>Control loop must run continuously at ~1kHz</p></li>
+</ul>
+</dd>
+</dl>
+<dl class="py method">
+<dt class="sig sig-object py" id="aiofranka.controller.FrankaController.__init__">
+<span class="sig-name descname"><span class="pre">__init__</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">robot</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/aiofranka/controller.html#FrankaController.__init__"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#aiofranka.controller.FrankaController.__init__" title="Link to this definition"></a></dt>
+<dd><p>Initialize controller with robot interface.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>robot</strong> (<a class="reference internal" href="robot.html#aiofranka.robot.RobotInterface" title="aiofranka.robot.RobotInterface"><em>RobotInterface</em></a>) – Initialized robot interface</p>
+</dd>
+</dl>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>Controller is initialized in “impedance” mode with conservative gains.
+Call start() to begin the control loop, then switch() to change modes.</p>
+</div>
+<dl class="simple">
+<dt>Default Gains:</dt><dd><ul class="simple">
+<li><p>Impedance: kp=80, kd=4 (per joint)</p></li>
+<li><p>OSC: ee_kp=[100]*6, ee_kd=[4]*6</p></li>
+<li><p>Null-space: null_kp=1, null_kd=1</p></li>
+</ul>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="aiofranka.controller.FrankaController.test_connection">
+<span class="property"><span class="k"><span class="pre">async</span></span><span class="w"> </span></span><span class="sig-name descname"><span class="pre">test_connection</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../_modules/aiofranka/controller.html#FrankaController.test_connection"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#aiofranka.controller.FrankaController.test_connection" title="Link to this definition"></a></dt>
+<dd><p>Test control loop timing and diagnose connection quality.</p>
+<p>Runs for 5 seconds and prints statistics about control loop performance:
+- Actual frequency (should be ~1000 Hz)
+- Mean/std/min/max loop time
+- Jitter (max - min)</p>
+<p>Use this to verify your setup is working correctly before running experiments.</p>
+<dl class="simple">
+<dt>Example Output:</dt><dd><dl class="simple">
+<dt>Control loop stats (last 1000 iterations):</dt><dd><p>Frequency: 1000.2 Hz (target: 1000 Hz)
+Mean dt: 1.000 ms, Std: 0.015 ms
+Min dt: 0.985 ms, Max dt: 1.025 ms
+Jitter (max-min): 0.040 ms</p>
+</dd>
+</dl>
+</dd>
+<dt>Caveats:</dt><dd><ul class="simple">
+<li><p>High jitter (&gt;0.5ms) indicates system load or network issues</p></li>
+<li><p>Frequency &lt;990 Hz suggests performance problems</p></li>
+<li><p>Run on a dedicated realtime system for best results</p></li>
+</ul>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="aiofranka.controller.FrankaController.initialize">
+<span class="sig-name descname"><span class="pre">initialize</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../_modules/aiofranka/controller.html#FrankaController.initialize"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#aiofranka.controller.FrankaController.initialize" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="aiofranka.controller.FrankaController.set_freq">
+<span class="sig-name descname"><span class="pre">set_freq</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">freq</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/aiofranka/controller.html#FrankaController.set_freq"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#aiofranka.controller.FrankaController.set_freq" title="Link to this definition"></a></dt>
+<dd><p>Set the update frequency for rate-limited set() calls.</p>
+<p>This enforces strict timing for subsequent set() calls, automatically
+sleeping to maintain the specified frequency. Prevents sending commands
+too fast and ensures smooth, consistent control.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>freq</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/functions.html#float" title="(in Python v3.14)"><em>float</em></a>) – Desired update frequency in Hz (typically 10-100 Hz)</p>
+</dd>
+</dl>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>Must be called BEFORE the first set() call to take effect.
+Each attribute tracked by set() has independent timing.</p>
+</div>
+<p class="rubric">Examples</p>
+<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">controller</span><span class="o">.</span><span class="n">set_freq</span><span class="p">(</span><span class="mi">50</span><span class="p">)</span>  <span class="c1"># 50 Hz updates</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">100</span><span class="p">):</span>
+<span class="gp">... </span>    <span class="k">await</span> <span class="n">controller</span><span class="o">.</span><span class="n">set</span><span class="p">(</span><span class="s2">"q_desired"</span><span class="p">,</span> <span class="n">compute_target</span><span class="p">())</span>
+<span class="gp">... </span>    <span class="c1"># Automatically sleeps to maintain 50 Hz</span>
+</pre></div>
+</div>
+<dl class="simple">
+<dt>Caveats:</dt><dd><ul class="simple">
+<li><p>Don’t set freq &gt; 200 Hz (unnecessary and may cause timing issues)</p></li>
+<li><p>Lower freq = smoother motion but slower response</p></li>
+<li><p>Higher freq = faster response but requires more computation</p></li>
+<li><p>Timing is per-attribute (q_desired and ee_desired tracked separately)</p></li>
+</ul>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="aiofranka.controller.FrankaController.set">
+<span class="property"><span class="k"><span class="pre">async</span></span><span class="w"> </span></span><span class="sig-name descname"><span class="pre">set</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">attr</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">value</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/aiofranka/controller.html#FrankaController.set"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#aiofranka.controller.FrankaController.set" title="Link to this definition"></a></dt>
+<dd><p>Rate-limited setter that enforces strict timing for control updates.</p>
+<p>This method ensures updates to controller attributes happen at the
+frequency specified by set_freq(). It compensates for drift by tracking
+the target time for each update, guaranteeing consistent timing even
+if your computation time varies.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>attr</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a>) – Attribute name to set. Common values:
+- “q_desired”: Joint position target (impedance mode)
+- “ee_desired”: End-effector pose target (OSC mode)
+- “torque”: Direct torque command (torque mode)</p></li>
+<li><p><strong>value</strong> – Value to set. Type depends on attr:
+- q_desired: np.ndarray (7,) [rad]
+- ee_desired: np.ndarray (4, 4) homogeneous transform
+- torque: np.ndarray (7,) [Nm]</p></li>
+</ul>
+</dd>
+</dl>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<ul class="simple">
+<li><p>Automatically sleeps to maintain frequency set by set_freq()</p></li>
+<li><p>First call for an attribute initializes timing</p></li>
+<li><p>Each attribute has independent timing tracking</p></li>
+<li><p>Thread-safe update of shared state</p></li>
+</ul>
+</div>
+<p class="rubric">Examples</p>
+<dl>
+<dt>Impedance control:</dt><dd><div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">controller</span><span class="o">.</span><span class="n">set_freq</span><span class="p">(</span><span class="mi">50</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">100</span><span class="p">):</span>
+<span class="gp">... </span>    <span class="n">target</span> <span class="o">=</span> <span class="n">initial_q</span> <span class="o">+</span> <span class="n">np</span><span class="o">.</span><span class="n">sin</span><span class="p">(</span><span class="n">i</span> <span class="o">/</span> <span class="mf">50.0</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">pi</span><span class="p">)</span> <span class="o">*</span> <span class="mf">0.1</span>
+<span class="gp">... </span>    <span class="k">await</span> <span class="n">controller</span><span class="o">.</span><span class="n">set</span><span class="p">(</span><span class="s2">"q_desired"</span><span class="p">,</span> <span class="n">target</span><span class="p">)</span>
+</pre></div>
+</div>
+</dd>
+<dt>OSC control:</dt><dd><div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">controller</span><span class="o">.</span><span class="n">set_freq</span><span class="p">(</span><span class="mi">100</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">desired_ee</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">eye</span><span class="p">(</span><span class="mi">4</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">desired_ee</span><span class="p">[:</span><span class="mi">3</span><span class="p">,</span> <span class="mi">3</span><span class="p">]</span> <span class="o">=</span> <span class="p">[</span><span class="mf">0.5</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">,</span> <span class="mf">0.3</span><span class="p">]</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="k">await</span> <span class="n">controller</span><span class="o">.</span><span class="n">set</span><span class="p">(</span><span class="s2">"ee_desired"</span><span class="p">,</span> <span class="n">desired_ee</span><span class="p">)</span>
+</pre></div>
+</div>
+</dd>
+<dt>Caveats:</dt><dd><ul class="simple">
+<li><p>Must call set_freq() before first set() call</p></li>
+<li><p>If computation takes longer than 1/freq, timing will slip</p></li>
+<li><p>Don’t mix set() and direct attribute assignment</p></li>
+<li><p>Don’t call set() faster than the specified frequency</p></li>
+</ul>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="aiofranka.controller.FrankaController.start">
+<span class="property"><span class="k"><span class="pre">async</span></span><span class="w"> </span></span><span class="sig-name descname"><span class="pre">start</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../_modules/aiofranka/controller.html#FrankaController.start"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#aiofranka.controller.FrankaController.start" title="Link to this definition"></a></dt>
+<dd><p>Start the 1kHz background control loop.</p>
+<p>This creates an asyncio task that runs the control loop continuously
+at ~1000 Hz. The loop reads robot state, computes control torques based
+on the current controller type, and sends torque commands.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Returns<span class="colon">:</span></dt>
+<dd class="field-odd"><p>The background control loop task</p>
+</dd>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p><a class="reference external" href="https://docs.python.org/3/library/asyncio-task.html#asyncio.Task" title="(in Python v3.14)">asyncio.Task</a></p>
+</dd>
+</dl>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<ul class="simple">
+<li><p>Blocks for 1 second to ensure loop starts successfully</p></li>
+<li><p>Starts robot torque control mode automatically</p></li>
+<li><p>Control loop runs until stop() is called</p></li>
+<li><p>You can send commands via set() while loop is running</p></li>
+</ul>
+</div>
+<p class="rubric">Example</p>
+<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="k">await</span> <span class="n">controller</span><span class="o">.</span><span class="n">start</span><span class="p">()</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="c1"># Control loop now running in background</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">controller</span><span class="o">.</span><span class="n">set_freq</span><span class="p">(</span><span class="mi">50</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="k">await</span> <span class="n">controller</span><span class="o">.</span><span class="n">set</span><span class="p">(</span><span class="s2">"q_desired"</span><span class="p">,</span> <span class="n">target</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="k">await</span> <span class="n">controller</span><span class="o">.</span><span class="n">stop</span><span class="p">()</span>
+</pre></div>
+</div>
+<dl class="simple">
+<dt>Caveats:</dt><dd><ul class="simple">
+<li><p>Must be awaited (async function)</p></li>
+<li><p>Don’t call start() multiple times without stop()</p></li>
+<li><p>If loop crashes, robot will trigger safety stop</p></li>
+<li><p>Check terminal for error messages if robot stops unexpectedly</p></li>
+</ul>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="aiofranka.controller.FrankaController.stop">
+<span class="property"><span class="k"><span class="pre">async</span></span><span class="w"> </span></span><span class="sig-name descname"><span class="pre">stop</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../_modules/aiofranka/controller.html#FrankaController.stop"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#aiofranka.controller.FrankaController.stop" title="Link to this definition"></a></dt>
+<dd><p>Stop the background control loop and robot.</p>
+<p>Gracefully terminates the control loop task and stops robot torque control.
+Robot will hold position briefly then release brakes.</p>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<ul class="simple">
+<li><p>Blocks for 1 second to ensure clean shutdown</p></li>
+<li><p>Cancels asyncio control loop task</p></li>
+<li><p>Stops robot torque control mode</p></li>
+<li><p>Safe to call multiple times</p></li>
+</ul>
+</div>
+<p class="rubric">Example</p>
+<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="k">await</span> <span class="n">controller</span><span class="o">.</span><span class="n">start</span><span class="p">()</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="c1"># ... do control ...</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="k">await</span> <span class="n">controller</span><span class="o">.</span><span class="n">stop</span><span class="p">()</span>
+</pre></div>
+</div>
+<dl class="simple">
+<dt>Caveat:</dt><dd><p>Ensure robot is in a safe configuration before stopping. Robot
+will briefly hold position then release brakes.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="aiofranka.controller.FrankaController.switch">
+<span class="sig-name descname"><span class="pre">switch</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">controller_type</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/aiofranka/controller.html#FrankaController.switch"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#aiofranka.controller.FrankaController.switch" title="Link to this definition"></a></dt>
+<dd><p>Switch between control modes at runtime.</p>
+<p>Changes the active controller without stopping the control loop. Resets
+the initial state (initial_qpos, initial_ee) to current robot state and
+clears rate-limiting timing.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>controller_type</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a>) – Controller type to switch to:
+- “impedance”: Joint-space impedance control
+- “pid”: Joint-space PID control with integral term
+- “osc”: Operational space control (task space)
+- “torque”: Direct torque control</p>
+</dd>
+</dl>
+<p class="rubric">Example</p>
+<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">controller</span><span class="o">.</span><span class="n">switch</span><span class="p">(</span><span class="s2">"impedance"</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">controller</span><span class="o">.</span><span class="n">kp</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">ones</span><span class="p">(</span><span class="mi">7</span><span class="p">)</span> <span class="o">*</span> <span class="mi">80</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="c1"># ... run impedance control ...</span>
+<span class="gp">&gt;&gt;&gt;</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">controller</span><span class="o">.</span><span class="n">switch</span><span class="p">(</span><span class="s2">"osc"</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">controller</span><span class="o">.</span><span class="n">ee_kp</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="mi">300</span><span class="p">,</span> <span class="mi">300</span><span class="p">,</span> <span class="mi">300</span><span class="p">,</span> <span class="mi">1000</span><span class="p">,</span> <span class="mi">1000</span><span class="p">,</span> <span class="mi">1000</span><span class="p">])</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="c1"># ... run OSC control ...</span>
+</pre></div>
+</div>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<ul class="simple">
+<li><p>Can be called while control loop is running</p></li>
+<li><p>Resets q_desired to current position</p></li>
+<li><p>Resets ee_desired to current end-effector pose</p></li>
+<li><p>Clears timing state from previous set() calls</p></li>
+<li><p>Resets integral term when switching to/from PID</p></li>
+</ul>
+</div>
+<dl class="simple">
+<dt>Caveats:</dt><dd><ul class="simple">
+<li><p>Switching causes brief discontinuity in control</p></li>
+<li><p>Adjust gains after switching for smooth transition</p></li>
+<li><p>Don’t switch rapidly (&lt; 1 Hz) as it resets state</p></li>
+</ul>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="aiofranka.controller.FrankaController.step">
+<span class="sig-name descname"><span class="pre">step</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../_modules/aiofranka/controller.html#FrankaController.step"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#aiofranka.controller.FrankaController.step" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="aiofranka.controller.FrankaController.move">
+<span class="property"><span class="k"><span class="pre">async</span></span><span class="w"> </span></span><span class="sig-name descname"><span class="pre">move</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">qpos</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">[0,</span> <span class="pre">0,</span> <span class="pre">0.0,</span> <span class="pre">-1.57079,</span> <span class="pre">0,</span> <span class="pre">1.57079,</span> <span class="pre">-0.7853]</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/aiofranka/controller.html#FrankaController.move"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#aiofranka.controller.FrankaController.move" title="Link to this definition"></a></dt>
+<dd><p>Move robot to target joint position using smooth trajectory.</p>
+<p>Generates a time-optimal, jerk-limited trajectory using Ruckig online
+trajectory generation, then executes it at 50 Hz. Automatically switches
+to impedance mode if not already active.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>qpos</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#list" title="(in Python v3.14)"><em>list</em></a><em> | </em><em>np.ndarray</em>) – Target joint positions [rad] (7,)
+Default: Home position</p>
+</dd>
+</dl>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<ul class="simple">
+<li><p>Uses Ruckig for smooth, time-optimal trajectories</p></li>
+<li><p>Respects velocity, acceleration, and jerk limits</p></li>
+<li><p>Switches to impedance control automatically</p></li>
+<li><p>Executes trajectory at 50 Hz (20ms updates)</p></li>
+<li><p>Duration depends on distance and limits</p></li>
+</ul>
+</div>
+<dl class="simple">
+<dt>Trajectory Limits:</dt><dd><ul class="simple">
+<li><p>Max velocity: 10 rad/s per joint</p></li>
+<li><p>Max acceleration: 5 rad/s² per joint</p></li>
+<li><p>Max jerk: 1 rad/s³ per joint</p></li>
+</ul>
+</dd>
+</dl>
+<p class="rubric">Examples</p>
+<dl>
+<dt>Move to home position:</dt><dd><div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="k">await</span> <span class="n">controller</span><span class="o">.</span><span class="n">move</span><span class="p">()</span>
+</pre></div>
+</div>
+</dd>
+<dt>Move to custom position:</dt><dd><div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">target</span> <span class="o">=</span> <span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="o">-</span><span class="mf">0.785</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="o">-</span><span class="mf">2.356</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mf">1.571</span><span class="p">,</span> <span class="mf">0.785</span><span class="p">]</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="k">await</span> <span class="n">controller</span><span class="o">.</span><span class="n">move</span><span class="p">(</span><span class="n">target</span><span class="p">)</span>
+</pre></div>
+</div>
+</dd>
+<dt>Move to current position + offset:</dt><dd><div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">current</span> <span class="o">=</span> <span class="n">controller</span><span class="o">.</span><span class="n">state</span><span class="p">[</span><span class="s1">'qpos'</span><span class="p">]</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="k">await</span> <span class="n">controller</span><span class="o">.</span><span class="n">move</span><span class="p">(</span><span class="n">current</span> <span class="o">+</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="mf">0.1</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">]))</span>
+</pre></div>
+</div>
+</dd>
+<dt>Caveats:</dt><dd><ul class="simple">
+<li><p>Large motions take longer (trajectory is time-optimal)</p></li>
+<li><p>Don’t call while other control is active</p></li>
+<li><p>Blocks until motion completes</p></li>
+<li><p>Switches to impedance mode (resets controller state)</p></li>
+<li><p>May fail if target is at joint limits or in collision</p></li>
+</ul>
+</dd>
+</dl>
+</dd></dl>
+
+</dd></dl>
+
+</section>
+
+
+           </div>
+          </div>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="remote.html" class="btn btn-neutral float-left" title="FrankaRemoteController (Server Mode)" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="robot.html" class="btn btn-neutral float-right" title="Robot Interface" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2025, MIT Improbable AI Lab.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>
