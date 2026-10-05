@@ -812,9 +812,58 @@ def cmd_status(args):
 
     print()
 
+def _change_mode(client, robot_ip: str, desired: str) -> bool:
+    """
+    Change the operating mode to desired ("Programming" or "Execution") as Desk's mode
+    switch does, printing the steps, and hand the control token back to Desk. Programming
+    deactivates FCI and opens the brakes for hand guiding. Returns whether it succeeded.
+    """
+    from aiofranka.server import _load_token_state, _clear_token
+
+    change = client.get_operating_mode() != desired
+    # Programming: FCI only runs in Execution, and hand guiding needs open brakes.
+    deactivate_fci = desired == "Programming" and client.is_fci_active()
+    unlock_joints = desired == "Programming" and not client.are_joints_unlocked()
+    total = 2 + int(change) + int(deactivate_fci) + int(unlock_joints)
+    try:
+        # Reuse the token aiofranka unlock saved: taking another would wait for it.
+        step = 1
+        client._token, client._token_id = _load_token_state(robot_ip)
+        if client._token is not None and client.validate_token():
+            print(_cli_step_line(step, total, "Acquiring control token",
+                                 f"{GREEN}done{RST} {DIM}(reused){RST}"))
+        else:
+            if client._token is not None:  # stale: release it so take_token won't deadlock
+                client.release_token(best_effort=True)
+            client._token = client._token_id = None
+            _cli_run_with_spinner("Acquiring control token", step, total,
+                                  client.take_token, timeout=15)
+
+        if deactivate_fci:
+            step += 1
+            _cli_run_with_spinner("Deactivating FCI", step, total, client.deactivate_fci)
+        if change:
+            step += 1
+            _cli_run_with_spinner(f"Changing operating mode to {desired}", step, total,
+                                  client.change_operating_mode, desired)
+        if unlock_joints:
+            step += 1
+            _cli_run_with_spinner("Unlocking joints", step, total, client.unlock)
+        return True
+    except Exception as e:
+        print(f"\n  {RED}Error:{RST} {e}")
+        return False
+    finally:
+        # Hand control back to Desk; aiofranka unlock takes it again for FCI.
+        if client._token is not None:
+            _cli_run_with_spinner("Releasing control token", total, total,
+                                  client.release_token, best_effort=True)
+            _clear_token(robot_ip)
+
+
 def cmd_mode(args):
     """View or change the operating mode."""
-    from aiofranka.server import _DeskClientV2, _load_token_state, _clear_token
+    from aiofranka.server import _DeskClientV2
 
     robot_ip = _resolve_ip(args.ip)
     protocol = args.protocol
@@ -833,46 +882,8 @@ def cmd_mode(args):
             print(f"  Stop it first with: {BOLD}aiofranka stop{RST}\n")
             return
 
-        # Programming: FCI only runs in Execution, and hand guiding needs open brakes.
-        deactivate_fci = desired == "Programming" and client.is_fci_active()
-        unlock_joints = desired == "Programming" and not client.are_joints_unlocked()
-        total = 3 + int(deactivate_fci) + int(unlock_joints)
-        changed = False
         print()
-        try:
-            # Reuse the token aiofranka unlock saved: taking another would wait for it.
-            step = 1
-            client._token, client._token_id = _load_token_state(robot_ip)
-            if client._token is not None and client.validate_token():
-                print(_cli_step_line(step, total, "Acquiring control token",
-                                     f"{GREEN}done{RST} {DIM}(reused){RST}"))
-            else:
-                if client._token is not None:  # stale: release it so take_token won't deadlock
-                    client.release_token(best_effort=True)
-                client._token = client._token_id = None
-                _cli_run_with_spinner("Acquiring control token", step, total,
-                                      client.take_token, timeout=15)
-
-            if deactivate_fci:
-                step += 1
-                _cli_run_with_spinner("Deactivating FCI", step, total, client.deactivate_fci)
-            step += 1
-            _cli_run_with_spinner(f"Changing operating mode to {desired}", step, total,
-                                  client.change_operating_mode, desired)
-            changed = True
-            if unlock_joints:
-                step += 1
-                _cli_run_with_spinner("Unlocking joints", step, total, client.unlock)
-        except Exception as e:
-            print(f"\n  {RED}Error:{RST} {e}")
-        finally:
-            # Hand control back to Desk; aiofranka unlock takes it again for FCI.
-            if client._token is not None:
-                _cli_run_with_spinner("Releasing control token", total, total,
-                                      client.release_token, best_effort=True)
-                _clear_token(robot_ip)
-
-        if changed:
+        if _change_mode(client, robot_ip, desired):
             print(f"\n  {GREEN}Operating mode changed to {desired}{RST}")
             if desired == "Programming":
                 print(f"  Hand-guide with the guiding button near the end effector.")
@@ -1095,10 +1106,13 @@ def _print_tool(tool):
 
 
 def _cli_take_control(client, robot_ip: str):
-    """Take the control token, recover errors, unlock the joints and activate FCI."""
+    """Take the control token, recover errors, switch from Programming to Execution, unlock
+    the joints and activate FCI."""
     from aiofranka.server import _load_token_state, _save_token_state, _clear_token
 
-    total = 4
+    # FCI only activates in Execution, e.g. not after hand guiding in Programming.
+    programming = client.get_operating_mode() == "Programming"
+    total = 4 + int(programming)
     saved_token, saved_token_id = _load_token_state(robot_ip)
     if saved_token is not None:
         client._token = saved_token
@@ -1114,14 +1128,19 @@ def _cli_take_control(client, robot_ip: str):
 
     try:
         _cli_run_with_spinner("Recovering safety errors", 2, total, client.recover_errors)
+        step = 3
+        if programming:
+            _cli_run_with_spinner("Changing operating mode to Execution", step, total,
+                                  client.change_operating_mode, "Execution")
+            step += 1
         if client.are_joints_unlocked():
-            print(_cli_step_line(3, total, "Unlocking joints", f"{GREEN}done{RST} {DIM}(already){RST}"))
+            print(_cli_step_line(step, total, "Unlocking joints", f"{GREEN}done{RST} {DIM}(already){RST}"))
         else:
-            _cli_run_with_spinner("Unlocking joints", 3, total, client.unlock)
+            _cli_run_with_spinner("Unlocking joints", step, total, client.unlock)
         if client.is_fci_active():
-            print(_cli_step_line(4, total, "Activating FCI", f"{GREEN}done{RST} {DIM}(already){RST}"))
+            print(_cli_step_line(step + 1, total, "Activating FCI", f"{GREEN}done{RST} {DIM}(already){RST}"))
         else:
-            _cli_run_with_spinner("Activating FCI", 4, total, client.activate_fci)
+            _cli_run_with_spinner("Activating FCI", step + 1, total, client.activate_fci)
         _save_token_state(robot_ip, client._token, client._token_id)
     except Exception:
         try:
@@ -1135,10 +1154,11 @@ def _cli_take_control(client, robot_ip: str):
 async def _identify_tool(robot_ip: str, kwargs: dict):
     """Connect and identify the tool on the flange; identify_payload() starts and stops the loop."""
     import numpy as np
-    from aiofranka.controller import FrankaController
+    from aiofranka.native import NativeFrankaController
     from aiofranka.robot import RobotInterface
 
-    controller = FrankaController(RobotInterface(robot_ip, read_tool=False))
+    # The 1 kHz loop runs in C++, so nothing in Python delays a torque command.
+    controller = NativeFrankaController(RobotInterface(robot_ip, read_tool=False))
     # Joint impedance gains as for moving home.
     gains = np.array([1, 1, 1, 1, 0.6, 0.6, 0.6])
     controller.kp, controller.kd = gains * 80, gains * 4
@@ -1294,7 +1314,7 @@ def cmd_camera(args):
             _print_calibration(camera.fit_session(args.session), Path(args.session))
             return
 
-        from aiofranka.server import _DeskClientV2, _clear_token
+        from aiofranka.server import _DeskClientV2
 
         robot_ip = _resolve_ip(args.ip)
         username, password = _resolve_credentials(args)
@@ -1304,17 +1324,15 @@ def cmd_camera(args):
             print(f"  {RED}Error:{RST} A server (PID {pid}) is connected to the robot. "
                   f"Stop it with {BOLD}aiofranka stop{RST} first.\n")
             return
+        # Programming mode, where the guiding button on the end effector moves the arm.
         client = _DeskClientV2(robot_ip, username, password, protocol=args.protocol)
-        _cli_take_control(client, robot_ip)
-        try:
-            session = camera.calibrate(robot_ip, stream=args.stream, cube=args.cube or camera.CUBE,
-                                       out=args.out, damping=args.damping)
-        finally:
-            try:
-                _cli_run_with_spinner("Releasing control token", 1, 1, client.release_token)
-                _clear_token(robot_ip)
-            except Exception:
-                pass
+        if not _change_mode(client, robot_ip, "Programming"):
+            print()
+            return
+        session = camera.calibrate(robot_ip, stream=args.stream, cube=args.cube or camera.CUBE,
+                                   out=args.out, username=username, password=password,
+                                   protocol=args.protocol)
+        print(f"\n  The robot stays in Programming mode; {BOLD}aiofranka unlock{RST} switches back for FCI.")
         if (session / "calibration.json").exists():
             _print_calibration(json.loads((session / "calibration.json").read_text()), session)
         else:
@@ -2533,7 +2551,8 @@ def main():
         "camera", help="Calibrate a fixed camera against the robot (pip install 'aiofranka[camera]')")
     camera_sub = p_camera.add_subparsers(dest="camera_command")
     p_camera_calibrate = camera_sub.add_parser(
-        "calibrate", help="Capture views of the calibration cube while moving the arm by hand, and fit")
+        "calibrate", help="Capture views of the calibration cube while moving the arm by hand in "
+                          "Programming mode, and fit")
     p_camera_calibrate.add_argument("--ip", type=str, default=None, help="Robot IP")
     p_camera_calibrate.add_argument("--username", type=str, default="admin", help="Robot web UI username")
     p_camera_calibrate.add_argument("--password", type=str, default="admin", help="Robot web UI password")
@@ -2545,8 +2564,6 @@ def main():
                                     help="AprilCube config.json (default: aprilcube's calibration cube)")
     p_camera_calibrate.add_argument("--out", type=str, default="camera_calibration",
                                     help="Folder for the session folder (default: camera_calibration)")
-    p_camera_calibrate.add_argument("--damping", type=float, default=1.0,
-                                    help="Joint damping while moved by hand in Nm s/rad (default: 1)")
     p_camera_fit = camera_sub.add_parser("fit", help="Fit a recorded session again")
     p_camera_fit.add_argument("session", help="Session folder with views.json")
 

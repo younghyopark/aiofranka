@@ -363,7 +363,7 @@ e.g. "No End Effector". Save the result as a profile and activate it:
 
    import aiofranka
 
-   controller = aiofranka.FrankaController(aiofranka.RobotInterface("172.16.0.2"))
+   controller = aiofranka.NativeFrankaController(aiofranka.RobotInterface("172.16.0.2"))
    estimate = await controller.identify_payload(tool_length=0.25)   # moves the robot
    aiofranka.save_tool("gripper", estimate.mass, estimate.com)       # create or update the profile
    aiofranka.load_tool("gripper")                                     # activate it

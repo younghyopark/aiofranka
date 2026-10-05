@@ -1,15 +1,16 @@
 """
 Calibrate a fixed camera against the robot: where it is in the robot's base frame.
 
-The arm holds an AprilCube on its flange and is moved by hand in damped gravity
-compensation, to 15 to 25 poses spread over the image, near and far, with the wrist
-turned about at least two axes. Whenever the arm rests at a new pose with the cube in
-view, the cube's tag corners are detected in a fresh frame and recorded with the
-flange pose, and the terminal beeps. The fit finds the camera in the base frame
-(T_base_camera) and the cube on the flange (T_ee_cube) that best reproject the corners
-in every view, with the stream's factory intrinsics held fixed. Every fifth view is
-held out of a first fit to measure the error on views it has not seen; the result is
-then fitted on all views.
+The arm holds an AprilCube on its flange and is moved by hand in Programming mode,
+holding the guiding button on the end effector, to 15 to 25 poses spread over the
+image, near and far, with the wrist turned about at least two axes. Whenever the arm
+rests at a new pose with the cube in view, the cube's tag corners are detected in a
+fresh frame and recorded with the flange pose, and the terminal beeps. FCI does not run
+in Programming mode, so the joint positions come from Desk, as its web UI gets them.
+The fit finds the camera in the base frame (T_base_camera) and the cube on the flange
+(T_ee_cube) that best reproject the corners in every view, with the stream's factory
+intrinsics held fixed. Every fifth view is held out of a first fit to measure the error
+on views it has not seen; the result is then fitted on all views.
 
 The default cube is aprilcube's robot calibration cube (calibration_cube.json). Print
 https://github.com/younghyopark/aprilcube/blob/main/models/calibration_cube/cube.3mf
@@ -31,17 +32,22 @@ import json
 import math
 import os
 import select
+import ssl
 import sys
 import termios
+import threading
 import time
 import tty
 from collections import deque
 from pathlib import Path
 
 import cv2
+import mujoco
 import numpy as np
 from scipy.optimize import least_squares
 from scipy.spatial.transform import Rotation
+
+from aiofranka.payload import MODEL_PATH, _kinematics
 
 CUBE = Path(__file__).resolve().parent / "calibration_cube.json"
 STILL_SPEED = 0.01  # rad/s: a capture needs every joint slower than this ...
@@ -130,24 +136,25 @@ class Cube:
                 "image_points_px": pixels.tolist(), "tag_ids": tags, "reprojection_rms_px": rms}
 
 
-def calibrate(robot_ip, stream=None, cube=CUBE, out="camera_calibration", damping=1.0):
+def calibrate(robot_ip, stream=None, cube=CUBE, out="camera_calibration",
+              username="admin", password="admin", protocol="https"):
     """
     Capture views of the cube while the arm is moved by hand, and fit. Returns the
     session folder: views.json and images/, and calibration.json once fitted. The robot
-    must be unlocked with FCI active.
+    must be in Programming mode with its joints unlocked (aiofranka mode program); the
+    joint positions come from Desk, logged in with username and password.
 
     Args:
         robot_ip (str): Robot IP
         stream (str | None): aiocamera stream; None for the only RealSense color stream
         cube (str | Path): AprilCube config.json
         out (str | Path): Folder for the session folder
-        damping (float): Joint damping while moved by hand [Nm s/rad]
+        username (str): Desk username
+        password (str): Desk password
+        protocol (str): Desk's protocol, "https" or "http"
     """
     from aiocamera import CameraClient
     from aiocamera.transport import IPC_ENDPOINT
-
-    from aiofranka.payload import MODEL_PATH
-    from aiofranka.remote import FrankaRemoteController
 
     camera = CameraClient()
     stream, camera_info = _pick_stream(camera, stream)
@@ -188,25 +195,21 @@ def calibrate(robot_ip, stream=None, cube=CUBE, out="camera_calibration", dampin
     header = (f"{BOLD}aiofranka{RST} {DIM}|{RST} camera calibrate {DIM}({robot_ip}){RST}   "
               f"{stream} {intrinsics['width']}x{intrinsics['height']}, cube {cube.path.name}")
 
-    controller = FrankaRemoteController(robot_ip)
-    controller.start()
+    arm = _DeskArm(robot_ip, username, password, protocol)
     try:
-        # Gravity compensation with damping: no stiffness, so the arm goes where it is moved.
-        controller.kp = np.zeros(7)
-        controller.kd = np.full(7, float(damping))
-        controller.switch("impedance")
-        _capture(controller, camera, stream, cube, K, D, dataset, session, header)
+        _capture(arm, camera, stream, cube, K, D, dataset, session, header)
     finally:
-        controller.stop()
+        arm.close()
     return session
 
 
-def _capture(controller, camera, stream, cube, K, D, dataset, session, header):
+def _capture(arm, camera, stream, cube, K, D, dataset, session, header):
     """The capture loop: a live view in the terminal. It captures by itself when the arm
-    rests at a new pose with the cube in view, and takes single-key commands."""
+    (_DeskArm) rests at a new pose with the cube in view, and takes single-key commands."""
     views = dataset["views"]
     speeds = deque()  # (time, fastest joint speed)
-    message = f"Move the arm by hand and let it rest: each new pose is captured after {STILL_TIME:g} s."
+    message = (f"Hold the guiding button on the end effector to move the arm, and let go: each new "
+               f"pose is captured after {STILL_TIME:g} s at rest.")
     motion = _motion([])
     armed = True  # after a capture or an undo, wait for the arm to move before the next one
     drawn = 0.0
@@ -217,7 +220,7 @@ def _capture(controller, camera, stream, cube, K, D, dataset, session, header):
                 view, problem = cube.detect(frame, K, D), None
             except ValueError as error:
                 view, problem = None, str(error)
-            state = controller.state
+            state = arm.state
             now = time.monotonic()
             speeds.append((now, float(np.abs(state["qvel"]).max())))
             while now - speeds[0][0] > STILL_TIME + 0.2:
@@ -252,7 +255,7 @@ def _capture(controller, camera, stream, cube, K, D, dataset, session, header):
             if capture:
                 armed = False
                 try:
-                    message = _record(controller, camera, stream, cube, K, D, views, session, speed)
+                    message = _record(arm, camera, stream, cube, K, D, views, session, speed)
                     terminal.bell()
                     _write_json(session / "views.json", dataset)
                     motion = _motion(_poses(views))
@@ -265,14 +268,14 @@ def _capture(controller, camera, stream, cube, K, D, dataset, session, header):
                 drawn = now
 
 
-def _record(controller, camera, stream, cube, K, D, views, session, speed):
+def _record(arm, camera, stream, cube, K, D, views, session, speed):
     """Detect the cube in a new frame and record it with the flange pose; raises ValueError."""
     frame = camera.get_frame(stream)  # a frame taken now, with the arm still
     view = cube.detect(frame, K, D)
     if view["reprojection_rms_px"] > MAX_VIEW_RMS:
         raise ValueError(f"the cube fits its tags to {view['reprojection_rms_px']:.1f} px, "
                          f"more than {MAX_VIEW_RMS:g} px")
-    state = controller.state
+    state = arm.state
     if np.abs(state["qvel"]).max() > STILL_SPEED:
         raise ValueError("the arm moved")
     image = f"images/{len(views):04d}.png"
@@ -288,6 +291,73 @@ def _record(controller, camera, stream, cube, K, D, views, session, speed):
     })
     return (f"{GREEN}Captured view {len(views)}{RST}: {len(view['tag_ids'])} tags, "
             f"{view['reprojection_rms_px']:.2f} px.")
+
+
+class _DeskArm:
+    """
+    The arm's joint positions as Desk's web UI gets them, from its websocket, about ten
+    times a second. They come in Programming mode too, where FCI does not run. state is a
+    controller's: qpos, qvel from the last two, and ee, the flange pose.
+    """
+
+    def __init__(self, robot_ip, username, password, protocol="https"):
+        from websockets.sync.client import connect
+
+        from aiofranka.server import _DeskClientV2
+
+        cookie = _DeskClientV2(robot_ip, username, password, protocol=protocol)._login_cookie()
+        context = None
+        if protocol == "https":
+            context = ssl.create_default_context()
+            context.check_hostname = False  # Desk's certificate is self-signed
+            context.verify_mode = ssl.CERT_NONE
+        url = f"{'wss' if protocol == 'https' else 'ws'}://{robot_ip}/desk/api/robot/configuration"
+        for attempt in range(3):
+            try:
+                self._socket = connect(url, ssl=context, open_timeout=3,
+                                       additional_headers={"Cookie": f"authorization={cookie}"})
+                break
+            except TimeoutError:  # Desk leaves a handshake unanswered now and then
+                if attempt == 2:
+                    raise
+        self._samples = deque(maxlen=2)  # (time [s], joint positions [rad])
+        self._lock = threading.Lock()
+        threading.Thread(target=self._receive, daemon=True).start()
+        deadline = time.monotonic() + 3.0
+        while len(self._samples) < 2:
+            if time.monotonic() > deadline:
+                self.close()
+                raise RuntimeError("Desk sends no joint positions")
+            time.sleep(0.05)
+
+    def _receive(self):
+        try:
+            for message in self._socket:
+                qpos = np.array(json.loads(message)["jointAngles"], dtype=float)
+                with self._lock:
+                    self._samples.append((time.monotonic(), qpos))
+        except Exception:
+            pass  # closed or lost; state notices that the joint positions stop
+
+    @property
+    def state(self):
+        with self._lock:
+            (t0, q0), (t1, q1) = self._samples
+        if time.monotonic() - t1 > 1.0:
+            raise RuntimeError("Desk stopped sending the joint positions")
+        return {"qpos": q1, "qvel": (q1 - q0) / max(t1 - t0, 1e-3), "ee": _flange(q1)}
+
+    def close(self):
+        self._socket.close()
+
+
+def _flange(qpos):
+    """T_base_ee at joint positions qpos: the attachment_site of aiofranka's model, as
+    state['ee'] is."""
+    model, data, site = _kinematics()
+    data.qpos[:7] = qpos
+    mujoco.mj_kinematics(model, data)
+    return _transform(data.site_xmat[site].reshape(3, 3), data.site_xpos[site])
 
 
 def fit_session(session):

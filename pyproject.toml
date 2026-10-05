@@ -56,10 +56,12 @@ robotiq = [
     "minimalmodbus",
     "pyrobotiqgripper",
 ]
-# aiofranka camera calibrate: aiocamera serves the frames, aprilcube detects the cube.
+# aiofranka camera calibrate: aiocamera serves the frames, aprilcube detects the cube, and
+# Desk's websocket gives the joint positions in Programming mode.
 camera = [
     "aprilcube>=0.3",
     "aiocamera[realsense]>=0.1",
+    "websockets>=13",
 ]
 
 [project.urls]

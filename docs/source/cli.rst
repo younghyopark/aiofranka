@@ -160,12 +160,14 @@ active Desk profile. It needs the camera extra: ``pip install "aiofranka[camera]
    aiofranka camera calibrate      # move the arm by hand; captures and fits into camera_calibration/<date>/
    aiofranka camera fit SESSION    # fit a recorded session again
 
-``camera calibrate`` unlocks the robot like ``tool identify`` and runs it in gravity compensation
-with light damping (``--damping``, default 1 Nm s/rad), with a live view of the camera image in the
-terminal. Whenever the arm has rested for 0.7 s at a new pose, 5 cm or 10 deg from every view so
-far, with the cube in view, it records the view and beeps. Space captures anyway, ``u`` removes the
-last view, Enter fits and ``q`` quits keeping the views. The fit writes ``calibration.json`` with
-``T_base_camera``, ``T_ee_cube``, the intrinsics and the reprojection errors on held-out views.
+``camera calibrate`` switches the robot to Programming mode like ``aiofranka mode program``, with a
+live view of the camera image in the terminal. Move the arm holding the guiding button on the end
+effector, and let go: whenever it has rested for 0.7 s at a new pose, 5 cm or 10 deg from every view
+so far, with the cube in view, it records the view and beeps. The joint positions come from Desk, as
+its web UI gets them. Space captures anyway, ``u`` removes the last view, Enter fits and ``q`` quits
+keeping the views. The fit writes ``calibration.json`` with ``T_base_camera``, ``T_ee_cube``, the
+intrinsics and the reprojection errors on held-out views. The robot stays in Programming mode;
+``aiofranka unlock`` switches back.
 
 selftest
 --------

@@ -308,7 +308,10 @@ def _collision_model(tool_length, tool_radius, floor, clearance):
 def _is_clear(model, data, qpos):
     data.qpos[:7] = qpos
     mujoco.mj_fwdPosition(model, data)
-    return data.ncon == 0
+    # MuJoCo adds the margins of two geoms, so it reports the tool from as far as twice
+    # the clearance from the floor: only contacts within the larger margin count.
+    margin = model.geom_margin
+    return all(c.dist >= max(margin[c.geom1], margin[c.geom2]) for c in data.contact[:data.ncon])
 
 
 def _closest(model, data, qpos, clearance):
