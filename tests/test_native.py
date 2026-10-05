@@ -272,6 +272,9 @@ class SimulationLoopTest(unittest.TestCase):
                 await controller.stop()
 
         reached, drift, state = quietly(run())
+        stats = controller.loop_stats()
+        self.assertGreater(stats["count"], 1000)
+        self.assertLess(stats["mean"], 1.5e-3)
         self.assertLess(reached, controller.arrival_tolerance)
         self.assertLess(drift, 0.01)  # switching holds the arm where it is
         self.assertEqual(sorted(state), ["ee", "jac", "last_torque", "mm", "qpos", "qvel"])
@@ -323,11 +326,16 @@ class FakeRobotTest(unittest.TestCase):
         world = robot.robot.world
         self.assertLess(np.abs(world.qpos - target).max(), controller.arrival_tolerance)
         self.assertEqual(active.reads, active.writes)  # every state read got a command
-        self.assertIsInstance(robot_state, pylibfranka.RobotState)
-        self.assertEqual(robot_state.robot_mode, pylibfranka.RobotMode.Move)
-        np.testing.assert_allclose(robot_state.q, world.qpos, atol=1e-3)
         np.testing.assert_allclose(state["qpos"], world.qpos, atol=1e-3)
         self.assertIsNone(robot.torque_controller)
+        if load_native().has_pylibfranka_types():
+            self.assertIsInstance(robot_state, pylibfranka.RobotState)
+            self.assertEqual(robot_state.robot_mode, pylibfranka.RobotMode.Move)
+            np.testing.assert_allclose(robot_state.q, world.qpos, atol=1e-3)
+        else:
+            # Built with other pybind11 internals than pylibfranka, the loop can only update
+            # a RobotState that RobotInterface read, and this fake robot has none.
+            self.assertIsNone(robot_state)
 
     def test_python_stalls_do_not_delay_the_commands(self):
         def hold_the_gil(seconds):

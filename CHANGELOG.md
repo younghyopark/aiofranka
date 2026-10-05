@@ -11,6 +11,7 @@
 
 - aiofranka builds the optional extension `aiofranka._native` with pybind11 3.1 when installed from source; without a compiler, it installs without it. `examples/08_native_custom_law.py` holds the arm with a custom law.
 - `RobotInterface` defers to a running native loop: `state`, `state_minimal` and `sync_mj()` take its last state, `step()` refuses, `stop()` stops it first, and `sync_payload()` gives it the new model.
+- On Linux, the native loop's thread runs at SCHED_FIFO priority 80 (`realtime_priority`). `controller.loop_stats()` reports the loop's timing and what the robot saw: the largest gap between its states, the states missed and the lowest command success rate.
 
 ## 0.6.1 - 2026-10-03
 

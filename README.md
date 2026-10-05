@@ -402,6 +402,9 @@ What changes:
 - A subclass's `step()` would never run, so `NativeFrankaController` refuses one: write it as a control law (below).
 - Attributes the loop reads (`kp`, `q_desired`, `ee_desired`, ...) are views of its memory. Assigning one copies the value in, and the loop takes it whole at its next cycle.
 - While the loop runs, `robot.data` and `robot.robot_state` follow it, updated from the event loop about every millisecond. In simulation, the loop owns the simulated arm.
+- On Linux, the loop's thread runs at SCHED_FIFO priority 80, which needs an rtprio limit (`ulimit -r`) of at least that. Set `controller.realtime_priority = 0` before `start()` for normal priority.
+
+On an FR3 driven from a Linux PREEMPT_RT laptop, tracking 2 cm OSC circles for 15 s per test, the native loop sent every command in time while the same process blocked its event loop for 300 ms every second, ran 4 threads holding the GIL, ran 20-thread BLAS, or collected garbage over a 3 M object heap: 0 robot states missed, the robot's command success rate never below 0.98. The Python loop dropped to 0.92 with no load and stopped with `communication_constraints_violation` under the BLAS load. Saturating every core of that laptop, even at nice 19, stalled its networking and stopped either loop; with the robot NIC's interrupt cores left free, the native loop was unaffected.
 
 The loop is a compiled extension, built when aiofranka is installed from source with a C++17 compiler. For a development install:
 
@@ -410,7 +413,7 @@ pip install "pybind11>=3.1,<3.2"
 pip install --no-build-isolation -e .
 ```
 
-It uses pylibfranka's libfranka and must be rebuilt for another libfranka minor version.
+It uses pylibfranka's libfranka and must be rebuilt for another libfranka minor version. Built with other pybind11 internals than pylibfranka (e.g. the official Linux pylibfranka 0.21.2, built with pybind11 3.0), it updates `robot.robot_state` in place instead of replacing it.
 
 ### Custom control laws
 

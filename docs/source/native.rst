@@ -63,6 +63,9 @@ What changes:
   memory. Assigning one copies the value in, and the loop takes it whole at its next cycle.
 - While the loop runs, ``robot.data`` and ``robot.robot_state`` follow it, updated from the
   event loop about every millisecond. In simulation, the loop owns the simulated arm.
+- On Linux, the loop's thread runs at SCHED_FIFO priority 80, which needs an rtprio limit
+  (``ulimit -r``) of at least that. Set ``controller.realtime_priority = 0`` before
+  ``start()`` for normal priority.
 
 
 Building

@@ -74,11 +74,22 @@ struct Realtime {
   int fifo_priority = 0;
 };
 
-// Periods between cycle starts.
+// Timing of the cycles. Window fields cover the time since the last read with reset; warn,
+// error and max_all cover the time since start.
 struct Stats {
+  // Periods between cycle starts [s].
   int64_t count = 0;
-  double sum = 0, sum_sq = 0, min = 0, max = 0;  // [s], since the last read with reset
-  int64_t warn = 0, error = 0;                   // since start
+  double sum = 0, sum_sq = 0, min = 0, max = 0;
+  // Time from a cycle's start to its torque command [s].
+  int64_t busy_count = 0;
+  double busy_sum = 0, busy_max = 0;
+  // What the robot reported (real robot only): the largest gap between two states it sent
+  // [s], the states missed in between, and the lowest share of commands that reached it.
+  double robot_gap_max = 0;
+  int64_t missed = 0;
+  double success_min = 1.0;
+  // Periods off 1 ms by more than 0.1 ms, and longer than 10 ms.
+  int64_t warn = 0, error = 0;
   double max_all = 0;
 
   void add(double dt) {
@@ -95,18 +106,43 @@ struct Stats {
     }
   }
 
-  void merge(const Stats& other) {
-    if (other.count == 0) {
-      return;
+  void add_busy(double busy) {
+    ++busy_count;
+    busy_sum += busy;
+    busy_max = std::max(busy_max, busy);
+  }
+
+  void add_robot(double gap, double success) {
+    robot_gap_max = std::max(robot_gap_max, gap);
+    if (gap > 1.5e-3) {
+      missed += static_cast<int64_t>(std::llround(gap * 1e3)) - 1;
     }
-    min = count == 0 ? other.min : std::min(min, other.min);
-    max = count == 0 ? other.max : std::max(max, other.max);
+    success_min = std::min(success_min, success);
+  }
+
+  void merge(const Stats& other) {
+    if (other.count > 0) {
+      min = count == 0 ? other.min : std::min(min, other.min);
+      max = count == 0 ? other.max : std::max(max, other.max);
+    }
     count += other.count;
     sum += other.sum;
     sum_sq += other.sum_sq;
+    busy_count += other.busy_count;
+    busy_sum += other.busy_sum;
+    busy_max = std::max(busy_max, other.busy_max);
+    robot_gap_max = std::max(robot_gap_max, other.robot_gap_max);
+    missed += other.missed;
+    success_min = std::min(success_min, other.success_min);
     warn += other.warn;
     error += other.error;
     max_all = std::max(max_all, other.max_all);
+  }
+
+  void reset_window() {
+    count = busy_count = missed = 0;
+    sum = sum_sq = min = max = busy_sum = busy_max = robot_gap_max = 0;
+    success_min = 1.0;
   }
 };
 
@@ -266,6 +302,13 @@ class FakeActiveControl : public franka::ActiveControlBase {
   std::atomic<int64_t> max_gap_ns_{0};
   std::array<double, 7> last_command_{};
 };
+
+// Whether pylibfranka's classes are registered in the pybind11 internals this module uses,
+// which it shares only when both were built with the same internals version.
+bool pylibfranka_types() {
+  return py::detail::get_type_info(typeid(franka::RobotState)) != nullptr &&
+         py::detail::get_type_info(typeid(franka::ActiveControlBase)) != nullptr;
+}
 
 franka::ActiveControlBase* active_control_pointer(py::handle object) {
   if (object.is_none()) {
@@ -517,8 +560,13 @@ class Loop {
     return py::make_tuple(snapshot_.cycle, snapshot_.world_time, snapshot_.model_epoch);
   }
 
-  // The last robot state as a new pylibfranka.RobotState, or None.
+  // The last robot state as a new pylibfranka.RobotState, or None. Also None when this
+  // module does not share pybind11's internals with pylibfranka, which cannot create its
+  // objects then: copy_robot_state_into() updates one instead.
   py::object robot_state() {
+    if (!pylibfranka_types()) {
+      return py::none();
+    }
     franka::RobotState copy;
     {
       std::lock_guard<std::mutex> lock(snapshot_mutex_);
@@ -527,12 +575,7 @@ class Loop {
       }
       copy = robot_state_;
     }
-    try {
-      return py::cast(std::move(copy));
-    } catch (const std::exception&) {
-      PyErr_Clear();
-      return py::none();  // pybind11 internals differ from pylibfranka's: copy_robot_state_into
-    }
+    return py::cast(std::move(copy));
   }
 
   bool copy_robot_state_into(py::handle object) {
@@ -551,8 +594,7 @@ class Loop {
       std::lock_guard<std::mutex> lock(snapshot_mutex_);
       s = shared_stats_;
       if (reset) {
-        shared_stats_.count = 0;
-        shared_stats_.sum = shared_stats_.sum_sq = shared_stats_.min = shared_stats_.max = 0;
+        shared_stats_.reset_window();
       }
     }
     py::dict out;
@@ -561,6 +603,11 @@ class Loop {
     out["std"] = s.count ? std::sqrt(std::max(0.0, s.sum_sq / s.count - (s.sum / s.count) * (s.sum / s.count))) : 0.0;
     out["min"] = s.min;
     out["max"] = s.max;
+    out["busy_mean"] = s.busy_count ? s.busy_sum / s.busy_count : 0.0;
+    out["busy_max"] = s.busy_max;
+    out["robot_gap_max"] = s.robot_gap_max;
+    out["missed"] = s.missed;
+    out["success_min"] = s.success_min;
     out["max_all"] = s.max_all;
     out["warn"] = s.warn;
     out["error"] = s.error;
@@ -605,7 +652,7 @@ class Loop {
 
   static void copy_snapshot(const Snapshot& from, Snapshot& to) {
     // Snapshot is trivially copyable; copy only the memory a law uses.
-    std::memcpy(&to, &from, offsetof(Snapshot, memory));
+    std::memcpy(static_cast<void*>(&to), &from, offsetof(Snapshot, memory));
     std::copy(from.memory, from.memory + from.memory_size, to.memory);
   }
 
@@ -663,7 +710,8 @@ class Loop {
   }
 
   // Takes Python's changes: the staging Params, a new model, and the resets it asked for.
-  void begin_cycle() {
+  // Returns when the cycle started.
+  Clock::time_point begin_cycle() {
     const Clock::time_point now = Clock::now();
     if (have_last_start_) {
       local_stats_.add(std::chrono::duration<double>(now - last_start_).count());
@@ -693,6 +741,7 @@ class Loop {
         memory_requested_ = false;
       }
     }
+    return now;
   }
 
   // The flange pose, its Jacobian and the mass matrix, from the kinematics in the mjData.
@@ -752,7 +801,7 @@ class Loop {
   void cycle_real(franka::ActiveControlBase* control) {
     const std::pair<franka::RobotState, franka::Duration> read = control->readOnce();
     const franka::RobotState& robot = read.first;
-    begin_cycle();
+    const Clock::time_point start = begin_cycle();
 
     std::copy(robot.q.begin(), robot.q.end(), arrays_.qpos);
     std::copy(robot.dq.begin(), robot.dq.end(), arrays_.qvel);
@@ -773,11 +822,13 @@ class Loop {
     std::array<double, 7> command{};
     std::copy(tau, tau + kJoints, command.begin());
     control->writeOnce(franka::Torques(command));
+    local_stats_.add_busy(std::chrono::duration<double>(Clock::now() - start).count());
+    local_stats_.add_robot(read.second.toSec(), robot.control_command_success_rate);
     finish_cycle(s, tau, s.qpos, s.qvel, s.last_torque, s.time, &robot);
   }
 
   void cycle_sim() {
-    begin_cycle();
+    const Clock::time_point start = begin_cycle();
     // Like FrankaController in simulation: the state after the last step, with the
     // kinematics that step computed.
     LawState s{};
@@ -794,6 +845,7 @@ class Loop {
     std::copy(tau, tau + kJoints, arrays_.ctrl);
     mj_.step(model_, arrays_.data);
     world_time_ += timestep_;
+    local_stats_.add_busy(std::chrono::duration<double>(Clock::now() - start).count());
     finish_cycle(s, tau, arrays_.qpos, arrays_.qvel, arrays_.ctrl, world_time_, nullptr);
   }
 
@@ -965,10 +1017,7 @@ PYBIND11_MODULE(_native, m) {
       field("mm", offsetof(LawState, mm), py::make_tuple(7, 7), "f8"),
       field("last_torque", offsetof(LawState, last_torque), seven, "f8"));
 
-  m.def("has_pylibfranka_types", [] {
-    return py::detail::get_type_info(typeid(franka::RobotState)) != nullptr &&
-           py::detail::get_type_info(typeid(franka::ActiveControlBase)) != nullptr;
-  });
+  m.def("has_pylibfranka_types", &pylibfranka_types);
 
   py::class_<FakeActiveControl>(m, "_FakeActiveControl",
                                 "A simulated robot for tests, which answers readOnce() and "
@@ -987,6 +1036,9 @@ PYBIND11_MODULE(_native, m) {
       // pylibfranka's ActiveControlBase methods, so FrankaController can drive it too.
       .def("readOnce",
            [](FakeActiveControl& self) {
+             if (!pylibfranka_types()) {
+               throw std::runtime_error("readOnce() from Python needs pylibfranka's pybind11 internals");
+             }
              std::pair<franka::RobotState, franka::Duration> read;
              {
                py::gil_scoped_release release;

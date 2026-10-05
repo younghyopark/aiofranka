@@ -291,6 +291,11 @@ class NativeFrankaController(FrankaController):
     control_transform = _Param()
     torque_limit = _Param()
 
+    # SCHED_FIFO priority of the loop's thread on Linux, which keeps other processes from
+    # delaying it when every core is busy; 0 leaves it at normal priority. It needs an rtprio
+    # limit (ulimit -r) of at least this, as a PREEMPT_RT setup for libfranka has.
+    realtime_priority = 80
+
     # Seconds between syncs of the MuJoCo viewer in simulation.
     _VIEWER_PERIOD = 1 / 60
 
@@ -563,9 +568,11 @@ class NativeFrankaController(FrankaController):
         # RobotInterface asks the loop for states while it runs, and tells it about payloads.
         robot._native_ref = weakref.ref(self)
 
-    def _launch(self, macos_qos=None, cpu=-1, fifo_priority=0):
+    def _launch(self, macos_qos=None, cpu=-1, fifo_priority=None):
         if macos_qos is None:
             macos_qos = os.environ.get("LIBFRANKA_MACOS_BUSY_WAIT") != "0"
+        if fifo_priority is None:
+            fifo_priority = self.realtime_priority if sys.platform.startswith("linux") else 0
         self._configure()
         robot = self.robot
         self._loop.start(robot.torque_controller if robot.real else None,
@@ -645,6 +652,22 @@ class NativeFrankaController(FrankaController):
             loop.join()
             self._sync_world()
         return loop.error() or None
+
+    def loop_stats(self, reset=False):
+        """
+        Timing of the native loop since start, or since the last call with reset.
+
+        Args:
+            reset (bool): Start a new window
+
+        Returns:
+            dict: count, mean, std, min and max of the period between cycles [s]; busy_mean
+                and busy_max, from a cycle's start to its torque command [s]; what the robot
+                reported (real robot only): robot_gap_max [s], the states missed in between,
+                and success_min, its lowest command success rate. Since start: warn and error,
+                periods off 1 ms by more than 0.1 ms or longer than 10 ms, and max_all [s].
+        """
+        return self._loop.stats(reset=reset)
 
     def _print_stats(self):
         stats = self._loop.stats(reset=True)
