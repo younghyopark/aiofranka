@@ -5,6 +5,7 @@
 ### Changes
 
 - `aiofranka camera calibrate` switches the robot to Programming mode, where the arm moves by hand while the guiding button on the end effector is held, instead of running gravity compensation over FCI. It reads the joint positions from Desk, as its web UI does; `--damping` is gone, and the camera extra adds websockets.
+- `aiofranka gravcomp --mode program` switches the robot to Programming mode, as `aiofranka mode program` does, where the arm moves by hand only while the guiding button on the end effector is held. The default, `--mode execute`, runs gravity compensation over FCI as before.
 - `aiofranka tool identify` runs its 1 kHz loop in C++ (`NativeFrankaController`), and switches from Programming to Execution before activating FCI, as `aiofranka unlock` does.
 - The collision checks of `tool identify` keep the tool 5 cm from the floor, as documented, instead of 10 cm: MuJoCo adds the margins of the two geoms.
 

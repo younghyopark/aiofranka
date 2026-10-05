@@ -8,7 +8,7 @@ The CLI handles robot setup, server lifecycle, and diagnostics.
    aiofranka start-server [--ip IP] [--no-home]  Start the control server
    aiofranka unlock   [--ip IP]              Unlock joints + activate FCI
    aiofranka lock     [--ip IP]              Lock joints + deactivate FCI
-   aiofranka gravcomp [--ip IP] [--damping]  Gravity compensation (freedrive)
+   aiofranka gravcomp [--ip IP] [--mode program]  Move the robot by hand (freedrive)
    aiofranka home     [--ip IP]              Move the robot to its home pose
    aiofranka status   [--ip IP]              Show robot & server status
    aiofranka stop     [--ip IP]              Stop a running server
@@ -52,10 +52,15 @@ Runs gravity compensation mode in the foreground. The robot is freely movable by
 Press Ctrl+C to stop control; the joints remain unlocked with FCI active.
 Run ``aiofranka lock`` when finished.
 
+With ``--mode program``, it switches the robot to Programming mode instead, as
+``aiofranka mode program`` does: the arm moves by hand only while the guiding button on the end
+effector is held, and nothing keeps running. ``aiofranka unlock`` switches back for FCI.
+
 .. code-block:: bash
 
    aiofranka gravcomp                  # default: zero damping
    aiofranka gravcomp --damping 2.0    # add velocity damping
+   aiofranka gravcomp --mode program   # hand-guide with the guiding button instead
 
 status
 ------

@@ -248,6 +248,23 @@ def cmd_gravcomp(args):
     username, password = _resolve_credentials(args)
     damping = args.damping
 
+    if args.mode == "program":
+        # Hand guiding in Programming mode: the robot moves the arm while the guiding button
+        # on the end effector is held, so no control loop runs here.
+        print(f"\n  {BOLD}aiofranka{RST} {DIM}|{RST} gravcomp --mode program {DIM}({robot_ip}){RST}\n")
+        pid = _check_server_running(robot_ip)
+        if pid is not None:
+            print(f"  {RED}Error:{RST} the server (PID {pid}) is controlling the robot.")
+            print(f"  Stop it first with: {BOLD}aiofranka stop{RST}\n")
+            return
+        client = _DeskClientV2(robot_ip, username, password, protocol=protocol)
+        if _change_mode(client, robot_ip, "Programming"):
+            print(f"\n  {GREEN}Programming mode{RST}: hold the guiding button near the end effector to "
+                  f"move the arm.")
+            print(f"  For FCI: {BOLD}aiofranka unlock{RST}")
+        print()
+        return
+
     print(f"\n  {BOLD}aiofranka{RST} {DIM}|{RST} gravcomp {DIM}({robot_ip}){RST}")
     print(f"  {DIM}kp=0  kd={damping}  (Ctrl+C stops control; joints stay unlocked){RST}\n")
 
@@ -2439,10 +2456,14 @@ def main():
     p_gravcomp.add_argument("--username", type=str, default="admin", help="Robot web UI username")
     p_gravcomp.add_argument("--password", type=str, default="admin", help="Robot web UI password")
     p_gravcomp.add_argument("--protocol", type=str, default="https", choices=["http", "https"])
+    p_gravcomp.add_argument("--mode", type=str, default="execute", choices=["execute", "program"],
+                            help="execute: gravity compensation over FCI, in the foreground (default); "
+                                 "program: switch to Programming mode, where the arm moves while the "
+                                 "guiding button on the end effector is held")
     p_gravcomp.add_argument("--damping", type=float, default=0.0,
-                            help="Joint velocity damping (kd) per joint (default: 0)")
+                            help="Joint velocity damping (kd) per joint, in execute mode (default: 0)")
     p_gravcomp.add_argument("--http-port", type=int, default=0,
-                            help="Serve GET /qpos on this port (e.g. 8080)")
+                            help="Serve GET /qpos on this port (e.g. 8080), in execute mode")
 
     # home
     p_home = subparsers.add_parser("home", help="Move robot to home position")
