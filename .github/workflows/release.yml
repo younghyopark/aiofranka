@@ -1,0 +1,112 @@
+# Build aiofranka's release files and publish them to PyPI when a version tag is pushed.
+#
+# To release: bump the version in pyproject.toml, date the CHANGELOG entry, rebuild the docs
+# with ./build.sh, commit, then tag and push:
+#
+#     git tag -a v0.7.2 -m "aiofranka 0.7.2" && git push origin main v0.7.2
+#
+# The files are the sdist, a pure-Python wheel (the fallback where no native wheel fits, without
+# the native loop), manylinux x86_64 wheels for CPython 3.10 to 3.12 (those pylibfranka has) and
+# macOS arm64 wheels for CPython 3.10 to 3.14. They are uploaded together once all have built,
+# platform wheels first. Running the workflow by hand (Actions > Release > Run workflow) only
+# builds them, as a check.
+#
+# PyPI accepts them through trusted publishing: pypi.org > aiofranka > Settings > Publishing has a
+# GitHub publisher for younghyopark/aiofranka, workflow release.yml, environment pypi.
+
+name: Release
+
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  sdist:
+    name: sdist and pure wheel
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Check that the tag is the package's version
+        if: startsWith(github.ref, 'refs/tags/v')
+        run: |
+          version=$(grep -m1 '^version = ' pyproject.toml | cut -d'"' -f2)
+          if [ "v$version" != "$GITHUB_REF_NAME" ]; then
+            echo "::error::tag $GITHUB_REF_NAME is not pyproject.toml's version $version"
+            exit 1
+          fi
+
+      - name: Build the sdist
+        run: pipx run build --sdist --outdir dist
+
+      - name: Build the pure-Python wheel
+        run: pipx run build --wheel --outdir dist
+        env:
+          AIOFRANKA_NATIVE: "0"
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: dist-sdist
+          path: dist/*
+
+  wheels:
+    name: wheels on ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        include:
+          - os: ubuntu-latest
+            archs: x86_64
+            build: cp310-manylinux_x86_64 cp311-manylinux_x86_64 cp312-manylinux_x86_64
+          - os: macos-latest  # Apple Silicon
+            archs: arm64
+            build: cp310-macosx_arm64 cp311-macosx_arm64 cp312-macosx_arm64 cp313-macosx_arm64 cp314-macosx_arm64
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: pypa/cibuildwheel@v4.3.0
+        with:
+          output-dir: wheelhouse
+        env:
+          CIBW_ARCHS: ${{ matrix.archs }}
+          CIBW_BUILD: ${{ matrix.build }}
+          MACOSX_DEPLOYMENT_TARGET: "12.0"  # setup.py's default when building by hand
+
+      # setup.py builds the native loop as an optional extension, so a failed compile would
+      # otherwise leave a wheel without it.
+      - name: Check that every wheel has the native loop
+        run: |
+          for wheel in wheelhouse/*.whl; do
+            if ! unzip -l "$wheel" | grep -q "aiofranka/_native"; then
+              echo "::error::$wheel has no native loop"
+              exit 1
+            fi
+          done
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: dist-${{ matrix.os }}
+          path: wheelhouse/*.whl
+
+  publish:
+    name: publish to PyPI
+    needs: [sdist, wheels]
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-latest
+    environment:
+      name: pypi
+      url: https://pypi.org/project/aiofranka/
+    permissions:
+      id-token: write  # trusted publishing
+    steps:
+      - uses: actions/download-artifact@v8
+        with:
+          pattern: dist-*
+          path: dist
+          merge-multiple: true
+
+      - uses: pypa/gh-action-pypi-publish@release/v1
