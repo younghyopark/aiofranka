@@ -1,0 +1,915 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="../../">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>aiofranka.native &mdash; aiofranka 0.7.0 documentation</title>
+      <link rel="stylesheet" type="text/css" href="../../_static/pygments.css?v=b86133f3" />
+      <link rel="stylesheet" type="text/css" href="../../_static/css/theme.css?v=9edc463e" />
+
+  
+      <script src="../../_static/jquery.js?v=5d32c60e"></script>
+      <script src="../../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="../../_static/documentation_options.js?v=fe7df9b0"></script>
+      <script src="../../_static/doctools.js?v=fd6eb6e6"></script>
+      <script src="../../_static/sphinx_highlight.js?v=6ffebe34"></script>
+    <script src="../../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../../genindex.html" />
+    <link rel="search" title="Search" href="../../search.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../../index.html" class="icon icon-home">
+            aiofranka
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">Getting Started</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../installation.html">Installation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../quickstart.html">Quick Start</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../controllers.html">Controllers</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../native.html">Native Control Loop</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../cli.html">CLI Reference</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../async_mode.html">Async Mode Guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../examples.html">Examples</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../troubleshooting.html">Troubleshooting</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">API Reference</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../api/remote.html">FrankaRemoteController (Server Mode)</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../api/controller.html">Franka Controller</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../api/native.html">Native Controller</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../api/robot.html">Robot Interface</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../api/payload.html">Payload Identification and Tools</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../api/config.html">Controller Configurations</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../api/server.html">Server Functions</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../api/gripper.html">GripperController</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../api/utilities.html">Async Utilities</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../../index.html">aiofranka</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../../index.html" class="icon icon-home" aria-label="Home"></a></li>
+          <li class="breadcrumb-item"><a href="../index.html">Module code</a></li>
+      <li class="breadcrumb-item active">aiofranka.native</li>
+      <li class="wy-breadcrumbs-aside">
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <h1>Source code for aiofranka.native</h1><div class="highlight"><pre>
+<span></span><span class="sd">"""</span>
+<span class="sd">The native control loop: NativeFrankaController, a drop-in for FrankaController.</span>
+
+<span class="sd">FrankaController runs its 1 kHz control loop on the asyncio event loop, in Python. Anything</span>
+<span class="sd">else that runs there delays the next torque command: a planner, loading a model, garbage</span>
+<span class="sd">collection, the server's command thread holding the GIL. When a command is late, the robot</span>
+<span class="sd">stops with communication_constraints_violation. NativeFrankaController runs the same loop</span>
+<span class="sd">in C++, in a thread that never waits for Python, and has FrankaController's constructor,</span>
+<span class="sd">methods and attributes, so porting code means swapping the class:</span>
+
+<span class="sd">    &gt;&gt;&gt; robot = RobotInterface("172.16.0.2")</span>
+<span class="sd">    &gt;&gt;&gt; controller = NativeFrankaController(robot)  # instead of FrankaController(robot)</span>
+<span class="sd">    &gt;&gt;&gt; await controller.start()</span>
+<span class="sd">    &gt;&gt;&gt; controller.switch("osc")</span>
+<span class="sd">    &gt;&gt;&gt; await controller.set("ee_desired", target)</span>
+
+<span class="sd">Its impedance, pid, osc and torque laws are ports of FrankaController's and send the same</span>
+<span class="sd">torques, to rounding. New laws are written in Python and compiled with Numba, see</span>
+<span class="sd">control_law().</span>
+
+<span class="sd">What changes:</span>
+<span class="sd">    - The loop runs in C++, so a subclass's step() would never run: NativeFrankaController</span>
+<span class="sd">      refuses one. Write the step as a control law instead.</span>
+<span class="sd">    - Attributes the loop reads (kp, q_desired, ee_desired, ...) are views of its memory.</span>
+<span class="sd">      Assigning one copies the value in, and the loop takes it whole at its next cycle.</span>
+<span class="sd">    - While the loop runs, robot.data and robot.robot_state follow it from the event loop,</span>
+<span class="sd">      about every millisecond. In simulation the loop owns the simulated arm.</span>
+<span class="sd">"""</span>
+
+<span class="kn">import</span><span class="w"> </span><span class="nn">asyncio</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">copy</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">ctypes</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">glob</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">logging</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">os</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">sys</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">threading</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">time</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">weakref</span>
+
+<span class="kn">import</span><span class="w"> </span><span class="nn">mujoco</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
+
+<span class="kn">from</span><span class="w"> </span><span class="nn">aiofranka.controller</span><span class="w"> </span><span class="kn">import</span> <span class="n">FrankaController</span>
+
+<span class="n">logger</span> <span class="o">=</span> <span class="n">logging</span><span class="o">.</span><span class="n">getLogger</span><span class="p">(</span><span class="vm">__name__</span><span class="p">)</span>
+
+<span class="c1"># Controller types whose torque FrankaController keeps in .torque, which torque mode then sends.</span>
+<span class="n">_KEEPS_TORQUE</span> <span class="o">=</span> <span class="p">(</span><span class="s2">"impedance"</span><span class="p">,</span> <span class="s2">"pid"</span><span class="p">)</span>
+
+<span class="n">_BUILD_HELP</span> <span class="o">=</span> <span class="s2">"""aiofranka's native control loop, the extension aiofranka._native, is not built.</span>
+
+<span class="s2">Build it in the aiofranka checkout, which needs a C++17 compiler:</span>
+
+<span class="s2">    pip install "pybind11&gt;=3.1,&lt;3.2"</span>
+<span class="s2">    pip install --no-build-isolation -e .</span>
+<span class="s2">"""</span>
+
+<span class="n">_native</span> <span class="o">=</span> <span class="kc">None</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_promote_libfranka</span><span class="p">(</span><span class="n">pylibfranka</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">"""Make the libfranka that pylibfranka loaded global, so aiofranka._native binds to it."""</span>
+    <span class="n">package</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">dirname</span><span class="p">(</span><span class="n">pylibfranka</span><span class="o">.</span><span class="vm">__file__</span><span class="p">)</span>
+    <span class="n">candidates</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="k">for</span> <span class="n">directory</span> <span class="ow">in</span> <span class="p">(</span><span class="n">package</span><span class="p">,</span> <span class="n">package</span> <span class="o">+</span> <span class="s2">".libs"</span><span class="p">):</span>
+        <span class="k">for</span> <span class="n">pattern</span> <span class="ow">in</span> <span class="p">(</span><span class="s2">"libfranka*.dylib"</span><span class="p">,</span> <span class="s2">"libfranka*.so*"</span><span class="p">):</span>
+            <span class="n">candidates</span> <span class="o">+=</span> <span class="nb">sorted</span><span class="p">(</span><span class="n">glob</span><span class="o">.</span><span class="n">glob</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">directory</span><span class="p">,</span> <span class="n">pattern</span><span class="p">)))</span>
+    <span class="k">for</span> <span class="n">path</span> <span class="ow">in</span> <span class="n">candidates</span><span class="p">:</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="c1"># RTLD_NOLOAD: only the copy that is loaded already, never a second one.</span>
+            <span class="n">ctypes</span><span class="o">.</span><span class="n">CDLL</span><span class="p">(</span><span class="n">path</span><span class="p">,</span> <span class="n">mode</span><span class="o">=</span><span class="n">os</span><span class="o">.</span><span class="n">RTLD_GLOBAL</span> <span class="o">|</span> <span class="n">os</span><span class="o">.</span><span class="n">RTLD_NOLOAD</span><span class="p">)</span>
+            <span class="k">return</span> <span class="n">path</span>
+        <span class="k">except</span> <span class="ne">OSError</span><span class="p">:</span>
+            <span class="k">continue</span>
+    <span class="k">raise</span> <span class="ne">ImportError</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Could not find the libfranka that pylibfranka loaded (looked in </span><span class="si">{</span><span class="n">package</span><span class="si">}</span><span class="s2">)"</span><span class="p">)</span>
+
+
+<div class="viewcode-block" id="load_native">
+<a class="viewcode-back" href="../../api/native.html#aiofranka.native.load_native">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">load_native</span><span class="p">():</span>
+<span class="w">    </span><span class="sd">"""</span>
+<span class="sd">    Import the native control loop, aiofranka._native.</span>
+
+<span class="sd">    It uses pylibfranka's libfranka, which it must have been built for.</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        module: aiofranka._native</span>
+
+<span class="sd">    Raises:</span>
+<span class="sd">        ImportError: If the extension is not built, or was built for another libfranka</span>
+<span class="sd">    """</span>
+    <span class="k">global</span> <span class="n">_native</span>
+    <span class="k">if</span> <span class="n">_native</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">_native</span>
+    <span class="kn">from</span><span class="w"> </span><span class="nn">aiofranka.robot</span><span class="w"> </span><span class="kn">import</span> <span class="n">require_pylibfranka</span>
+
+    <span class="n">pylibfranka</span> <span class="o">=</span> <span class="n">require_pylibfranka</span><span class="p">()</span>
+    <span class="kn">import</span><span class="w"> </span><span class="nn">pylibfranka._pylibfranka</span>  <span class="c1"># noqa: F401  (loads libfranka)</span>
+
+    <span class="n">_promote_libfranka</span><span class="p">(</span><span class="n">pylibfranka</span><span class="p">)</span>
+    <span class="k">try</span><span class="p">:</span>
+        <span class="kn">from</span><span class="w"> </span><span class="nn">aiofranka</span><span class="w"> </span><span class="kn">import</span> <span class="n">_native</span> <span class="k">as</span> <span class="n">native</span>
+    <span class="k">except</span> <span class="ne">ImportError</span> <span class="k">as</span> <span class="n">error</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ImportError</span><span class="p">(</span><span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">_BUILD_HELP</span><span class="si">}</span><span class="se">\n</span><span class="s2">(</span><span class="si">{</span><span class="n">error</span><span class="si">}</span><span class="s2">)"</span><span class="p">)</span> <span class="kn">from</span><span class="w"> </span><span class="nn">error</span>
+    <span class="n">installed</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">pylibfranka</span><span class="p">,</span> <span class="s2">"__version__"</span><span class="p">,</span> <span class="s2">""</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">installed</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s2">"."</span><span class="p">)[:</span><span class="mi">2</span><span class="p">]</span> <span class="o">!=</span> <span class="n">native</span><span class="o">.</span><span class="n">LIBFRANKA_VERSION</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s2">"."</span><span class="p">)[:</span><span class="mi">2</span><span class="p">]:</span>
+        <span class="k">raise</span> <span class="ne">ImportError</span><span class="p">(</span>
+            <span class="sa">f</span><span class="s2">"aiofranka's native control loop was built for libfranka </span><span class="si">{</span><span class="n">native</span><span class="o">.</span><span class="n">LIBFRANKA_VERSION</span><span class="si">}</span><span class="s2">, "</span>
+            <span class="sa">f</span><span class="s2">"but pylibfranka </span><span class="si">{</span><span class="n">installed</span><span class="si">}</span><span class="s2"> is installed. Update the headers in src/native/include "</span>
+            <span class="s2">"to that version and rebuild aiofranka."</span><span class="p">)</span>
+    <span class="n">_native</span> <span class="o">=</span> <span class="n">native</span>
+    <span class="k">return</span> <span class="n">native</span></div>
+
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_mujoco_functions</span><span class="p">():</span>
+<span class="w">    </span><span class="sd">"""The addresses of the MuJoCo functions the loop calls, in the libmujoco mujoco loaded."""</span>
+    <span class="n">directory</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">dirname</span><span class="p">(</span><span class="n">mujoco</span><span class="o">.</span><span class="vm">__file__</span><span class="p">)</span>
+    <span class="k">for</span> <span class="n">pattern</span> <span class="ow">in</span> <span class="p">(</span><span class="s2">"libmujoco*.dylib"</span><span class="p">,</span> <span class="s2">"libmujoco.so*"</span><span class="p">,</span> <span class="s2">"mujoco*.dll"</span><span class="p">):</span>
+        <span class="k">for</span> <span class="n">path</span> <span class="ow">in</span> <span class="nb">sorted</span><span class="p">(</span><span class="n">glob</span><span class="o">.</span><span class="n">glob</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">directory</span><span class="p">,</span> <span class="n">pattern</span><span class="p">))):</span>
+            <span class="k">try</span><span class="p">:</span>
+                <span class="n">library</span> <span class="o">=</span> <span class="n">ctypes</span><span class="o">.</span><span class="n">CDLL</span><span class="p">(</span><span class="n">path</span><span class="p">,</span> <span class="n">mode</span><span class="o">=</span><span class="n">os</span><span class="o">.</span><span class="n">RTLD_NOLOAD</span><span class="p">)</span>
+            <span class="k">except</span> <span class="ne">OSError</span><span class="p">:</span>
+                <span class="k">continue</span>
+            <span class="n">names</span> <span class="o">=</span> <span class="p">(</span><span class="s2">"mj_fwdPosition"</span><span class="p">,</span> <span class="s2">"mj_step"</span><span class="p">,</span> <span class="s2">"mj_jacSite"</span><span class="p">,</span> <span class="s2">"mj_fullM"</span><span class="p">)</span>
+            <span class="k">return</span> <span class="p">{</span><span class="n">name</span><span class="p">:</span> <span class="n">ctypes</span><span class="o">.</span><span class="n">cast</span><span class="p">(</span><span class="nb">getattr</span><span class="p">(</span><span class="n">library</span><span class="p">,</span> <span class="n">name</span><span class="p">),</span> <span class="n">ctypes</span><span class="o">.</span><span class="n">c_void_p</span><span class="p">)</span><span class="o">.</span><span class="n">value</span> <span class="k">for</span> <span class="n">name</span> <span class="ow">in</span> <span class="n">names</span><span class="p">}</span>
+    <span class="k">raise</span> <span class="ne">ImportError</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Could not find the libmujoco that mujoco loaded (looked in </span><span class="si">{</span><span class="n">directory</span><span class="si">}</span><span class="s2">)"</span><span class="p">)</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_dtype</span><span class="p">(</span><span class="n">layout</span><span class="p">,</span> <span class="n">itemsize</span><span class="p">,</span> <span class="n">extra</span><span class="o">=</span><span class="p">()):</span>
+<span class="w">    </span><span class="sd">"""A numpy structured dtype of a C++ struct, from the layout the module exports."""</span>
+    <span class="n">names</span><span class="p">,</span> <span class="n">formats</span><span class="p">,</span> <span class="n">offsets</span> <span class="o">=</span> <span class="p">[],</span> <span class="p">[],</span> <span class="p">[]</span>
+    <span class="k">for</span> <span class="n">name</span><span class="p">,</span> <span class="n">offset</span><span class="p">,</span> <span class="n">shape</span><span class="p">,</span> <span class="n">kind</span> <span class="ow">in</span> <span class="nb">tuple</span><span class="p">(</span><span class="n">layout</span><span class="p">)</span> <span class="o">+</span> <span class="nb">tuple</span><span class="p">(</span><span class="n">extra</span><span class="p">):</span>
+        <span class="n">names</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">name</span><span class="p">)</span>
+        <span class="n">offsets</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">offset</span><span class="p">)</span>
+        <span class="n">formats</span><span class="o">.</span><span class="n">append</span><span class="p">((</span><span class="n">np</span><span class="o">.</span><span class="n">dtype</span><span class="p">(</span><span class="n">kind</span><span class="p">),</span> <span class="n">shape</span><span class="p">)</span> <span class="k">if</span> <span class="n">shape</span> <span class="k">else</span> <span class="n">np</span><span class="o">.</span><span class="n">dtype</span><span class="p">(</span><span class="n">kind</span><span class="p">))</span>
+    <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">dtype</span><span class="p">({</span><span class="s2">"names"</span><span class="p">:</span> <span class="n">names</span><span class="p">,</span> <span class="s2">"formats"</span><span class="p">:</span> <span class="n">formats</span><span class="p">,</span> <span class="s2">"offsets"</span><span class="p">:</span> <span class="n">offsets</span><span class="p">,</span> <span class="s2">"itemsize"</span><span class="p">:</span> <span class="n">itemsize</span><span class="p">})</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_shapes</span><span class="p">(</span><span class="n">fields</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">"""{name: shape} from {name: shape or size}."""</span>
+    <span class="n">out</span> <span class="o">=</span> <span class="p">{}</span>
+    <span class="k">for</span> <span class="n">name</span><span class="p">,</span> <span class="n">shape</span> <span class="ow">in</span> <span class="p">(</span><span class="n">fields</span> <span class="ow">or</span> <span class="p">{})</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">name</span><span class="o">.</span><span class="n">isidentifier</span><span class="p">():</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">name</span><span class="si">!r}</span><span class="s2"> is not a valid field name"</span><span class="p">)</span>
+        <span class="n">out</span><span class="p">[</span><span class="n">name</span><span class="p">]</span> <span class="o">=</span> <span class="p">(</span><span class="n">shape</span><span class="p">,)</span> <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">shape</span><span class="p">,</span> <span class="nb">int</span><span class="p">)</span> <span class="k">else</span> <span class="nb">tuple</span><span class="p">(</span><span class="n">shape</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">out</span>
+
+
+<div class="viewcode-block" id="ControlLaw">
+<a class="viewcode-back" href="../../api/native.html#aiofranka.native.ControlLaw">[docs]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">ControlLaw</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">"""</span>
+<span class="sd">    A control law for NativeFrankaController, made with control_law().</span>
+
+<span class="sd">    Attributes:</span>
+<span class="sd">        name (str): The controller type that runs it, for switch()</span>
+<span class="sd">        function: The Python function</span>
+<span class="sd">        params (dict): Shapes of its parameters, by name</span>
+<span class="sd">        memory (dict): Shapes of its memory, by name</span>
+<span class="sd">    """</span>
+
+<div class="viewcode-block" id="ControlLaw.__init__">
+<a class="viewcode-back" href="../../api/native.html#aiofranka.native.ControlLaw.__init__">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">function</span><span class="p">,</span> <span class="n">params</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">memory</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">function</span> <span class="o">=</span> <span class="n">function</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">name</span> <span class="o">=</span> <span class="n">name</span> <span class="ow">or</span> <span class="n">function</span><span class="o">.</span><span class="vm">__name__</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">params</span> <span class="o">=</span> <span class="n">_shapes</span><span class="p">(</span><span class="n">params</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">memory</span> <span class="o">=</span> <span class="n">_shapes</span><span class="p">(</span><span class="n">memory</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="vm">__doc__</span> <span class="o">=</span> <span class="n">function</span><span class="o">.</span><span class="vm">__doc__</span></div>
+
+
+    <span class="k">def</span><span class="w"> </span><span class="fm">__call__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">function</span><span class="p">(</span><span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="fm">__repr__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="sa">f</span><span class="s2">"&lt;ControlLaw </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">name</span><span class="si">}</span><span class="s2">&gt;"</span></div>
+
+
+
+<div class="viewcode-block" id="control_law">
+<a class="viewcode-back" href="../../api/native.html#aiofranka.native.control_law">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">control_law</span><span class="p">(</span><span class="n">function</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">params</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">memory</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">"""</span>
+<span class="sd">    Make a Python function a control law of NativeFrankaController.</span>
+
+<span class="sd">    The native loop calls it at 1 kHz, compiled with Numba, so it runs without Python: write</span>
+<span class="sd">    it with numpy and math only (Numba's nopython mode). It gets four arguments:</span>
+
+<span class="sd">    - s: what the loop read at this cycle, FrankaController.state's fields: qpos, qvel,</span>
+<span class="sd">      ee (flange pose, 4x4), jac (6x7, linear rows first), mm (7x7), last_torque,</span>
+<span class="sd">      and cycle, time [s] and dt (1e-3)</span>
+<span class="sd">    - p: the controller's attributes: kp, kd, ki, ee_kp, ee_kd, null_kp, null_kd,</span>
+<span class="sd">      q_desired, ee_desired, torque, initial_qpos, control_transform, torque_limit,</span>
+<span class="sd">      torque_diff_limit, plus the law's own params</span>
+<span class="sd">    - m: the law's memory, zeroed when switch() selects the law; write to it</span>
+<span class="sd">    - tau: the 7 torques to fill [Nm]</span>
+
+<span class="sd">    Return nothing, or a nonzero integer to stop the loop with an error. With clip (the</span>
+<span class="sd">    default), the loop then limits the torque rate and clips the torques, as the impedance</span>
+<span class="sd">    law does.</span>
+
+<span class="sd">    Each of params becomes a controller attribute (zeros at first), which set() and</span>
+<span class="sd">    activate() can change like kp. Laws that name the same parameter share it.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        params (dict): Shapes of the law's parameters, by name, e.g. {"stiffness": 7}</span>
+<span class="sd">        memory (dict): Shapes of what the law keeps between cycles, e.g. {"integral": 7}</span>
+<span class="sd">        name (str): The controller type for switch() (default: the function's name)</span>
+
+<span class="sd">    Example:</span>
+<span class="sd">        &gt;&gt;&gt; @control_law(params={"stiffness": 7, "damping": 7}, memory={"integral": 7})</span>
+<span class="sd">        ... def pi_damping(s, p, m, tau):</span>
+<span class="sd">        ...     error = p.q_desired - s.qpos</span>
+<span class="sd">        ...     m.integral[:] += error * s.dt</span>
+<span class="sd">        ...     tau[:] = p.stiffness * error + 2.0 * m.integral - p.damping * s.qvel</span>
+<span class="sd">        &gt;&gt;&gt; controller.switch(pi_damping)  # compiles it, a few seconds the first time</span>
+<span class="sd">        &gt;&gt;&gt; controller.stiffness = np.full(7, 60.0)</span>
+<span class="sd">        &gt;&gt;&gt; await controller.set("q_desired", target)</span>
+<span class="sd">    """</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">decorate</span><span class="p">(</span><span class="n">f</span><span class="p">):</span>
+        <span class="k">return</span> <span class="n">ControlLaw</span><span class="p">(</span><span class="n">f</span><span class="p">,</span> <span class="n">params</span><span class="o">=</span><span class="n">params</span><span class="p">,</span> <span class="n">memory</span><span class="o">=</span><span class="n">memory</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="n">name</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">decorate</span> <span class="k">if</span> <span class="n">function</span> <span class="ow">is</span> <span class="kc">None</span> <span class="k">else</span> <span class="n">decorate</span><span class="p">(</span><span class="n">function</span><span class="p">)</span></div>
+
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_compile</span><span class="p">(</span><span class="n">law</span><span class="p">,</span> <span class="n">native</span><span class="p">,</span> <span class="n">params_dtype</span><span class="p">,</span> <span class="n">memory_dtype</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">"""Compile a law with Numba into the C function the loop calls."""</span>
+    <span class="k">try</span><span class="p">:</span>
+        <span class="kn">import</span><span class="w"> </span><span class="nn">numba</span>
+        <span class="kn">from</span><span class="w"> </span><span class="nn">numba</span><span class="w"> </span><span class="kn">import</span> <span class="n">carray</span><span class="p">,</span> <span class="n">types</span>
+    <span class="k">except</span> <span class="ne">ImportError</span> <span class="k">as</span> <span class="n">error</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ImportError</span><span class="p">(</span><span class="s2">"Custom control laws need Numba: pip install numba"</span><span class="p">)</span> <span class="kn">from</span><span class="w"> </span><span class="nn">error</span>
+
+    <span class="n">function</span> <span class="o">=</span> <span class="n">numba</span><span class="o">.</span><span class="n">njit</span><span class="p">(</span><span class="n">law</span><span class="o">.</span><span class="n">function</span><span class="p">,</span> <span class="n">error_model</span><span class="o">=</span><span class="s2">"numpy"</span><span class="p">)</span>
+    <span class="n">state</span> <span class="o">=</span> <span class="n">numba</span><span class="o">.</span><span class="n">from_dtype</span><span class="p">(</span><span class="n">_dtype</span><span class="p">(</span><span class="n">native</span><span class="o">.</span><span class="n">STATE_LAYOUT</span><span class="p">,</span> <span class="n">native</span><span class="o">.</span><span class="n">STATE_SIZE</span><span class="p">))</span>
+    <span class="n">params</span> <span class="o">=</span> <span class="n">numba</span><span class="o">.</span><span class="n">from_dtype</span><span class="p">(</span><span class="n">params_dtype</span><span class="p">)</span>
+    <span class="n">memory</span> <span class="o">=</span> <span class="n">numba</span><span class="o">.</span><span class="n">from_dtype</span><span class="p">(</span><span class="n">memory_dtype</span><span class="p">)</span>
+    <span class="n">signature</span> <span class="o">=</span> <span class="n">types</span><span class="o">.</span><span class="n">int32</span><span class="p">(</span><span class="n">types</span><span class="o">.</span><span class="n">CPointer</span><span class="p">(</span><span class="n">state</span><span class="p">),</span> <span class="n">types</span><span class="o">.</span><span class="n">CPointer</span><span class="p">(</span><span class="n">params</span><span class="p">),</span>
+                            <span class="n">types</span><span class="o">.</span><span class="n">CPointer</span><span class="p">(</span><span class="n">memory</span><span class="p">),</span> <span class="n">types</span><span class="o">.</span><span class="n">CPointer</span><span class="p">(</span><span class="n">types</span><span class="o">.</span><span class="n">float64</span><span class="p">))</span>
+    <span class="c1"># What the law returns decides the wrapper: Numba types every branch of one.</span>
+    <span class="n">function</span><span class="o">.</span><span class="n">compile</span><span class="p">((</span><span class="n">state</span><span class="p">,</span> <span class="n">params</span><span class="p">,</span> <span class="n">memory</span><span class="p">,</span> <span class="n">types</span><span class="o">.</span><span class="n">float64</span><span class="p">[::</span><span class="mi">1</span><span class="p">]))</span>
+    <span class="n">returns</span> <span class="o">=</span> <span class="n">function</span><span class="o">.</span><span class="n">nopython_signatures</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">return_type</span>
+
+    <span class="k">if</span> <span class="n">returns</span> <span class="o">==</span> <span class="n">types</span><span class="o">.</span><span class="n">none</span><span class="p">:</span>
+        <span class="k">def</span><span class="w"> </span><span class="nf">call</span><span class="p">(</span><span class="n">s</span><span class="p">,</span> <span class="n">p</span><span class="p">,</span> <span class="n">m</span><span class="p">,</span> <span class="n">tau</span><span class="p">):</span>
+            <span class="n">function</span><span class="p">(</span><span class="n">carray</span><span class="p">(</span><span class="n">s</span><span class="p">,</span> <span class="mi">1</span><span class="p">)[</span><span class="mi">0</span><span class="p">],</span> <span class="n">carray</span><span class="p">(</span><span class="n">p</span><span class="p">,</span> <span class="mi">1</span><span class="p">)[</span><span class="mi">0</span><span class="p">],</span> <span class="n">carray</span><span class="p">(</span><span class="n">m</span><span class="p">,</span> <span class="mi">1</span><span class="p">)[</span><span class="mi">0</span><span class="p">],</span> <span class="n">carray</span><span class="p">(</span><span class="n">tau</span><span class="p">,</span> <span class="p">(</span><span class="mi">7</span><span class="p">,)))</span>
+            <span class="k">return</span> <span class="mi">0</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="k">def</span><span class="w"> </span><span class="nf">call</span><span class="p">(</span><span class="n">s</span><span class="p">,</span> <span class="n">p</span><span class="p">,</span> <span class="n">m</span><span class="p">,</span> <span class="n">tau</span><span class="p">):</span>
+            <span class="n">code</span> <span class="o">=</span> <span class="n">function</span><span class="p">(</span><span class="n">carray</span><span class="p">(</span><span class="n">s</span><span class="p">,</span> <span class="mi">1</span><span class="p">)[</span><span class="mi">0</span><span class="p">],</span> <span class="n">carray</span><span class="p">(</span><span class="n">p</span><span class="p">,</span> <span class="mi">1</span><span class="p">)[</span><span class="mi">0</span><span class="p">],</span> <span class="n">carray</span><span class="p">(</span><span class="n">m</span><span class="p">,</span> <span class="mi">1</span><span class="p">)[</span><span class="mi">0</span><span class="p">],</span> <span class="n">carray</span><span class="p">(</span><span class="n">tau</span><span class="p">,</span> <span class="p">(</span><span class="mi">7</span><span class="p">,)))</span>
+            <span class="k">if</span> <span class="n">code</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="k">return</span> <span class="mi">0</span>
+            <span class="k">return</span> <span class="n">code</span>
+
+    <span class="k">return</span> <span class="n">numba</span><span class="o">.</span><span class="n">cfunc</span><span class="p">(</span><span class="n">signature</span><span class="p">,</span> <span class="n">nopython</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">error_model</span><span class="o">=</span><span class="s2">"numpy"</span><span class="p">)(</span><span class="n">call</span><span class="p">)</span>
+
+
+<span class="k">class</span><span class="w"> </span><span class="nc">_Param</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">"""A controller attribute that the native loop reads: a view of its staging memory."""</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">__set_name__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">owner</span><span class="p">,</span> <span class="n">name</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">name</span> <span class="o">=</span> <span class="n">name</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="fm">__get__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">controller</span><span class="p">,</span> <span class="n">owner</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+        <span class="k">if</span> <span class="n">controller</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">return</span> <span class="bp">self</span>
+        <span class="k">return</span> <span class="n">controller</span><span class="o">.</span><span class="n">_views</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">name</span><span class="p">]</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="fm">__set__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">controller</span><span class="p">,</span> <span class="n">value</span><span class="p">):</span>
+        <span class="n">controller</span><span class="o">.</span><span class="n">_assign</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">name</span><span class="p">,</span> <span class="n">value</span><span class="p">)</span>
+
+
+<div class="viewcode-block" id="NativeFrankaController">
+<a class="viewcode-back" href="../../api/native.html#aiofranka.native.NativeFrankaController">[docs]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">NativeFrankaController</span><span class="p">(</span><span class="n">FrankaController</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">"""</span>
+<span class="sd">    FrankaController with its 1 kHz control loop in C++.</span>
+
+<span class="sd">    Same constructor, methods and attributes as FrankaController; see aiofranka.native for</span>
+<span class="sd">    what changes. Requires the extension aiofranka._native.</span>
+
+<span class="sd">    Example:</span>
+<span class="sd">        &gt;&gt;&gt; robot = RobotInterface("172.16.0.2")</span>
+<span class="sd">        &gt;&gt;&gt; controller = NativeFrankaController(robot)</span>
+<span class="sd">        &gt;&gt;&gt; await controller.start()</span>
+<span class="sd">        &gt;&gt;&gt; await controller.move()</span>
+<span class="sd">        &gt;&gt;&gt; controller.switch("impedance")</span>
+<span class="sd">        &gt;&gt;&gt; controller.set_freq(50)</span>
+<span class="sd">        &gt;&gt;&gt; await controller.set("q_desired", target)</span>
+<span class="sd">        &gt;&gt;&gt; await controller.stop()</span>
+<span class="sd">    """</span>
+
+    <span class="n">kp</span> <span class="o">=</span> <span class="n">_Param</span><span class="p">()</span>
+    <span class="n">kd</span> <span class="o">=</span> <span class="n">_Param</span><span class="p">()</span>
+    <span class="n">ki</span> <span class="o">=</span> <span class="n">_Param</span><span class="p">()</span>
+    <span class="n">ee_kp</span> <span class="o">=</span> <span class="n">_Param</span><span class="p">()</span>
+    <span class="n">ee_kd</span> <span class="o">=</span> <span class="n">_Param</span><span class="p">()</span>
+    <span class="n">null_kp</span> <span class="o">=</span> <span class="n">_Param</span><span class="p">()</span>
+    <span class="n">null_kd</span> <span class="o">=</span> <span class="n">_Param</span><span class="p">()</span>
+    <span class="n">q_desired</span> <span class="o">=</span> <span class="n">_Param</span><span class="p">()</span>
+    <span class="n">ee_desired</span> <span class="o">=</span> <span class="n">_Param</span><span class="p">()</span>
+    <span class="n">initial_qpos</span> <span class="o">=</span> <span class="n">_Param</span><span class="p">()</span>
+    <span class="n">control_transform</span> <span class="o">=</span> <span class="n">_Param</span><span class="p">()</span>
+    <span class="n">torque_limit</span> <span class="o">=</span> <span class="n">_Param</span><span class="p">()</span>
+
+    <span class="c1"># SCHED_FIFO priority of the loop's thread on Linux, which keeps other processes from</span>
+    <span class="c1"># delaying it when every core is busy; 0 leaves it at normal priority. It needs an rtprio</span>
+    <span class="c1"># limit (ulimit -r) of at least this, as a PREEMPT_RT setup for libfranka has.</span>
+    <span class="n">realtime_priority</span> <span class="o">=</span> <span class="mi">80</span>
+
+    <span class="c1"># Seconds between syncs of the MuJoCo viewer in simulation.</span>
+    <span class="n">_VIEWER_PERIOD</span> <span class="o">=</span> <span class="mi">1</span> <span class="o">/</span> <span class="mi">60</span>
+
+<div class="viewcode-block" id="NativeFrankaController.__init__">
+<a class="viewcode-back" href="../../api/native.html#aiofranka.native.NativeFrankaController.__init__">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">robot</span><span class="p">):</span>
+        <span class="k">if</span> <span class="nb">type</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span><span class="o">.</span><span class="n">step</span> <span class="ow">is</span> <span class="ow">not</span> <span class="n">NativeFrankaController</span><span class="o">.</span><span class="n">step</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span>
+                <span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="nb">type</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span><span class="o">.</span><span class="vm">__name__</span><span class="si">}</span><span class="s2"> overrides step(), which NativeFrankaController never calls: "</span>
+                <span class="s2">"its 1 kHz loop runs in C++. Write the step as a control law "</span>
+                <span class="s2">"(aiofranka.native.control_law), or subclass FrankaController."</span><span class="p">)</span>
+        <span class="n">native</span> <span class="o">=</span> <span class="n">load_native</span><span class="p">()</span>
+        <span class="n">loop</span> <span class="o">=</span> <span class="n">native</span><span class="o">.</span><span class="n">Loop</span><span class="p">()</span>
+        <span class="n">layout</span> <span class="o">=</span> <span class="p">{</span><span class="n">name</span><span class="p">:</span> <span class="p">(</span><span class="n">offset</span><span class="p">,</span> <span class="n">shape</span><span class="p">)</span> <span class="k">for</span> <span class="n">name</span><span class="p">,</span> <span class="n">offset</span><span class="p">,</span> <span class="n">shape</span><span class="p">,</span> <span class="n">_</span> <span class="ow">in</span> <span class="n">native</span><span class="o">.</span><span class="n">PARAMS_LAYOUT</span><span class="p">}</span>
+        <span class="n">records</span> <span class="o">=</span> <span class="n">loop</span><span class="o">.</span><span class="n">params_buffer</span><span class="p">()</span><span class="o">.</span><span class="n">view</span><span class="p">(</span><span class="n">_dtype</span><span class="p">(</span><span class="n">native</span><span class="o">.</span><span class="n">PARAMS_LAYOUT</span><span class="p">,</span> <span class="n">native</span><span class="o">.</span><span class="n">PARAMS_SIZE</span><span class="p">))</span>
+        <span class="n">attributes</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="vm">__dict__</span>
+        <span class="n">attributes</span><span class="p">[</span><span class="s2">"_native"</span><span class="p">]</span> <span class="o">=</span> <span class="n">native</span>
+        <span class="n">attributes</span><span class="p">[</span><span class="s2">"_loop"</span><span class="p">]</span> <span class="o">=</span> <span class="n">loop</span>
+        <span class="n">attributes</span><span class="p">[</span><span class="s2">"_layout"</span><span class="p">]</span> <span class="o">=</span> <span class="n">layout</span>
+        <span class="n">attributes</span><span class="p">[</span><span class="s2">"_records"</span><span class="p">]</span> <span class="o">=</span> <span class="n">records</span>
+        <span class="n">attributes</span><span class="p">[</span><span class="s2">"_views"</span><span class="p">]</span> <span class="o">=</span> <span class="p">{</span><span class="n">name</span><span class="p">:</span> <span class="n">records</span><span class="p">[</span><span class="n">name</span><span class="p">][</span><span class="mi">0</span><span class="p">]</span> <span class="k">for</span> <span class="n">name</span><span class="p">,</span> <span class="p">(</span><span class="n">_</span><span class="p">,</span> <span class="n">shape</span><span class="p">)</span> <span class="ow">in</span> <span class="n">layout</span><span class="o">.</span><span class="n">items</span><span class="p">()</span> <span class="k">if</span> <span class="n">shape</span><span class="p">}</span>
+        <span class="n">attributes</span><span class="p">[</span><span class="s2">"_custom"</span><span class="p">]</span> <span class="o">=</span> <span class="p">{}</span>        <span class="c1"># custom law parameters: name -&gt; (offset, shape)</span>
+        <span class="n">attributes</span><span class="p">[</span><span class="s2">"_custom_used"</span><span class="p">]</span> <span class="o">=</span> <span class="mi">0</span>    <span class="c1"># doubles of Params.custom given out</span>
+        <span class="n">attributes</span><span class="p">[</span><span class="s2">"_laws"</span><span class="p">]</span> <span class="o">=</span> <span class="p">{}</span>          <span class="c1"># name -&gt; (ControlLaw, index, cfunc, memory dtype)</span>
+        <span class="n">attributes</span><span class="p">[</span><span class="s2">"_world_lock"</span><span class="p">]</span> <span class="o">=</span> <span class="n">threading</span><span class="o">.</span><span class="n">Lock</span><span class="p">()</span>
+        <span class="n">attributes</span><span class="p">[</span><span class="s2">"_synced_cycle"</span><span class="p">]</span> <span class="o">=</span> <span class="o">-</span><span class="mi">1</span>
+        <span class="n">attributes</span><span class="p">[</span><span class="s2">"_models"</span><span class="p">]</span> <span class="o">=</span> <span class="p">{}</span>        <span class="c1"># model copies the loop may use, by epoch</span>
+        <span class="n">attributes</span><span class="p">[</span><span class="s2">"_configured"</span><span class="p">]</span> <span class="o">=</span> <span class="kc">False</span>
+        <span class="n">attributes</span><span class="p">[</span><span class="s2">"_torque_diff_limit"</span><span class="p">]</span> <span class="o">=</span> <span class="mf">990.0</span>
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="n">robot</span><span class="p">)</span></div>
+
+
+    <span class="c1"># ── Attributes ────────────────────────────────────────────────────────────</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_assign</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">name</span><span class="p">,</span> <span class="n">value</span><span class="p">):</span>
+        <span class="k">if</span> <span class="n">name</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_layout</span><span class="p">:</span>
+            <span class="n">offset</span><span class="p">,</span> <span class="n">shape</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_layout</span><span class="p">[</span><span class="n">name</span><span class="p">]</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">offset</span><span class="p">,</span> <span class="n">shape</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_custom</span><span class="p">[</span><span class="n">name</span><span class="p">]</span>
+        <span class="n">array</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">broadcast_to</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">value</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">float64</span><span class="p">),</span> <span class="n">shape</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_loop</span><span class="o">.</span><span class="n">assign</span><span class="p">(</span><span class="n">offset</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">ascontiguousarray</span><span class="p">(</span><span class="n">array</span><span class="p">)</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">))</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="fm">__getattr__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">name</span><span class="p">):</span>
+        <span class="n">custom</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="vm">__dict__</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"_custom"</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">custom</span> <span class="ow">and</span> <span class="n">name</span> <span class="ow">in</span> <span class="n">custom</span><span class="p">:</span>
+            <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_views</span><span class="p">[</span><span class="n">name</span><span class="p">]</span>
+        <span class="k">raise</span> <span class="ne">AttributeError</span><span class="p">(</span><span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="nb">type</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span><span class="o">.</span><span class="vm">__name__</span><span class="si">!r}</span><span class="s2"> object has no attribute </span><span class="si">{</span><span class="n">name</span><span class="si">!r}</span><span class="s2">"</span><span class="p">)</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="fm">__setattr__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">name</span><span class="p">,</span> <span class="n">value</span><span class="p">):</span>
+        <span class="n">custom</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="vm">__dict__</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"_custom"</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">custom</span> <span class="ow">and</span> <span class="n">name</span> <span class="ow">in</span> <span class="n">custom</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_assign</span><span class="p">(</span><span class="n">name</span><span class="p">,</span> <span class="n">value</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__setattr__</span><span class="p">(</span><span class="n">name</span><span class="p">,</span> <span class="n">value</span><span class="p">)</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">type</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">"""Controller type: "impedance", "pid", "osc", "torque", or a custom law's name."""</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="vm">__dict__</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"_type"</span><span class="p">,</span> <span class="s2">"impedance"</span><span class="p">)</span>
+
+    <span class="nd">@type</span><span class="o">.</span><span class="n">setter</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">type</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">name</span><span class="p">):</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">name</span><span class="p">,</span> <span class="n">ControlLaw</span><span class="p">):</span>
+            <span class="n">name</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">register_law</span><span class="p">(</span><span class="n">name</span><span class="p">)</span>
+        <span class="n">modes</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_native</span><span class="o">.</span><span class="n">MODES</span>
+        <span class="k">if</span> <span class="n">name</span> <span class="ow">in</span> <span class="n">modes</span> <span class="ow">and</span> <span class="n">name</span> <span class="o">!=</span> <span class="s2">"custom"</span><span class="p">:</span>
+            <span class="n">mode</span><span class="p">,</span> <span class="n">index</span> <span class="o">=</span> <span class="n">modes</span><span class="p">[</span><span class="n">name</span><span class="p">],</span> <span class="o">-</span><span class="mi">1</span>
+        <span class="k">elif</span> <span class="n">name</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_laws</span><span class="p">:</span>
+            <span class="n">mode</span><span class="p">,</span> <span class="n">index</span> <span class="o">=</span> <span class="n">modes</span><span class="p">[</span><span class="s2">"custom"</span><span class="p">],</span> <span class="bp">self</span><span class="o">.</span><span class="n">_laws</span><span class="p">[</span><span class="n">name</span><span class="p">][</span><span class="mi">1</span><span class="p">]</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Unknown controller type: </span><span class="si">{</span><span class="n">name</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
+        <span class="n">previous</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="vm">__dict__</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"_type"</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">previous</span> <span class="ow">in</span> <span class="n">_KEEPS_TORQUE</span> <span class="ow">and</span> <span class="n">name</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">_KEEPS_TORQUE</span><span class="p">:</span>
+            <span class="c1"># FrankaController leaves the impedance or PID torque in .torque, so torque mode</span>
+            <span class="c1"># starts from it.</span>
+            <span class="n">snapshot</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_loop</span><span class="o">.</span><span class="n">snapshot</span><span class="p">()</span>
+            <span class="k">if</span> <span class="n">snapshot</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">_assign</span><span class="p">(</span><span class="s2">"torque"</span><span class="p">,</span> <span class="n">snapshot</span><span class="p">[</span><span class="s2">"torque"</span><span class="p">])</span>
+        <span class="k">if</span> <span class="n">index</span> <span class="o">&gt;=</span> <span class="mi">0</span> <span class="ow">and</span> <span class="n">name</span> <span class="o">!=</span> <span class="n">previous</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_loop</span><span class="o">.</span><span class="n">reset_memory</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_loop</span><span class="o">.</span><span class="n">assign_mode</span><span class="p">(</span><span class="n">mode</span><span class="p">,</span> <span class="n">index</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="vm">__dict__</span><span class="p">[</span><span class="s2">"_type"</span><span class="p">]</span> <span class="o">=</span> <span class="n">name</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">clip</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">"""Whether the loop limits the torque rate and clips the torques."""</span>
+        <span class="k">return</span> <span class="nb">bool</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_records</span><span class="p">[</span><span class="s2">"clip"</span><span class="p">][</span><span class="mi">0</span><span class="p">])</span>
+
+    <span class="nd">@clip</span><span class="o">.</span><span class="n">setter</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">clip</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">value</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_loop</span><span class="o">.</span><span class="n">assign_int</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_layout</span><span class="p">[</span><span class="s2">"clip"</span><span class="p">][</span><span class="mi">0</span><span class="p">],</span> <span class="nb">int</span><span class="p">(</span><span class="nb">bool</span><span class="p">(</span><span class="n">value</span><span class="p">)))</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">torque_diff_limit</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">"""Max torque rate [Nm/s], a number or one per joint."""</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="vm">__dict__</span><span class="p">[</span><span class="s2">"_torque_diff_limit"</span><span class="p">]</span>
+
+    <span class="nd">@torque_diff_limit</span><span class="o">.</span><span class="n">setter</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">torque_diff_limit</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">value</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_assign</span><span class="p">(</span><span class="s2">"torque_diff_limit"</span><span class="p">,</span> <span class="n">value</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="vm">__dict__</span><span class="p">[</span><span class="s2">"_torque_diff_limit"</span><span class="p">]</span> <span class="o">=</span> <span class="n">value</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">torque</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">"""</span>
+<span class="sd">        The torque command of torque mode [Nm] (7,). In impedance and PID mode, the torque</span>
+<span class="sd">        that the last cycle computed, as in FrankaController.</span>
+<span class="sd">        """</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">type</span> <span class="ow">in</span> <span class="n">_KEEPS_TORQUE</span><span class="p">:</span>
+            <span class="n">snapshot</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_loop</span><span class="o">.</span><span class="n">snapshot</span><span class="p">()</span>
+            <span class="k">if</span> <span class="n">snapshot</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="k">return</span> <span class="n">snapshot</span><span class="p">[</span><span class="s2">"torque"</span><span class="p">]</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_views</span><span class="p">[</span><span class="s2">"torque"</span><span class="p">]</span>
+
+    <span class="nd">@torque</span><span class="o">.</span><span class="n">setter</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">torque</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">value</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_assign</span><span class="p">(</span><span class="s2">"torque"</span><span class="p">,</span> <span class="n">value</span><span class="p">)</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">running</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">"""Whether the native loop runs. Setting False stops it."""</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_loop</span><span class="o">.</span><span class="n">running</span><span class="p">()</span>
+
+    <span class="nd">@running</span><span class="o">.</span><span class="n">setter</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">running</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">value</span><span class="p">):</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">value</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_loop</span><span class="o">.</span><span class="n">request_stop</span><span class="p">()</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">state</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">"""What the last cycle read: qpos, qvel, ee, jac, mm and last_torque."""</span>
+        <span class="n">state</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_loop</span><span class="o">.</span><span class="n">state_dict</span><span class="p">()</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="vm">__dict__</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"_state"</span><span class="p">)</span> <span class="k">if</span> <span class="n">state</span> <span class="ow">is</span> <span class="kc">None</span> <span class="k">else</span> <span class="n">state</span>
+
+    <span class="nd">@state</span><span class="o">.</span><span class="n">setter</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">state</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">value</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="vm">__dict__</span><span class="p">[</span><span class="s2">"_state"</span><span class="p">]</span> <span class="o">=</span> <span class="n">value</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">last_command</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">"""The torque the last cycle sent, after the rate limit and clip [Nm] (7,)."""</span>
+        <span class="n">snapshot</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_loop</span><span class="o">.</span><span class="n">snapshot</span><span class="p">()</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="vm">__dict__</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"_last_command"</span><span class="p">)</span> <span class="k">if</span> <span class="n">snapshot</span> <span class="ow">is</span> <span class="kc">None</span> <span class="k">else</span> <span class="n">snapshot</span><span class="p">[</span><span class="s2">"last_command"</span><span class="p">]</span>
+
+    <span class="nd">@last_command</span><span class="o">.</span><span class="n">setter</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">last_command</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">value</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="vm">__dict__</span><span class="p">[</span><span class="s2">"_last_command"</span><span class="p">]</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">value</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">)</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">error_integral</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">"""The PID controller's integral of the joint error (7,). Setting it resets it."""</span>
+        <span class="n">snapshot</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_loop</span><span class="o">.</span><span class="n">snapshot</span><span class="p">()</span>
+        <span class="k">if</span> <span class="n">snapshot</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="vm">__dict__</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"_error_integral"</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="mi">7</span><span class="p">))</span>
+        <span class="k">return</span> <span class="n">snapshot</span><span class="p">[</span><span class="s2">"error_integral"</span><span class="p">]</span>
+
+    <span class="nd">@error_integral</span><span class="o">.</span><span class="n">setter</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">error_integral</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">value</span><span class="p">):</span>
+        <span class="n">value</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">broadcast_to</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">value</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">float64</span><span class="p">),</span> <span class="p">(</span><span class="mi">7</span><span class="p">,))</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="vm">__dict__</span><span class="p">[</span><span class="s2">"_error_integral"</span><span class="p">]</span> <span class="o">=</span> <span class="n">value</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_loop</span><span class="o">.</span><span class="n">reset_integral</span><span class="p">(</span><span class="n">value</span><span class="p">)</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">law_memory</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">"""The memory of the running custom law, a copy with its fields, or None."""</span>
+        <span class="n">entry</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_laws</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">type</span><span class="p">)</span>
+        <span class="n">snapshot</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_loop</span><span class="o">.</span><span class="n">snapshot</span><span class="p">()</span>
+        <span class="k">if</span> <span class="n">entry</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">or</span> <span class="n">snapshot</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">return</span> <span class="kc">None</span>
+        <span class="n">memory</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">entry</span><span class="p">[</span><span class="mi">3</span><span class="p">])</span>
+        <span class="n">raw</span> <span class="o">=</span> <span class="n">memory</span><span class="o">.</span><span class="n">view</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">float64</span><span class="p">)</span>
+        <span class="n">raw</span><span class="p">[:</span><span class="nb">len</span><span class="p">(</span><span class="n">snapshot</span><span class="p">[</span><span class="s2">"memory"</span><span class="p">])]</span> <span class="o">=</span> <span class="n">snapshot</span><span class="p">[</span><span class="s2">"memory"</span><span class="p">]</span>
+        <span class="k">return</span> <span class="n">memory</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+
+    <span class="c1"># ── Custom laws ───────────────────────────────────────────────────────────</span>
+
+<div class="viewcode-block" id="NativeFrankaController.register_law">
+<a class="viewcode-back" href="../../api/native.html#aiofranka.native.NativeFrankaController.register_law">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">register_law</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">law</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">"""</span>
+<span class="sd">        Compile a control law and make it a controller type.</span>
+
+<span class="sd">        switch() then takes its name; switch(law) registers it too. Compiling takes a few</span>
+<span class="sd">        seconds the first time, during which the running loop carries on.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            law (ControlLaw): A function decorated with control_law()</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            str: The law's name</span>
+<span class="sd">        """</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">law</span><span class="p">,</span> <span class="n">ControlLaw</span><span class="p">):</span>
+            <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span><span class="s2">"register_law() takes a function decorated with aiofranka.native.control_law"</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">law</span><span class="o">.</span><span class="n">name</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_laws</span><span class="p">:</span>
+            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_laws</span><span class="p">[</span><span class="n">law</span><span class="o">.</span><span class="n">name</span><span class="p">][</span><span class="mi">0</span><span class="p">]</span> <span class="ow">is</span> <span class="n">law</span><span class="p">:</span>
+                <span class="k">return</span> <span class="n">law</span><span class="o">.</span><span class="n">name</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">"A control law named </span><span class="si">{</span><span class="n">law</span><span class="o">.</span><span class="n">name</span><span class="si">!r}</span><span class="s2"> is registered already"</span><span class="p">)</span>
+        <span class="n">native</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_native</span>
+        <span class="k">if</span> <span class="n">law</span><span class="o">.</span><span class="n">name</span> <span class="ow">in</span> <span class="n">native</span><span class="o">.</span><span class="n">MODES</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">law</span><span class="o">.</span><span class="n">name</span><span class="si">!r}</span><span class="s2"> is a built-in controller type"</span><span class="p">)</span>
+        <span class="c1"># Parameters: shared by name, in Params.custom.</span>
+        <span class="n">custom</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_custom</span><span class="p">)</span>
+        <span class="n">used</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_custom_used</span>
+        <span class="n">base</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_layout</span><span class="p">[</span><span class="s2">"custom"</span><span class="p">][</span><span class="mi">0</span><span class="p">]</span>
+        <span class="k">for</span> <span class="n">name</span><span class="p">,</span> <span class="n">shape</span> <span class="ow">in</span> <span class="n">law</span><span class="o">.</span><span class="n">params</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+            <span class="k">if</span> <span class="n">name</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_layout</span> <span class="ow">or</span> <span class="n">name</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="vm">__dict__</span> <span class="ow">or</span> <span class="nb">hasattr</span><span class="p">(</span><span class="nb">type</span><span class="p">(</span><span class="bp">self</span><span class="p">),</span> <span class="n">name</span><span class="p">):</span>
+                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">law</span><span class="o">.</span><span class="n">name</span><span class="si">}</span><span class="s2">: parameter </span><span class="si">{</span><span class="n">name</span><span class="si">!r}</span><span class="s2"> is a controller attribute already"</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">name</span> <span class="ow">in</span> <span class="n">custom</span><span class="p">:</span>
+                <span class="k">if</span> <span class="n">custom</span><span class="p">[</span><span class="n">name</span><span class="p">][</span><span class="mi">1</span><span class="p">]</span> <span class="o">!=</span> <span class="n">shape</span><span class="p">:</span>
+                    <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">law</span><span class="o">.</span><span class="n">name</span><span class="si">}</span><span class="s2">: parameter </span><span class="si">{</span><span class="n">name</span><span class="si">!r}</span><span class="s2"> has shape </span><span class="si">{</span><span class="n">custom</span><span class="p">[</span><span class="n">name</span><span class="p">][</span><span class="mi">1</span><span class="p">]</span><span class="si">}</span><span class="s2"> in another law"</span><span class="p">)</span>
+                <span class="k">continue</span>
+            <span class="n">size</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">prod</span><span class="p">(</span><span class="n">shape</span><span class="p">))</span>
+            <span class="k">if</span> <span class="n">used</span> <span class="o">+</span> <span class="n">size</span> <span class="o">&gt;</span> <span class="n">native</span><span class="o">.</span><span class="n">CUSTOM_PARAMS</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Custom laws have </span><span class="si">{</span><span class="n">native</span><span class="o">.</span><span class="n">CUSTOM_PARAMS</span><span class="si">}</span><span class="s2"> doubles of parameters in all"</span><span class="p">)</span>
+            <span class="n">custom</span><span class="p">[</span><span class="n">name</span><span class="p">]</span> <span class="o">=</span> <span class="p">(</span><span class="n">base</span> <span class="o">+</span> <span class="mi">8</span> <span class="o">*</span> <span class="n">used</span><span class="p">,</span> <span class="n">shape</span><span class="p">)</span>
+            <span class="n">used</span> <span class="o">+=</span> <span class="n">size</span>
+        <span class="n">params_dtype</span> <span class="o">=</span> <span class="n">_dtype</span><span class="p">(</span>
+            <span class="p">[</span><span class="n">f</span> <span class="k">for</span> <span class="n">f</span> <span class="ow">in</span> <span class="n">native</span><span class="o">.</span><span class="n">PARAMS_LAYOUT</span> <span class="k">if</span> <span class="n">f</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">!=</span> <span class="s2">"custom"</span><span class="p">],</span> <span class="n">native</span><span class="o">.</span><span class="n">PARAMS_SIZE</span><span class="p">,</span>
+            <span class="p">[(</span><span class="n">name</span><span class="p">,</span> <span class="n">offset</span><span class="p">,</span> <span class="n">shape</span><span class="p">,</span> <span class="s2">"f8"</span><span class="p">)</span> <span class="k">for</span> <span class="n">name</span><span class="p">,</span> <span class="p">(</span><span class="n">offset</span><span class="p">,</span> <span class="n">shape</span><span class="p">)</span> <span class="ow">in</span> <span class="n">custom</span><span class="o">.</span><span class="n">items</span><span class="p">()])</span>
+        <span class="n">memory_layout</span><span class="p">,</span> <span class="n">offset</span> <span class="o">=</span> <span class="p">[],</span> <span class="mi">0</span>
+        <span class="k">for</span> <span class="n">name</span><span class="p">,</span> <span class="n">shape</span> <span class="ow">in</span> <span class="n">law</span><span class="o">.</span><span class="n">memory</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+            <span class="n">memory_layout</span><span class="o">.</span><span class="n">append</span><span class="p">((</span><span class="n">name</span><span class="p">,</span> <span class="n">offset</span><span class="p">,</span> <span class="n">shape</span><span class="p">,</span> <span class="s2">"f8"</span><span class="p">))</span>
+            <span class="n">offset</span> <span class="o">+=</span> <span class="mi">8</span> <span class="o">*</span> <span class="nb">int</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">prod</span><span class="p">(</span><span class="n">shape</span><span class="p">))</span>
+        <span class="k">if</span> <span class="n">offset</span> <span class="o">&gt;</span> <span class="mi">8</span> <span class="o">*</span> <span class="n">native</span><span class="o">.</span><span class="n">MEMORY</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">"A law's memory holds at most </span><span class="si">{</span><span class="n">native</span><span class="o">.</span><span class="n">MEMORY</span><span class="si">}</span><span class="s2"> doubles"</span><span class="p">)</span>
+        <span class="n">memory_dtype</span> <span class="o">=</span> <span class="n">_dtype</span><span class="p">([],</span> <span class="mi">8</span> <span class="o">*</span> <span class="n">native</span><span class="o">.</span><span class="n">MEMORY</span><span class="p">,</span> <span class="n">memory_layout</span><span class="p">)</span>
+
+        <span class="n">cfunc</span> <span class="o">=</span> <span class="n">_compile</span><span class="p">(</span><span class="n">law</span><span class="p">,</span> <span class="n">native</span><span class="p">,</span> <span class="n">params_dtype</span><span class="p">,</span> <span class="n">memory_dtype</span><span class="p">)</span>
+        <span class="n">index</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_loop</span><span class="o">.</span><span class="n">register_law</span><span class="p">(</span><span class="n">law</span><span class="o">.</span><span class="n">name</span><span class="p">,</span> <span class="n">cfunc</span><span class="o">.</span><span class="n">address</span><span class="p">,</span> <span class="n">offset</span> <span class="o">//</span> <span class="mi">8</span><span class="p">)</span>
+
+        <span class="n">records</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_loop</span><span class="o">.</span><span class="n">params_buffer</span><span class="p">()</span><span class="o">.</span><span class="n">view</span><span class="p">(</span><span class="n">params_dtype</span><span class="p">)</span>
+        <span class="n">views</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_views</span><span class="p">)</span>
+        <span class="k">for</span> <span class="n">name</span> <span class="ow">in</span> <span class="n">custom</span><span class="p">:</span>
+            <span class="n">views</span><span class="p">[</span><span class="n">name</span><span class="p">]</span> <span class="o">=</span> <span class="n">records</span><span class="p">[</span><span class="n">name</span><span class="p">][</span><span class="mi">0</span><span class="p">]</span>
+        <span class="bp">self</span><span class="o">.</span><span class="vm">__dict__</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="n">_custom</span><span class="o">=</span><span class="n">custom</span><span class="p">,</span> <span class="n">_custom_used</span><span class="o">=</span><span class="n">used</span><span class="p">,</span> <span class="n">_views</span><span class="o">=</span><span class="n">views</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_laws</span><span class="p">[</span><span class="n">law</span><span class="o">.</span><span class="n">name</span><span class="p">]</span> <span class="o">=</span> <span class="p">(</span><span class="n">law</span><span class="p">,</span> <span class="n">index</span><span class="p">,</span> <span class="n">cfunc</span><span class="p">,</span> <span class="n">memory_dtype</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">law</span><span class="o">.</span><span class="n">name</span></div>
+
+
+<div class="viewcode-block" id="NativeFrankaController.switch">
+<a class="viewcode-back" href="../../api/native.html#aiofranka.native.NativeFrankaController.switch">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">switch</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">controller_type</span><span class="p">:</span> <span class="s2">"str | ControlLaw"</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">"""</span>
+<span class="sd">        FrankaController.switch(), which also takes a control law (see control_law()).</span>
+
+<span class="sd">        Like the PID integral, a custom law's memory starts from zero.</span>
+<span class="sd">        """</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">controller_type</span><span class="p">,</span> <span class="n">ControlLaw</span><span class="p">):</span>
+            <span class="n">controller_type</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">register_law</span><span class="p">(</span><span class="n">controller_type</span><span class="p">)</span>
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="n">switch</span><span class="p">(</span><span class="n">controller_type</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">controller_type</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_laws</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_loop</span><span class="o">.</span><span class="n">reset_memory</span><span class="p">()</span></div>
+
+
+    <span class="c1"># ── The loop ──────────────────────────────────────────────────────────────</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_configure</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">"""Give the loop its own copies of the model, and of the data it computes with."""</span>
+        <span class="n">robot</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">robot</span>
+        <span class="n">model</span> <span class="o">=</span> <span class="n">robot</span><span class="o">.</span><span class="n">model</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="p">(</span><span class="n">model</span><span class="o">.</span><span class="n">nq</span> <span class="o">==</span> <span class="n">model</span><span class="o">.</span><span class="n">nv</span> <span class="o">==</span> <span class="n">model</span><span class="o">.</span><span class="n">nu</span> <span class="o">==</span> <span class="mi">7</span><span class="p">):</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">"The native loop needs a model with 7 joints and 7 actuators"</span><span class="p">)</span>
+        <span class="n">model</span> <span class="o">=</span> <span class="n">copy</span><span class="o">.</span><span class="n">copy</span><span class="p">(</span><span class="n">model</span><span class="p">)</span>
+        <span class="c1"># In simulation, the loop's data is the simulated arm, continuing from robot.data.</span>
+        <span class="n">data</span> <span class="o">=</span> <span class="n">mujoco</span><span class="o">.</span><span class="n">MjData</span><span class="p">(</span><span class="n">model</span><span class="p">)</span> <span class="k">if</span> <span class="n">robot</span><span class="o">.</span><span class="n">real</span> <span class="k">else</span> <span class="n">copy</span><span class="o">.</span><span class="n">copy</span><span class="p">(</span><span class="n">robot</span><span class="o">.</span><span class="n">data</span><span class="p">)</span>
+        <span class="n">site</span> <span class="o">=</span> <span class="n">robot</span><span class="o">.</span><span class="n">site_id</span>
+        <span class="n">arrays</span> <span class="o">=</span> <span class="p">{</span>
+            <span class="s2">"data"</span><span class="p">:</span> <span class="n">data</span><span class="o">.</span><span class="n">_address</span><span class="p">,</span>
+            <span class="s2">"qpos"</span><span class="p">:</span> <span class="n">data</span><span class="o">.</span><span class="n">qpos</span><span class="o">.</span><span class="n">ctypes</span><span class="o">.</span><span class="n">data</span><span class="p">,</span>
+            <span class="s2">"qvel"</span><span class="p">:</span> <span class="n">data</span><span class="o">.</span><span class="n">qvel</span><span class="o">.</span><span class="n">ctypes</span><span class="o">.</span><span class="n">data</span><span class="p">,</span>
+            <span class="s2">"ctrl"</span><span class="p">:</span> <span class="n">data</span><span class="o">.</span><span class="n">ctrl</span><span class="o">.</span><span class="n">ctypes</span><span class="o">.</span><span class="n">data</span><span class="p">,</span>
+            <span class="s2">"site_xpos"</span><span class="p">:</span> <span class="n">data</span><span class="o">.</span><span class="n">site_xpos</span><span class="p">[</span><span class="n">site</span><span class="p">]</span><span class="o">.</span><span class="n">ctypes</span><span class="o">.</span><span class="n">data</span><span class="p">,</span>
+            <span class="s2">"site_xmat"</span><span class="p">:</span> <span class="n">data</span><span class="o">.</span><span class="n">site_xmat</span><span class="p">[</span><span class="n">site</span><span class="p">]</span><span class="o">.</span><span class="n">ctypes</span><span class="o">.</span><span class="n">data</span><span class="p">,</span>
+        <span class="p">}</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_loop</span><span class="o">.</span><span class="n">set_mujoco</span><span class="p">(</span><span class="n">model</span><span class="o">.</span><span class="n">_address</span><span class="p">,</span> <span class="n">arrays</span><span class="p">,</span> <span class="n">site</span><span class="p">,</span> <span class="nb">float</span><span class="p">(</span><span class="n">model</span><span class="o">.</span><span class="n">opt</span><span class="o">.</span><span class="n">timestep</span><span class="p">),</span>
+                              <span class="nb">float</span><span class="p">(</span><span class="n">robot</span><span class="o">.</span><span class="n">data</span><span class="o">.</span><span class="n">time</span><span class="p">),</span> <span class="n">_mujoco_functions</span><span class="p">())</span>
+        <span class="bp">self</span><span class="o">.</span><span class="vm">__dict__</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="n">_loop_model</span><span class="o">=</span><span class="n">model</span><span class="p">,</span> <span class="n">_loop_data</span><span class="o">=</span><span class="n">data</span><span class="p">,</span> <span class="n">_models</span><span class="o">=</span><span class="p">{},</span>
+                             <span class="n">_configured</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">_synced_cycle</span><span class="o">=-</span><span class="mi">1</span><span class="p">)</span>
+        <span class="c1"># RobotInterface asks the loop for states while it runs, and tells it about payloads.</span>
+        <span class="n">robot</span><span class="o">.</span><span class="n">_native_ref</span> <span class="o">=</span> <span class="n">weakref</span><span class="o">.</span><span class="n">ref</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_launch</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">macos_qos</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">cpu</span><span class="o">=-</span><span class="mi">1</span><span class="p">,</span> <span class="n">fifo_priority</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+        <span class="k">if</span> <span class="n">macos_qos</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">macos_qos</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">environ</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"LIBFRANKA_MACOS_BUSY_WAIT"</span><span class="p">)</span> <span class="o">!=</span> <span class="s2">"0"</span>
+        <span class="k">if</span> <span class="n">fifo_priority</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">fifo_priority</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">realtime_priority</span> <span class="k">if</span> <span class="n">sys</span><span class="o">.</span><span class="n">platform</span><span class="o">.</span><span class="n">startswith</span><span class="p">(</span><span class="s2">"linux"</span><span class="p">)</span> <span class="k">else</span> <span class="mi">0</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_configure</span><span class="p">()</span>
+        <span class="n">robot</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">robot</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_loop</span><span class="o">.</span><span class="n">start</span><span class="p">(</span><span class="n">robot</span><span class="o">.</span><span class="n">torque_controller</span> <span class="k">if</span> <span class="n">robot</span><span class="o">.</span><span class="n">real</span> <span class="k">else</span> <span class="kc">None</span><span class="p">,</span>
+                         <span class="n">macos_qos</span><span class="o">=</span><span class="n">macos_qos</span><span class="p">,</span> <span class="n">cpu</span><span class="o">=</span><span class="n">cpu</span><span class="p">,</span> <span class="n">fifo_priority</span><span class="o">=</span><span class="n">fifo_priority</span><span class="p">)</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_owns_connection</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">"""Whether the loop runs, and so reads every robot state."""</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_loop</span><span class="o">.</span><span class="n">running</span><span class="p">()</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_model_changed</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">"""RobotInterface.sync_payload() changed the model: give the loop a copy of it."""</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">_configured</span><span class="p">:</span>
+            <span class="k">return</span>
+        <span class="n">model</span> <span class="o">=</span> <span class="n">copy</span><span class="o">.</span><span class="n">copy</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">robot</span><span class="o">.</span><span class="n">model</span><span class="p">)</span>
+        <span class="n">epoch</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_loop</span><span class="o">.</span><span class="n">swap_model</span><span class="p">(</span><span class="n">model</span><span class="o">.</span><span class="n">_address</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_models</span><span class="p">[</span><span class="n">epoch</span><span class="p">]</span> <span class="o">=</span> <span class="n">model</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_sync_world</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">"""Bring robot.data and robot.robot_state to the loop's last cycle."""</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">_configured</span><span class="p">:</span>
+            <span class="k">return</span> <span class="kc">False</span>
+        <span class="k">with</span> <span class="bp">self</span><span class="o">.</span><span class="n">_world_lock</span><span class="p">:</span>
+            <span class="n">robot</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">robot</span>
+            <span class="n">data</span> <span class="o">=</span> <span class="n">robot</span><span class="o">.</span><span class="n">data</span>
+            <span class="n">info</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_loop</span><span class="o">.</span><span class="n">sync_world</span><span class="p">(</span><span class="n">data</span><span class="o">.</span><span class="n">qpos</span><span class="p">,</span> <span class="n">data</span><span class="o">.</span><span class="n">qvel</span><span class="p">,</span> <span class="n">data</span><span class="o">.</span><span class="n">ctrl</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">info</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="k">return</span> <span class="kc">False</span>
+            <span class="n">cycle</span><span class="p">,</span> <span class="n">world_time</span><span class="p">,</span> <span class="n">epoch</span> <span class="o">=</span> <span class="n">info</span>
+            <span class="k">if</span> <span class="n">cycle</span> <span class="o">==</span> <span class="bp">self</span><span class="o">.</span><span class="n">_synced_cycle</span><span class="p">:</span>
+                <span class="k">return</span> <span class="kc">True</span>
+            <span class="bp">self</span><span class="o">.</span><span class="vm">__dict__</span><span class="p">[</span><span class="s2">"_synced_cycle"</span><span class="p">]</span> <span class="o">=</span> <span class="n">cycle</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="n">robot</span><span class="o">.</span><span class="n">real</span><span class="p">:</span>
+                <span class="n">data</span><span class="o">.</span><span class="n">time</span> <span class="o">=</span> <span class="n">world_time</span>
+            <span class="n">mujoco</span><span class="o">.</span><span class="n">mj_forward</span><span class="p">(</span><span class="n">robot</span><span class="o">.</span><span class="n">model</span><span class="p">,</span> <span class="n">data</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">robot</span><span class="o">.</span><span class="n">real</span><span class="p">:</span>
+                <span class="n">state</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_loop</span><span class="o">.</span><span class="n">robot_state</span><span class="p">()</span>
+                <span class="k">if</span> <span class="n">state</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+                    <span class="n">robot</span><span class="o">.</span><span class="n">robot_state</span> <span class="o">=</span> <span class="n">state</span>
+                <span class="k">elif</span> <span class="n">robot</span><span class="o">.</span><span class="n">robot_state</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">_loop</span><span class="o">.</span><span class="n">copy_robot_state_into</span><span class="p">(</span><span class="n">robot</span><span class="o">.</span><span class="n">robot_state</span><span class="p">)</span>
+            <span class="c1"># Model copies the loop has moved past</span>
+            <span class="k">for</span> <span class="n">old</span> <span class="ow">in</span> <span class="p">[</span><span class="n">e</span> <span class="k">for</span> <span class="n">e</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_models</span> <span class="k">if</span> <span class="n">e</span> <span class="o">&lt;</span> <span class="n">epoch</span><span class="p">]:</span>
+                <span class="k">del</span> <span class="bp">self</span><span class="o">.</span><span class="n">_models</span><span class="p">[</span><span class="n">old</span><span class="p">]</span>
+            <span class="k">return</span> <span class="kc">True</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_tick</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">"""Called after each sync while the loop runs (the server writes shared memory)."""</span>
+
+    <span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">_watch</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">"""Mirror the loop into robot.data until it ends; returns its error, or None."""</span>
+        <span class="n">loop</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_loop</span>
+        <span class="n">robot</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">robot</span>
+        <span class="n">viewer</span> <span class="o">=</span> <span class="kc">None</span> <span class="k">if</span> <span class="n">robot</span><span class="o">.</span><span class="n">real</span> <span class="k">else</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">robot</span><span class="p">,</span> <span class="s2">"viewer"</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
+        <span class="n">last_stats</span> <span class="o">=</span> <span class="n">last_viewer</span> <span class="o">=</span> <span class="n">time</span><span class="o">.</span><span class="n">perf_counter</span><span class="p">()</span>
+        <span class="n">status_checked</span> <span class="o">=</span> <span class="kc">False</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="k">while</span> <span class="kc">True</span><span class="p">:</span>
+                <span class="n">alive</span> <span class="o">=</span> <span class="n">loop</span><span class="o">.</span><span class="n">running</span><span class="p">()</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">_sync_world</span><span class="p">()</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">_tick</span><span class="p">()</span>
+                <span class="n">now</span> <span class="o">=</span> <span class="n">time</span><span class="o">.</span><span class="n">perf_counter</span><span class="p">()</span>
+                <span class="k">if</span> <span class="ow">not</span> <span class="n">status_checked</span> <span class="ow">and</span> <span class="n">now</span> <span class="o">-</span> <span class="n">last_stats</span> <span class="o">&gt;</span> <span class="mf">0.05</span><span class="p">:</span>
+                    <span class="n">status_checked</span> <span class="o">=</span> <span class="kc">True</span>
+                    <span class="k">if</span> <span class="n">loop</span><span class="o">.</span><span class="n">realtime_status</span><span class="p">():</span>
+                        <span class="n">logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Native control loop: </span><span class="si">{</span><span class="n">loop</span><span class="o">.</span><span class="n">realtime_status</span><span class="p">()</span><span class="o">.</span><span class="n">rstrip</span><span class="p">(</span><span class="s1">'; '</span><span class="p">)</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
+                <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">track</span> <span class="ow">and</span> <span class="n">now</span> <span class="o">-</span> <span class="n">last_stats</span> <span class="o">&gt;=</span> <span class="mf">1.0</span><span class="p">:</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">_print_stats</span><span class="p">()</span>
+                    <span class="n">last_stats</span> <span class="o">=</span> <span class="n">now</span>
+                <span class="k">if</span> <span class="n">viewer</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">now</span> <span class="o">-</span> <span class="n">last_viewer</span> <span class="o">&gt;=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_VIEWER_PERIOD</span><span class="p">:</span>
+                    <span class="n">viewer</span><span class="o">.</span><span class="n">sync</span><span class="p">()</span>
+                    <span class="n">last_viewer</span> <span class="o">=</span> <span class="n">now</span>
+                <span class="k">if</span> <span class="ow">not</span> <span class="n">alive</span><span class="p">:</span>
+                    <span class="k">break</span>
+                <span class="k">await</span> <span class="n">asyncio</span><span class="o">.</span><span class="n">sleep</span><span class="p">(</span><span class="mf">0.001</span><span class="p">)</span>
+        <span class="k">finally</span><span class="p">:</span>
+            <span class="n">loop</span><span class="o">.</span><span class="n">request_stop</span><span class="p">()</span>
+            <span class="n">loop</span><span class="o">.</span><span class="n">join</span><span class="p">()</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_sync_world</span><span class="p">()</span>
+        <span class="k">return</span> <span class="n">loop</span><span class="o">.</span><span class="n">error</span><span class="p">()</span> <span class="ow">or</span> <span class="kc">None</span>
+
+<div class="viewcode-block" id="NativeFrankaController.loop_stats">
+<a class="viewcode-back" href="../../api/native.html#aiofranka.native.NativeFrankaController.loop_stats">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">loop_stats</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">reset</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">"""</span>
+<span class="sd">        Timing of the native loop since start, or since the last call with reset.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            reset (bool): Start a new window</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            dict: count, mean, std, min and max of the period between cycles [s]; busy_mean</span>
+<span class="sd">                and busy_max, from a cycle's start to its torque command [s]; what the robot</span>
+<span class="sd">                reported (real robot only): robot_gap_max [s], the states missed in between,</span>
+<span class="sd">                and success_min, its lowest command success rate. Since start: warn and error,</span>
+<span class="sd">                periods off 1 ms by more than 0.1 ms or longer than 10 ms, and max_all [s].</span>
+<span class="sd">        """</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_loop</span><span class="o">.</span><span class="n">stats</span><span class="p">(</span><span class="n">reset</span><span class="o">=</span><span class="n">reset</span><span class="p">)</span></div>
+
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_print_stats</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="n">stats</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_loop</span><span class="o">.</span><span class="n">stats</span><span class="p">(</span><span class="n">reset</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">stats</span><span class="p">[</span><span class="s2">"count"</span><span class="p">]</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="k">return</span>
+        <span class="n">mean</span><span class="p">,</span> <span class="n">std</span> <span class="o">=</span> <span class="n">stats</span><span class="p">[</span><span class="s2">"mean"</span><span class="p">]</span> <span class="o">*</span> <span class="mi">1000</span><span class="p">,</span> <span class="n">stats</span><span class="p">[</span><span class="s2">"std"</span><span class="p">]</span> <span class="o">*</span> <span class="mi">1000</span>
+        <span class="n">low</span><span class="p">,</span> <span class="n">high</span> <span class="o">=</span> <span class="n">stats</span><span class="p">[</span><span class="s2">"min"</span><span class="p">]</span> <span class="o">*</span> <span class="mi">1000</span><span class="p">,</span> <span class="n">stats</span><span class="p">[</span><span class="s2">"max"</span><span class="p">]</span> <span class="o">*</span> <span class="mi">1000</span>
+        <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Control loop stats (last </span><span class="si">{</span><span class="n">stats</span><span class="p">[</span><span class="s1">'count'</span><span class="p">]</span><span class="si">}</span><span class="s2"> iterations):"</span><span class="p">)</span>
+        <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"  Frequency: </span><span class="si">{</span><span class="mf">1.0</span><span class="w"> </span><span class="o">/</span><span class="w"> </span><span class="n">stats</span><span class="p">[</span><span class="s1">'mean'</span><span class="p">]</span><span class="si">:</span><span class="s2">.1f</span><span class="si">}</span><span class="s2"> Hz (target: 1000 Hz)"</span><span class="p">)</span>
+        <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"  Mean dt: </span><span class="si">{</span><span class="n">mean</span><span class="si">:</span><span class="s2">.3f</span><span class="si">}</span><span class="s2"> ms, Std: </span><span class="si">{</span><span class="n">std</span><span class="si">:</span><span class="s2">.3f</span><span class="si">}</span><span class="s2"> ms"</span><span class="p">)</span>
+        <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"  Min dt: </span><span class="si">{</span><span class="n">low</span><span class="si">:</span><span class="s2">.3f</span><span class="si">}</span><span class="s2"> ms, Max dt: </span><span class="si">{</span><span class="n">high</span><span class="si">:</span><span class="s2">.3f</span><span class="si">}</span><span class="s2"> ms"</span><span class="p">)</span>
+        <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"  Jitter (max-min): </span><span class="si">{</span><span class="n">high</span><span class="w"> </span><span class="o">-</span><span class="w"> </span><span class="n">low</span><span class="si">:</span><span class="s2">.3f</span><span class="si">}</span><span class="s2"> ms"</span><span class="p">)</span>
+
+    <span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">_run</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">"""Watch the native loop; on an error, report it and exit, as FrankaController does."""</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="n">error</span> <span class="o">=</span> <span class="k">await</span> <span class="bp">self</span><span class="o">.</span><span class="n">_watch</span><span class="p">()</span>
+            <span class="k">if</span> <span class="n">error</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="ne">RuntimeError</span><span class="p">(</span><span class="n">error</span><span class="p">)</span>
+        <span class="k">except</span> <span class="n">asyncio</span><span class="o">.</span><span class="n">CancelledError</span><span class="p">:</span>
+            <span class="k">raise</span>
+        <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+            <span class="n">error_str</span> <span class="o">=</span> <span class="nb">str</span><span class="p">(</span><span class="n">e</span><span class="p">)</span>
+            <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Error in control loop: </span><span class="si">{</span><span class="n">error_str</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
+            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">error_callback</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="k">try</span><span class="p">:</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">error_callback</span><span class="p">(</span><span class="n">error_str</span><span class="p">)</span>
+                <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">cb_err</span><span class="p">:</span>
+                    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Error in error_callback: </span><span class="si">{</span><span class="n">cb_err</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
+            <span class="n">sys</span><span class="o">.</span><span class="n">exit</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span>  <span class="c1"># Kill the entire script</span>
+
+<div class="viewcode-block" id="NativeFrankaController.start">
+<a class="viewcode-back" href="../../api/native.html#aiofranka.native.NativeFrankaController.start">[docs]</a>
+    <span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">start</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">"""</span>
+<span class="sd">        Start the native 1 kHz control loop (FrankaController.start()).</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            asyncio.Task: Watches the loop, and ends with it</span>
+<span class="sd">        """</span>
+        <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">"Starting robot control loop (native)"</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">robot</span><span class="o">.</span><span class="n">start</span><span class="p">()</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">task</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">or</span> <span class="bp">self</span><span class="o">.</span><span class="n">task</span><span class="o">.</span><span class="n">done</span><span class="p">():</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_launch</span><span class="p">()</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">task</span> <span class="o">=</span> <span class="n">asyncio</span><span class="o">.</span><span class="n">create_task</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_run</span><span class="p">())</span>
+        <span class="k">await</span> <span class="n">asyncio</span><span class="o">.</span><span class="n">sleep</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span>  <span class="c1"># Yield to ensure the task starts</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">task</span></div>
+
+
+<div class="viewcode-block" id="NativeFrankaController.step">
+<a class="viewcode-back" href="../../api/native.html#aiofranka.native.NativeFrankaController.step">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">step</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">"""</span>
+<span class="sd">        Run one control cycle in the calling thread (FrankaController.step()).</span>
+
+<span class="sd">        For stepping a simulation, or the robot, by hand while the loop is not running.</span>
+<span class="sd">        """</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_loop</span><span class="o">.</span><span class="n">running</span><span class="p">():</span>
+            <span class="k">raise</span> <span class="ne">RuntimeError</span><span class="p">(</span><span class="s2">"The native loop is running; it steps by itself"</span><span class="p">)</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">_configured</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_configure</span><span class="p">()</span>
+        <span class="n">robot</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">robot</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_loop</span><span class="o">.</span><span class="n">step_once</span><span class="p">(</span><span class="n">robot</span><span class="o">.</span><span class="n">torque_controller</span> <span class="k">if</span> <span class="n">robot</span><span class="o">.</span><span class="n">real</span> <span class="k">else</span> <span class="kc">None</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_sync_world</span><span class="p">()</span>
+        <span class="n">viewer</span> <span class="o">=</span> <span class="kc">None</span> <span class="k">if</span> <span class="n">robot</span><span class="o">.</span><span class="n">real</span> <span class="k">else</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">robot</span><span class="p">,</span> <span class="s2">"viewer"</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">viewer</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">viewer</span><span class="o">.</span><span class="n">sync</span><span class="p">()</span></div>
+
+
+    <span class="c1"># ── FrankaController methods that read robot.data ─────────────────────────</span>
+
+<div class="viewcode-block" id="NativeFrankaController.initialize">
+<a class="viewcode-back" href="../../api/native.html#aiofranka.native.NativeFrankaController.initialize">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">initialize</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_sync_world</span><span class="p">()</span>
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="n">initialize</span><span class="p">()</span></div>
+
+
+<div class="viewcode-block" id="NativeFrankaController.set_tcp">
+<a class="viewcode-back" href="../../api/native.html#aiofranka.native.NativeFrankaController.set_tcp">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">set_tcp</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">transform</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_sync_world</span><span class="p">()</span>
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="n">set_tcp</span><span class="p">(</span><span class="n">transform</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="NativeFrankaController.activate">
+<a class="viewcode-back" href="../../api/native.html#aiofranka.native.NativeFrankaController.activate">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">activate</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">config</span><span class="p">,</span> <span class="n">check_tool</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">check_null_target</span><span class="o">=</span><span class="kc">True</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_sync_world</span><span class="p">()</span>
+        <span class="k">return</span> <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="n">activate</span><span class="p">(</span><span class="n">config</span><span class="p">,</span> <span class="n">check_tool</span><span class="o">=</span><span class="n">check_tool</span><span class="p">,</span> <span class="n">check_null_target</span><span class="o">=</span><span class="n">check_null_target</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="NativeFrankaController.move">
+<a class="viewcode-back" href="../../api/native.html#aiofranka.native.NativeFrankaController.move">[docs]</a>
+    <span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">move</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">qpos</span><span class="o">=</span><span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">,</span> <span class="o">-</span><span class="mf">1.57079</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mf">1.57079</span><span class="p">,</span> <span class="o">-</span><span class="mf">0.7853</span><span class="p">]):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_sync_world</span><span class="p">()</span>
+        <span class="k">await</span> <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="n">move</span><span class="p">(</span><span class="n">qpos</span><span class="p">)</span></div>
+</div>
+
+</pre></div>
+
+           </div>
+          </div>
+          <footer>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2025, MIT Improbable AI Lab.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

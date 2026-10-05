@@ -177,14 +177,14 @@ def control_law(function=None, *, params=None, memory=None, name=None):
     The native loop calls it at 1 kHz, compiled with Numba, so it runs without Python: write
     it with numpy and math only (Numba's nopython mode). It gets four arguments:
 
-        s: what the loop read at this cycle, FrankaController.state's fields: qpos, qvel,
-           ee (flange pose, 4x4), jac (6x7, linear rows first), mm (7x7), last_torque,
-           and cycle, time [s] and dt (1e-3)
-        p: the controller's attributes: kp, kd, ki, ee_kp, ee_kd, null_kp, null_kd,
-           q_desired, ee_desired, torque, initial_qpos, control_transform, torque_limit,
-           torque_diff_limit, plus the law's own params
-        m: the law's memory, zeroed when switch() selects the law; write to it
-        tau: the 7 torques to fill [Nm]
+    - s: what the loop read at this cycle, FrankaController.state's fields: qpos, qvel,
+      ee (flange pose, 4x4), jac (6x7, linear rows first), mm (7x7), last_torque,
+      and cycle, time [s] and dt (1e-3)
+    - p: the controller's attributes: kp, kd, ki, ee_kp, ee_kd, null_kp, null_kd,
+      q_desired, ee_desired, torque, initial_qpos, control_transform, torque_limit,
+      torque_diff_limit, plus the law's own params
+    - m: the law's memory, zeroed when switch() selects the law; write to it
+    - tau: the 7 torques to fill [Nm]
 
     Return nothing, or a nonzero integer to stop the loop with an error. With clip (the
     default), the loop then limits the torque rate and clips the torques, as the impedance

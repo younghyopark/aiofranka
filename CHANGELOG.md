@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.7.0 - 2026-10-05
 
 ### Highlights
 
@@ -9,7 +9,9 @@
 
 ### Changes
 
-- aiofranka builds the optional extension `aiofranka._native` with pybind11 3.1 when installed from source; without a compiler, it installs without it. `examples/08_native_custom_law.py` holds the arm with a custom law.
+- The wheels for macOS on Apple Silicon (CPython 3.10 to 3.14) and Linux x86_64 (CPython 3.10 to 3.12) include the native loop, the extension `aiofranka._native`. Elsewhere aiofranka installs without it; building from source compiles it with pybind11 3.1 and a C++17 compiler.
+- Install on Linux with pip 25, which Python 3.12's venv brings: the macOS dependency's marker no longer compares `platform_release`, which pip 25 evaluated on Linux too and could not parse there. On Apple Silicon, aiofranka now needs macOS 15 or newer to install with its dependencies, as pylibfranka-macos does.
+- Examples 00 to 03 use `NativeFrankaController`, and `examples/08_native_custom_law.py` holds the arm with a custom law. The system identification collectors (04, 06) keep `FrankaController`, whose `step()` they override.
 - `RobotInterface` defers to a running native loop: `state`, `state_minimal` and `sync_mj()` take its last state, `step()` refuses, `stop()` stops it first, and `sync_payload()` gives it the new model.
 - On Linux, the native loop's thread runs at SCHED_FIFO priority 80 (`realtime_priority`). `controller.loop_stats()` reports the loop's timing and what the robot saw: the largest gap between its states, the states missed and the lowest command success rate.
 

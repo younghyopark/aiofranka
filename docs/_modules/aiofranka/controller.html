@@ -5,14 +5,14 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>aiofranka.controller &mdash; aiofranka 0.5.1 documentation</title>
+  <title>aiofranka.controller &mdash; aiofranka 0.7.0 documentation</title>
       <link rel="stylesheet" type="text/css" href="../../_static/pygments.css?v=b86133f3" />
       <link rel="stylesheet" type="text/css" href="../../_static/css/theme.css?v=9edc463e" />
 
   
       <script src="../../_static/jquery.js?v=5d32c60e"></script>
       <script src="../../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
-      <script src="../../_static/documentation_options.js?v=b9afe91b"></script>
+      <script src="../../_static/documentation_options.js?v=fe7df9b0"></script>
       <script src="../../_static/doctools.js?v=fd6eb6e6"></script>
       <script src="../../_static/sphinx_highlight.js?v=6ffebe34"></script>
     <script src="../../_static/js/theme.js"></script>
@@ -44,6 +44,7 @@
 <li class="toctree-l1"><a class="reference internal" href="../../installation.html">Installation</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../quickstart.html">Quick Start</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../controllers.html">Controllers</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../native.html">Native Control Loop</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../cli.html">CLI Reference</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../async_mode.html">Async Mode Guide</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../examples.html">Examples</a></li>
@@ -53,7 +54,10 @@
 <ul>
 <li class="toctree-l1"><a class="reference internal" href="../../api/remote.html">FrankaRemoteController (Server Mode)</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../api/controller.html">Franka Controller</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../api/native.html">Native Controller</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../api/robot.html">Robot Interface</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../api/payload.html">Payload Identification and Tools</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../api/config.html">Controller Configurations</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../api/server.html">Server Functions</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../api/gripper.html">GripperController</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../api/utilities.html">Async Utilities</a></li>
@@ -98,6 +102,8 @@
 <span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span> 
 <span class="kn">import</span><span class="w"> </span><span class="nn">time</span> 
 <span class="kn">from</span><span class="w"> </span><span class="nn">aiofranka.robot</span><span class="w"> </span><span class="kn">import</span> <span class="n">RobotInterface</span><span class="p">,</span> <span class="n">set_macos_control_thread_qos</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">aiofranka.payload</span><span class="w"> </span><span class="kn">import</span> <span class="n">identify_payload</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">aiofranka.config</span><span class="w"> </span><span class="kn">import</span> <span class="n">load_config</span><span class="p">,</span> <span class="n">tcp_transform</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">ruckig</span><span class="w"> </span><span class="kn">import</span> <span class="n">InputParameter</span><span class="p">,</span> <span class="n">Ruckig</span><span class="p">,</span> <span class="n">Trajectory</span><span class="p">,</span> <span class="n">Result</span>
 
 <span class="n">logger</span> <span class="o">=</span> <span class="n">logging</span><span class="o">.</span><span class="n">getLogger</span><span class="p">(</span><span class="vm">__name__</span><span class="p">)</span>
@@ -138,16 +144,22 @@
 <span class="sd">        kd (np.ndarray): Joint damping [Nm⋅s/rad] (7,)</span>
 <span class="sd">        </span>
 <span class="sd">        # OSC gains</span>
-<span class="sd">        ee_kp (np.ndarray): EE stiffness [N/m for xyz, Nm/rad for rpy] (6,)</span>
-<span class="sd">        ee_kd (np.ndarray): EE damping [N⋅s/m for xyz, Nm⋅s/rad for rpy] (6,)</span>
+<span class="sd">        ee_kp (np.ndarray): EE stiffness as an acceleration gain [1/s²] (6,): the OSC</span>
+<span class="sd">            commands the wrench Λ·(ee_kp·e − ee_kd·v), with Λ the task-space inertia, so</span>
+<span class="sd">            ee_kp = ω² and ee_kd = 2ζω for a natural frequency ω and damping ratio ζ</span>
+<span class="sd">        ee_kd (np.ndarray): EE damping as an acceleration gain [1/s] (6,)</span>
 <span class="sd">        null_kp (np.ndarray): Null-space stiffness [Nm/rad] (7,)</span>
 <span class="sd">        null_kd (np.ndarray): Null-space damping [Nm⋅s/rad] (7,)</span>
 <span class="sd">        </span>
 <span class="sd">        # Target states</span>
 <span class="sd">        q_desired (np.ndarray): Desired joint positions [rad] (7,)</span>
-<span class="sd">        ee_desired (np.ndarray): Desired EE pose as 4x4 transform</span>
+<span class="sd">        ee_desired (np.ndarray): Desired pose of the OSC control frame as 4x4 transform</span>
 <span class="sd">        torque (np.ndarray): Direct torque command [Nm] (7,)</span>
-<span class="sd">        </span>
+<span class="sd">        control_transform (np.ndarray): Tool center point that the OSC controls, in</span>
+<span class="sd">            the flange frame, 4x4 (default: identity, i.e. the flange); see set_tcp()</span>
+<span class="sd">        last_command (np.ndarray): Last torque sent to the robot, after rate</span>
+<span class="sd">            limiting and clipping [Nm] (7,)</span>
+
 <span class="sd">        # Safety</span>
 <span class="sd">        clip (bool): Enable torque rate limiting (default: True)</span>
 <span class="sd">        torque_diff_limit (float): Max torque rate [Nm/s] (default: 990)</span>
@@ -202,8 +214,10 @@
 <span class="sd">            - Null-space: null_kp=1, null_kd=1</span>
 <span class="sd">        """</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">robot</span> <span class="o">=</span> <span class="n">robot</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">control_transform</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">eye</span><span class="p">(</span><span class="mi">4</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">last_command</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="mi">7</span><span class="p">)</span>
 
-        <span class="bp">self</span><span class="o">.</span><span class="n">initialize</span><span class="p">()</span> 
+        <span class="bp">self</span><span class="o">.</span><span class="n">initialize</span><span class="p">()</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">state_lock</span> <span class="o">=</span> <span class="n">threading</span><span class="o">.</span><span class="n">Lock</span><span class="p">()</span>
 
         <span class="bp">self</span><span class="o">.</span><span class="n">type</span> <span class="o">=</span> <span class="s2">"impedance"</span>
@@ -230,6 +244,10 @@
         <span class="bp">self</span><span class="o">.</span><span class="n">_pending_updates</span> <span class="o">=</span> <span class="p">{}</span>
 
         <span class="bp">self</span><span class="o">.</span><span class="n">state</span> <span class="o">=</span> <span class="kc">None</span> 
+
+        <span class="c1"># move() is done, and activate() takes an OSC configuration's null-space target,</span>
+        <span class="c1"># when every joint is this close to its target [rad].</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">arrival_tolerance</span> <span class="o">=</span> <span class="mf">0.03</span>
 
         <span class="bp">self</span><span class="o">.</span><span class="n">verbose</span> <span class="o">=</span> <span class="kc">False</span></div>
 
@@ -274,7 +292,7 @@
         <span class="c1"># concurrently with the active torque control loop (would drop TCP connection)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">initial_qpos</span> <span class="o">=</span> <span class="n">deepcopy</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">robot</span><span class="o">.</span><span class="n">data</span><span class="o">.</span><span class="n">qpos</span><span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">initial_qvel</span> <span class="o">=</span> <span class="n">deepcopy</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">robot</span><span class="o">.</span><span class="n">data</span><span class="o">.</span><span class="n">qvel</span><span class="p">)</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">initial_ee</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">robot</span><span class="o">.</span><span class="n">_ee</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">initial_ee</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">robot</span><span class="o">.</span><span class="n">_ee</span><span class="p">()</span> <span class="o">@</span> <span class="bp">self</span><span class="o">.</span><span class="n">control_transform</span>
 
         <span class="bp">self</span><span class="o">.</span><span class="n">q_desired</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">initial_qpos</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">ee_desired</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">initial_ee</span></div>
@@ -546,31 +564,31 @@
     <span class="k">def</span><span class="w"> </span><span class="nf">switch</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">controller_type</span><span class="p">:</span> <span class="nb">str</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">"""</span>
 <span class="sd">        Switch between control modes at runtime.</span>
-<span class="sd">        </span>
+
 <span class="sd">        Changes the active controller without stopping the control loop. Resets</span>
 <span class="sd">        the initial state (initial_qpos, initial_ee) to current robot state and</span>
 <span class="sd">        clears rate-limiting timing.</span>
-<span class="sd">        </span>
+
 <span class="sd">        Args:</span>
 <span class="sd">            controller_type (str): Controller type to switch to:</span>
 <span class="sd">                - "impedance": Joint-space impedance control</span>
 <span class="sd">                - "pid": Joint-space PID control with integral term</span>
 <span class="sd">                - "osc": Operational space control (task space)</span>
 <span class="sd">                - "torque": Direct torque control</span>
-<span class="sd">                </span>
+
 <span class="sd">        Example:</span>
 <span class="sd">            &gt;&gt;&gt; controller.switch("impedance")</span>
 <span class="sd">            &gt;&gt;&gt; controller.kp = np.ones(7) * 80</span>
 <span class="sd">            &gt;&gt;&gt; # ... run impedance control ...</span>
-<span class="sd">            &gt;&gt;&gt; </span>
+<span class="sd">            &gt;&gt;&gt;</span>
 <span class="sd">            &gt;&gt;&gt; controller.switch("osc")</span>
 <span class="sd">            &gt;&gt;&gt; controller.ee_kp = np.array([300, 300, 300, 1000, 1000, 1000])</span>
 <span class="sd">            &gt;&gt;&gt; # ... run OSC control ...</span>
-<span class="sd">            </span>
+
 <span class="sd">        Note:</span>
 <span class="sd">            - Can be called while control loop is running</span>
 <span class="sd">            - Resets q_desired to current position</span>
-<span class="sd">            - Resets ee_desired to current end-effector pose</span>
+<span class="sd">            - Resets ee_desired to current pose of the control frame</span>
 <span class="sd">            - Clears timing state from previous set() calls</span>
 <span class="sd">            - Resets integral term when switching to/from PID</span>
 <span class="sd">            </span>
@@ -592,6 +610,149 @@
             <span class="nb">print</span><span class="p">(</span><span class="s2">"=================================="</span><span class="p">)</span></div>
 
 
+<div class="viewcode-block" id="FrankaController.set_tcp">
+<a class="viewcode-back" href="../../api/controller.html#aiofranka.controller.FrankaController.set_tcp">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">set_tcp</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">transform</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">"""</span>
+<span class="sd">        Set the tool center point (TCP) that the OSC controls, relative to the flange.</span>
+
+<span class="sd">        The OSC then tracks ee_desired with this frame instead of the flange. Express</span>
+<span class="sd">        it in the flange frame (the attachment_site of the MuJoCo model): its origin</span>
+<span class="sd">        is the center of the flange face, z points out of the flange, and the box on</span>
+<span class="sd">        the side of link 7 points between +x and +y. The docs show it on the robot</span>
+<span class="sd">        (Controllers &gt; Operational Space Control &gt; Tool Center Point). ee_desired</span>
+<span class="sd">        becomes the current pose of the new TCP, so the arm holds still.</span>
+
+<span class="sd">        The TCP of the end-effector profile in Desk is not used here.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            transform (array-like): Pose of the TCP in the flange frame as a 4x4</span>
+<span class="sd">                transform, or its translation [m] (3,) for the flange's orientation</span>
+
+<span class="sd">        Raises:</span>
+<span class="sd">            ValueError: If transform is not a translation or a 4x4 pose</span>
+
+<span class="sd">        Example:</span>
+<span class="sd">            &gt;&gt;&gt; controller.switch("osc")</span>
+<span class="sd">            &gt;&gt;&gt; controller.set_tcp([0, 0, 0.1034])  # Franka Hand fingertips</span>
+<span class="sd">            &gt;&gt;&gt; target = controller.ee_desired.copy()</span>
+<span class="sd">            &gt;&gt;&gt; target[2, 3] -= 0.05  # 5 cm down, in the base frame</span>
+<span class="sd">            &gt;&gt;&gt; await controller.set("ee_desired", target)</span>
+<span class="sd">        """</span>
+        <span class="n">transform</span> <span class="o">=</span> <span class="n">tcp_transform</span><span class="p">(</span><span class="n">transform</span><span class="p">)</span>
+        <span class="k">with</span> <span class="bp">self</span><span class="o">.</span><span class="n">state_lock</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">control_transform</span> <span class="o">=</span> <span class="n">transform</span>
+            <span class="c1"># Track the new TCP where it is now, so the arm holds still.</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">initial_ee</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">robot</span><span class="o">.</span><span class="n">_ee</span><span class="p">()</span> <span class="o">@</span> <span class="n">transform</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">ee_desired</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">initial_ee</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span></div>
+
+
+<div class="viewcode-block" id="FrankaController.check_tool">
+<a class="viewcode-back" href="../../api/controller.html#aiofranka.controller.FrankaController.check_tool">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">check_tool</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">config</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">"""</span>
+<span class="sd">        Check that the tool a configuration needs is the end-effector profile active in Desk.</span>
+
+<span class="sd">        The profile is the one RobotInterface read from Desk when it connected. A</span>
+<span class="sd">        configuration without a tool, and MuJoCo, which has no Desk, pass.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            config (str | Path | dict): Controller configuration (see aiofranka.config)</span>
+
+<span class="sd">        Raises:</span>
+<span class="sd">            RuntimeError: If another tool is active, or Desk could not be read</span>
+<span class="sd">        """</span>
+        <span class="n">config</span> <span class="o">=</span> <span class="n">load_config</span><span class="p">(</span><span class="n">config</span><span class="p">)</span>
+        <span class="n">name</span> <span class="o">=</span> <span class="n">config</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"tool"</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">name</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">or</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">robot</span><span class="o">.</span><span class="n">real</span><span class="p">:</span>
+            <span class="k">return</span>
+        <span class="n">active</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">robot</span><span class="o">.</span><span class="n">tool</span>
+        <span class="k">if</span> <span class="n">active</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">RuntimeError</span><span class="p">(</span><span class="sa">f</span><span class="s2">"The configuration needs the tool </span><span class="si">{</span><span class="n">name</span><span class="si">!r}</span><span class="s2">, but </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">robot</span><span class="o">.</span><span class="n">tool_error</span><span class="si">}</span><span class="s2">. "</span>
+                               <span class="s2">"Pass check_tool=False to skip the check."</span><span class="p">)</span>
+        <span class="kn">from</span><span class="w"> </span><span class="nn">aiofranka.tools</span><span class="w"> </span><span class="kn">import</span> <span class="n">NO_END_EFFECTOR</span>
+        <span class="n">matches</span> <span class="o">=</span> <span class="n">active</span><span class="o">.</span><span class="n">id</span> <span class="o">==</span> <span class="n">NO_END_EFFECTOR</span> <span class="k">if</span> <span class="n">name</span><span class="o">.</span><span class="n">lower</span><span class="p">()</span> <span class="o">==</span> <span class="s2">"none"</span> <span class="k">else</span> <span class="n">active</span><span class="o">.</span><span class="n">name</span> <span class="o">==</span> <span class="n">name</span>
+        <span class="k">if</span> <span class="n">matches</span><span class="p">:</span>
+            <span class="k">return</span>
+        <span class="n">fix</span> <span class="o">=</span> <span class="s2">"aiofranka tool unload"</span> <span class="k">if</span> <span class="n">name</span><span class="o">.</span><span class="n">lower</span><span class="p">()</span> <span class="o">==</span> <span class="s2">"none"</span> <span class="k">else</span> <span class="sa">f</span><span class="s2">"aiofranka tool load '</span><span class="si">{</span><span class="n">name</span><span class="si">}</span><span class="s2">'"</span>
+        <span class="k">raise</span> <span class="ne">RuntimeError</span><span class="p">(</span><span class="sa">f</span><span class="s2">"The configuration needs the tool </span><span class="si">{</span><span class="n">name</span><span class="si">!r}</span><span class="s2">, but the end effector active in Desk "</span>
+                           <span class="sa">f</span><span class="s2">"is </span><span class="si">{</span><span class="n">active</span><span class="o">.</span><span class="n">name</span><span class="si">!r}</span><span class="s2">. Activate it with: </span><span class="si">{</span><span class="n">fix</span><span class="si">}</span><span class="s2"> (then reconnect)"</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="FrankaController.activate">
+<a class="viewcode-back" href="../../api/controller.html#aiofranka.controller.FrankaController.activate">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">activate</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">config</span><span class="p">,</span> <span class="n">check_tool</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">check_null_target</span><span class="o">=</span><span class="kc">True</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">"""</span>
+<span class="sd">        Apply a controller configuration: its mode, gains and policy rate.</span>
+
+<span class="sd">        For impedance it sets kp and kd; for osc the TCP, ee_kp, ee_kd, null_kp,</span>
+<span class="sd">        null_kd and the null-space target. It then sets the rate of set() to the</span>
+<span class="sd">        configuration's frequency. Like switch(), it holds the current joint positions</span>
+<span class="sd">        (impedance) or TCP pose (osc). See aiofranka.config for the file format.</span>
+
+<span class="sd">        An OSC configuration without a null_target keeps the joint positions at</span>
+<span class="sd">        activation as the null-space target, as switch() does. One with a null_target</span>
+<span class="sd">        (e.g. a policy's) is only activated with the arm already there, every joint</span>
+<span class="sd">        within arrival_tolerance, the criterion move() stops at; otherwise the null</span>
+<span class="sd">        space would swing the arm toward it at once. Move there first:</span>
+
+<span class="sd">            &gt;&gt;&gt; config = aiofranka.load_config("configs/pocky/lv1_osc.yaml")</span>
+<span class="sd">            &gt;&gt;&gt; await controller.move(config["null_target"])</span>
+<span class="sd">            &gt;&gt;&gt; controller.activate(config)</span>
+
+<span class="sd">        Reading a file takes a few milliseconds, which delays the 1 kHz loop that</span>
+<span class="sd">        long; while it runs, pass a configuration read before with</span>
+<span class="sd">        aiofranka.load_config().</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            config (str | Path | dict): YAML file, or its contents</span>
+<span class="sd">            check_tool (bool): Refuse a configuration whose tool is not the end</span>
+<span class="sd">                effector active in Desk (see check_tool())</span>
+<span class="sd">            check_null_target (bool): Refuse an OSC configuration whose null_target</span>
+<span class="sd">                the arm is not at. Only skip it where the null space is known to be at</span>
+<span class="sd">                rest, e.g. at a pose where the TCP Jacobian's null space holds no</span>
+<span class="sd">                error toward the target.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            dict: The configuration, as aiofranka.load_config() reads it</span>
+
+<span class="sd">        Raises:</span>
+<span class="sd">            ValueError: If the configuration is not valid</span>
+<span class="sd">            RuntimeError: If its tool is not the one active in Desk, or the arm is</span>
+<span class="sd">                not at its null_target</span>
+
+<span class="sd">        Example:</span>
+<span class="sd">            &gt;&gt;&gt; controller.activate("configs/osc.yaml")</span>
+<span class="sd">            &gt;&gt;&gt; target = controller.ee_desired.copy()</span>
+<span class="sd">            &gt;&gt;&gt; target[2, 3] -= 0.05</span>
+<span class="sd">            &gt;&gt;&gt; await controller.set("ee_desired", target)  # at the configured frequency</span>
+<span class="sd">        """</span>
+        <span class="n">config</span> <span class="o">=</span> <span class="n">load_config</span><span class="p">(</span><span class="n">config</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">check_tool</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">check_tool</span><span class="p">(</span><span class="n">config</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">config</span><span class="p">[</span><span class="s2">"mode"</span><span class="p">]</span> <span class="o">==</span> <span class="s2">"osc"</span> <span class="ow">and</span> <span class="n">config</span><span class="p">[</span><span class="s2">"null_target"</span><span class="p">]</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">check_null_target</span><span class="p">:</span>
+            <span class="n">error</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">robot</span><span class="o">.</span><span class="n">data</span><span class="o">.</span><span class="n">qpos</span><span class="p">[:</span><span class="mi">7</span><span class="p">])</span> <span class="o">-</span> <span class="n">config</span><span class="p">[</span><span class="s2">"null_target"</span><span class="p">])</span>
+            <span class="k">if</span> <span class="n">error</span><span class="o">.</span><span class="n">max</span><span class="p">()</span> <span class="o">&gt;</span> <span class="bp">self</span><span class="o">.</span><span class="n">arrival_tolerance</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="ne">RuntimeError</span><span class="p">(</span>
+                    <span class="sa">f</span><span class="s2">"The arm is </span><span class="si">{</span><span class="n">error</span><span class="o">.</span><span class="n">max</span><span class="p">()</span><span class="si">:</span><span class="s2">.3f</span><span class="si">}</span><span class="s2"> rad from the configuration's null_target at joint "</span>
+                    <span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">error</span><span class="o">.</span><span class="n">argmax</span><span class="p">()</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="mi">1</span><span class="si">}</span><span class="s2"> (more than arrival_tolerance, </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">arrival_tolerance</span><span class="si">}</span><span class="s2"> rad), so the "</span>
+                    <span class="s2">"null space would swing it there. Move there first: "</span>
+                    <span class="s2">"await controller.move(config['null_target'])"</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">config</span><span class="p">[</span><span class="s2">"mode"</span><span class="p">]</span> <span class="o">==</span> <span class="s2">"osc"</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">set_tcp</span><span class="p">(</span><span class="n">config</span><span class="p">[</span><span class="s2">"tcp"</span><span class="p">])</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">switch</span><span class="p">(</span><span class="n">config</span><span class="p">[</span><span class="s2">"mode"</span><span class="p">])</span>
+        <span class="k">with</span> <span class="bp">self</span><span class="o">.</span><span class="n">state_lock</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">config</span><span class="p">[</span><span class="s2">"mode"</span><span class="p">]</span> <span class="o">==</span> <span class="s2">"impedance"</span><span class="p">:</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">kp</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">kd</span> <span class="o">=</span> <span class="n">config</span><span class="p">[</span><span class="s2">"kp"</span><span class="p">]</span><span class="o">.</span><span class="n">copy</span><span class="p">(),</span> <span class="n">config</span><span class="p">[</span><span class="s2">"kd"</span><span class="p">]</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">ee_kp</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">ee_kd</span> <span class="o">=</span> <span class="n">config</span><span class="p">[</span><span class="s2">"ee_kp"</span><span class="p">]</span><span class="o">.</span><span class="n">copy</span><span class="p">(),</span> <span class="n">config</span><span class="p">[</span><span class="s2">"ee_kd"</span><span class="p">]</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">null_kp</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">null_kd</span> <span class="o">=</span> <span class="n">config</span><span class="p">[</span><span class="s2">"null_kp"</span><span class="p">]</span><span class="o">.</span><span class="n">copy</span><span class="p">(),</span> <span class="n">config</span><span class="p">[</span><span class="s2">"null_kd"</span><span class="p">]</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
+                <span class="k">if</span> <span class="n">config</span><span class="p">[</span><span class="s2">"null_target"</span><span class="p">]</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>  <span class="c1"># else the joint positions now, as switch() sets</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">initial_qpos</span> <span class="o">=</span> <span class="n">config</span><span class="p">[</span><span class="s2">"null_target"</span><span class="p">]</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>  <span class="c1"># the OSC's null-space target</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">set_freq</span><span class="p">(</span><span class="n">config</span><span class="p">[</span><span class="s2">"frequency"</span><span class="p">])</span>
+        <span class="k">return</span> <span class="n">config</span></div>
+
+
 <div class="viewcode-block" id="FrankaController.step">
 <a class="viewcode-back" href="../../api/controller.html#aiofranka.controller.FrankaController.step">[docs]</a>
     <span class="k">def</span><span class="w"> </span><span class="nf">step</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
@@ -608,14 +769,22 @@
             <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Unknown controller type: </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">type</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span></div>
 
 
+    <span class="k">def</span><span class="w"> </span><span class="nf">_send</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">torque</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">last_command</span> <span class="o">=</span> <span class="n">torque</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">robot</span><span class="o">.</span><span class="n">step</span><span class="p">(</span><span class="n">torque</span><span class="p">)</span>
+
     <span class="k">def</span><span class="w"> </span><span class="nf">_torque_step</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">state</span><span class="p">):</span>
 
-        <span class="bp">self</span><span class="o">.</span><span class="n">robot</span><span class="o">.</span><span class="n">step</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">torque</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_send</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">torque</span><span class="p">)</span>
 
-    <span class="k">def</span><span class="w"> </span><span class="nf">_osc_step</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">state</span><span class="p">):</span> 
+    <span class="k">def</span><span class="w"> </span><span class="nf">_osc_step</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">state</span><span class="p">):</span>
 
-        <span class="n">jac</span> <span class="o">=</span> <span class="n">state</span><span class="p">[</span><span class="s1">'jac'</span><span class="p">]</span>
-        <span class="n">ee</span> <span class="o">=</span> <span class="n">state</span><span class="p">[</span><span class="s1">'ee'</span><span class="p">]</span>
+        <span class="c1"># Pose and Jacobian of the control frame. Its origin moves with</span>
+        <span class="c1"># v + w x r, where r is its offset from attachment_site.</span>
+        <span class="n">ee</span> <span class="o">=</span> <span class="n">state</span><span class="p">[</span><span class="s1">'ee'</span><span class="p">]</span> <span class="o">@</span> <span class="bp">self</span><span class="o">.</span><span class="n">control_transform</span>
+        <span class="n">offset</span> <span class="o">=</span> <span class="n">ee</span><span class="p">[:</span><span class="mi">3</span><span class="p">,</span> <span class="mi">3</span><span class="p">]</span> <span class="o">-</span> <span class="n">state</span><span class="p">[</span><span class="s1">'ee'</span><span class="p">][:</span><span class="mi">3</span><span class="p">,</span> <span class="mi">3</span><span class="p">]</span>
+        <span class="n">jac</span> <span class="o">=</span> <span class="n">state</span><span class="p">[</span><span class="s1">'jac'</span><span class="p">]</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
+        <span class="n">jac</span><span class="p">[:</span><span class="mi">3</span><span class="p">]</span> <span class="o">+=</span> <span class="n">np</span><span class="o">.</span><span class="n">cross</span><span class="p">(</span><span class="n">jac</span><span class="p">[</span><span class="mi">3</span><span class="p">:]</span><span class="o">.</span><span class="n">T</span><span class="p">,</span> <span class="n">offset</span><span class="p">)</span><span class="o">.</span><span class="n">T</span>
         <span class="n">q</span> <span class="o">=</span> <span class="n">state</span><span class="p">[</span><span class="s1">'qpos'</span><span class="p">]</span>
         <span class="n">dq</span> <span class="o">=</span> <span class="n">state</span><span class="p">[</span><span class="s1">'qvel'</span><span class="p">]</span>
         <span class="n">mm</span> <span class="o">=</span> <span class="n">state</span><span class="p">[</span><span class="s1">'mm'</span><span class="p">]</span>
@@ -664,9 +833,11 @@
             <span class="n">diff</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">clip</span><span class="p">(</span><span class="n">diff</span><span class="p">,</span> <span class="o">-</span><span class="bp">self</span><span class="o">.</span><span class="n">torque_diff_limit</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">torque_diff_limit</span><span class="p">)</span>
             <span class="n">tau_d</span> <span class="o">=</span> <span class="n">last_torque</span> <span class="o">+</span> <span class="n">diff</span> <span class="o">*</span> <span class="mf">1e-3</span>
 
-        <span class="bp">self</span><span class="o">.</span><span class="n">robot</span><span class="o">.</span><span class="n">step</span><span class="p">(</span><span class="n">tau_d</span><span class="p">)</span>
+            <span class="n">tau_d</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">clip</span><span class="p">(</span><span class="n">tau_d</span><span class="p">,</span> <span class="o">-</span><span class="bp">self</span><span class="o">.</span><span class="n">torque_limit</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">torque_limit</span><span class="p">)</span>
 
-    
+        <span class="bp">self</span><span class="o">.</span><span class="n">_send</span><span class="p">(</span><span class="n">tau_d</span><span class="p">)</span>
+
+
 
 
     <span class="k">def</span><span class="w"> </span><span class="nf">_pid_step</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">robot_state</span><span class="p">):</span>
@@ -710,7 +881,7 @@
             <span class="n">tau_d</span> <span class="o">=</span> <span class="n">last_torque</span> <span class="o">+</span> <span class="n">diff</span> <span class="o">*</span> <span class="mf">1e-3</span>
 
         <span class="bp">self</span><span class="o">.</span><span class="n">torque</span> <span class="o">=</span> <span class="n">tau_d</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">robot</span><span class="o">.</span><span class="n">step</span><span class="p">(</span><span class="n">tau_d</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_send</span><span class="p">(</span><span class="n">tau_d</span><span class="p">)</span>
 
     <span class="k">def</span><span class="w"> </span><span class="nf">_impedance_step</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">robot_state</span><span class="p">):</span> 
 
@@ -745,7 +916,7 @@
             
         <span class="bp">self</span><span class="o">.</span><span class="n">torque</span> <span class="o">=</span> <span class="n">tau_d</span>
 
-        <span class="bp">self</span><span class="o">.</span><span class="n">robot</span><span class="o">.</span><span class="n">step</span><span class="p">(</span><span class="n">tau_d</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_send</span><span class="p">(</span><span class="n">tau_d</span><span class="p">)</span>
 
 
 <div class="viewcode-block" id="FrankaController.move">
@@ -789,18 +960,23 @@
 <span class="sd">        Caveats:</span>
 <span class="sd">            - Large motions take longer (trajectory is time-optimal)</span>
 <span class="sd">            - Don't call while other control is active</span>
-<span class="sd">            - Blocks until motion completes</span>
+<span class="sd">            - Blocks until motion completes: until every joint is within</span>
+<span class="sd">              arrival_tolerance (0.03 rad by default) of the target, or 3 s after the</span>
+<span class="sd">              trajectory if friction keeps it farther (it then prints how far)</span>
 <span class="sd">            - Switches to impedance mode (resets controller state)</span>
 <span class="sd">            - May fail if target is at joint limits or in collision</span>
 <span class="sd">        """</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">type</span> <span class="o">=</span> <span class="s2">"impedance"</span>
+        <span class="n">target</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">qpos</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">)</span>
 
         <span class="n">inp</span> <span class="o">=</span> <span class="n">InputParameter</span><span class="p">(</span><span class="mi">7</span><span class="p">)</span>
-        <span class="n">inp</span><span class="o">.</span><span class="n">current_position</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">robot</span><span class="o">.</span><span class="n">state</span><span class="p">[</span><span class="s1">'qpos'</span><span class="p">]</span>
-        <span class="n">inp</span><span class="o">.</span><span class="n">current_velocity</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">robot</span><span class="o">.</span><span class="n">state</span><span class="p">[</span><span class="s1">'qvel'</span><span class="p">]</span>
+        <span class="c1"># The state the control loop synced last; reading the robot here would take a</span>
+        <span class="c1"># state from the 1 kHz loop.</span>
+        <span class="n">inp</span><span class="o">.</span><span class="n">current_position</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">robot</span><span class="o">.</span><span class="n">data</span><span class="o">.</span><span class="n">qpos</span><span class="p">[:</span><span class="mi">7</span><span class="p">])</span>
+        <span class="n">inp</span><span class="o">.</span><span class="n">current_velocity</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">robot</span><span class="o">.</span><span class="n">data</span><span class="o">.</span><span class="n">qvel</span><span class="p">[:</span><span class="mi">7</span><span class="p">])</span>
         <span class="n">inp</span><span class="o">.</span><span class="n">current_acceleration</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="mi">7</span><span class="p">)</span>
 
-        <span class="n">inp</span><span class="o">.</span><span class="n">target_position</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">qpos</span><span class="p">)</span>
+        <span class="n">inp</span><span class="o">.</span><span class="n">target_position</span> <span class="o">=</span> <span class="n">target</span>
         <span class="n">inp</span><span class="o">.</span><span class="n">target_velocity</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="mi">7</span><span class="p">)</span>
         <span class="n">inp</span><span class="o">.</span><span class="n">target_acceleration</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="mi">7</span><span class="p">)</span>
 
@@ -816,18 +992,67 @@
         <span class="c1"># create a trajectory to the desired qpos  (linear interpolation)</span>
         <span class="n">n_steps</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">trajectory</span><span class="o">.</span><span class="n">duration</span> <span class="o">*</span> <span class="mi">50</span><span class="p">)</span>
         <span class="n">eta_total</span> <span class="o">=</span> <span class="n">trajectory</span><span class="o">.</span><span class="n">duration</span>
-        <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">n_steps</span><span class="p">):</span>
-            <span class="n">q_desired</span><span class="p">,</span> <span class="n">_</span><span class="p">,</span> <span class="n">_</span> <span class="o">=</span> <span class="n">trajectory</span><span class="o">.</span><span class="n">at_time</span><span class="p">(</span><span class="n">i</span> <span class="o">/</span> <span class="mf">50.0</span><span class="p">)</span>
-            <span class="k">await</span> <span class="bp">self</span><span class="o">.</span><span class="n">set</span><span class="p">(</span><span class="s2">"q_desired"</span><span class="p">,</span> <span class="n">q_desired</span><span class="p">)</span>
-            <span class="n">done</span> <span class="o">=</span> <span class="p">(</span><span class="n">i</span> <span class="o">+</span> <span class="mi">1</span><span class="p">)</span> <span class="o">*</span> <span class="mi">20</span> <span class="o">//</span> <span class="n">n_steps</span>
-            <span class="n">bar</span> <span class="o">=</span> <span class="s2">"█"</span> <span class="o">*</span> <span class="n">done</span> <span class="o">+</span> <span class="s2">"░"</span> <span class="o">*</span> <span class="p">(</span><span class="mi">20</span> <span class="o">-</span> <span class="n">done</span><span class="p">)</span>
-            <span class="n">eta</span> <span class="o">=</span> <span class="n">eta_total</span> <span class="o">-</span> <span class="p">(</span><span class="n">i</span> <span class="o">+</span> <span class="mi">1</span><span class="p">)</span> <span class="o">/</span> <span class="mf">50.0</span>
-            <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"</span><span class="se">\r</span><span class="s2">  Moving [</span><span class="si">{</span><span class="n">bar</span><span class="si">}</span><span class="s2">] </span><span class="si">{</span><span class="p">(</span><span class="n">i</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="mi">1</span><span class="p">)</span><span class="w"> </span><span class="o">*</span><span class="w"> </span><span class="mi">100</span><span class="w"> </span><span class="o">//</span><span class="w"> </span><span class="n">n_steps</span><span class="si">}</span><span class="s2">% ETA </span><span class="si">{</span><span class="n">eta</span><span class="si">:</span><span class="s2">.1f</span><span class="si">}</span><span class="s2">s"</span><span class="p">,</span> <span class="n">end</span><span class="o">=</span><span class="s2">""</span><span class="p">,</span> <span class="n">flush</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
-        <span class="nb">print</span><span class="p">()</span></div>
+        <span class="c1"># The trajectory is sampled at 50 Hz, so play it at 50 Hz whatever set_freq() says.</span>
+        <span class="n">update_freq</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_update_freq</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_update_freq</span><span class="p">,</span> <span class="mf">50.0</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_last_update_time</span><span class="o">.</span><span class="n">pop</span><span class="p">(</span><span class="s2">"q_desired"</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">n_steps</span><span class="p">):</span>
+                <span class="n">q_desired</span><span class="p">,</span> <span class="n">_</span><span class="p">,</span> <span class="n">_</span> <span class="o">=</span> <span class="n">trajectory</span><span class="o">.</span><span class="n">at_time</span><span class="p">(</span><span class="n">i</span> <span class="o">/</span> <span class="mf">50.0</span><span class="p">)</span>
+                <span class="k">await</span> <span class="bp">self</span><span class="o">.</span><span class="n">set</span><span class="p">(</span><span class="s2">"q_desired"</span><span class="p">,</span> <span class="n">q_desired</span><span class="p">)</span>
+                <span class="n">done</span> <span class="o">=</span> <span class="p">(</span><span class="n">i</span> <span class="o">+</span> <span class="mi">1</span><span class="p">)</span> <span class="o">*</span> <span class="mi">20</span> <span class="o">//</span> <span class="n">n_steps</span>
+                <span class="n">bar</span> <span class="o">=</span> <span class="s2">"█"</span> <span class="o">*</span> <span class="n">done</span> <span class="o">+</span> <span class="s2">"░"</span> <span class="o">*</span> <span class="p">(</span><span class="mi">20</span> <span class="o">-</span> <span class="n">done</span><span class="p">)</span>
+                <span class="n">eta</span> <span class="o">=</span> <span class="n">eta_total</span> <span class="o">-</span> <span class="p">(</span><span class="n">i</span> <span class="o">+</span> <span class="mi">1</span><span class="p">)</span> <span class="o">/</span> <span class="mf">50.0</span>
+                <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"</span><span class="se">\r</span><span class="s2">  Moving [</span><span class="si">{</span><span class="n">bar</span><span class="si">}</span><span class="s2">] </span><span class="si">{</span><span class="p">(</span><span class="n">i</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="mi">1</span><span class="p">)</span><span class="w"> </span><span class="o">*</span><span class="w"> </span><span class="mi">100</span><span class="w"> </span><span class="o">//</span><span class="w"> </span><span class="n">n_steps</span><span class="si">}</span><span class="s2">% ETA </span><span class="si">{</span><span class="n">eta</span><span class="si">:</span><span class="s2">.1f</span><span class="si">}</span><span class="s2">s"</span><span class="p">,</span> <span class="n">end</span><span class="o">=</span><span class="s2">""</span><span class="p">,</span> <span class="n">flush</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+        <span class="k">finally</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_update_freq</span> <span class="o">=</span> <span class="n">update_freq</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_last_update_time</span><span class="o">.</span><span class="n">pop</span><span class="p">(</span><span class="s2">"q_desired"</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
+        <span class="nb">print</span><span class="p">()</span>
+
+        <span class="c1"># Then hold the exact target until every joint is within arrival_tolerance of it.</span>
+        <span class="k">with</span> <span class="bp">self</span><span class="o">.</span><span class="n">state_lock</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">q_desired</span> <span class="o">=</span> <span class="n">target</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
+        <span class="n">deadline</span> <span class="o">=</span> <span class="n">time</span><span class="o">.</span><span class="n">perf_counter</span><span class="p">()</span> <span class="o">+</span> <span class="mf">3.0</span>
+        <span class="k">while</span> <span class="p">(</span><span class="n">error</span> <span class="o">:=</span> <span class="n">np</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">robot</span><span class="o">.</span><span class="n">data</span><span class="o">.</span><span class="n">qpos</span><span class="p">[:</span><span class="mi">7</span><span class="p">])</span> <span class="o">-</span> <span class="n">target</span><span class="p">)</span><span class="o">.</span><span class="n">max</span><span class="p">())</span> <span class="o">&gt;</span> <span class="bp">self</span><span class="o">.</span><span class="n">arrival_tolerance</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">time</span><span class="o">.</span><span class="n">perf_counter</span><span class="p">()</span> <span class="o">&gt;</span> <span class="n">deadline</span><span class="p">:</span>
+                <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"  move(): still </span><span class="si">{</span><span class="n">error</span><span class="si">:</span><span class="s2">.3f</span><span class="si">}</span><span class="s2"> rad from the target, more than arrival_tolerance "</span>
+                      <span class="sa">f</span><span class="s2">"(</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">arrival_tolerance</span><span class="si">}</span><span class="s2"> rad); a stiffer kp gets closer"</span><span class="p">)</span>
+                <span class="k">break</span>
+            <span class="k">await</span> <span class="n">asyncio</span><span class="o">.</span><span class="n">sleep</span><span class="p">(</span><span class="mf">0.01</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="FrankaController.identify_payload">
+<a class="viewcode-back" href="../../api/controller.html#aiofranka.controller.FrankaController.identify_payload">[docs]</a>
+    <span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">identify_payload</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">tool_length</span><span class="o">=</span><span class="mf">0.2</span><span class="p">,</span> <span class="n">tool_radius</span><span class="o">=</span><span class="mf">0.1</span><span class="p">,</span> <span class="n">floor</span><span class="o">=</span><span class="mf">0.0</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">"""</span>
+<span class="sd">        Identify the mass and center of mass of the tool on the flange.</span>
+
+<span class="sd">        Moves through poses around the current one, measures the joint torques at</span>
+<span class="sd">        rest that the robot does not compensate, and fits the tool to them. It only</span>
+<span class="sd">        measures: save the result with aiofranka.save_tool() and activate it with</span>
+<span class="sd">        aiofranka.load_tool(). See aiofranka.payload.identify_payload() for the</span>
+<span class="sd">        details and further arguments.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            tool_length (float): Length of the tool from the flange [m], for the</span>
+<span class="sd">                collision checks (default: 0.2)</span>
+<span class="sd">            tool_radius (float): Radius of the tool [m] (default: 0.1)</span>
+<span class="sd">            floor (float): Height of the floor or table in the base frame [m]</span>
+<span class="sd">                (default: 0.0)</span>
+<span class="sd">            **kwargs: Further arguments of aiofranka.payload.identify_payload()</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            PayloadEstimate: Estimated tool, with standard errors</span>
+
+<span class="sd">        Example:</span>
+<span class="sd">            &gt;&gt;&gt; estimate = await controller.identify_payload(tool_length=0.25)</span>
+<span class="sd">            &gt;&gt;&gt; aiofranka.save_tool("gripper", estimate.mass, estimate.com)</span>
+<span class="sd">            &gt;&gt;&gt; aiofranka.load_tool("gripper")</span>
+<span class="sd">        """</span>
+        <span class="k">return</span> <span class="k">await</span> <span class="n">identify_payload</span><span class="p">(</span>
+            <span class="bp">self</span><span class="p">,</span> <span class="n">tool_length</span><span class="o">=</span><span class="n">tool_length</span><span class="p">,</span> <span class="n">tool_radius</span><span class="o">=</span><span class="n">tool_radius</span><span class="p">,</span> <span class="n">floor</span><span class="o">=</span><span class="n">floor</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">,</span>
+        <span class="p">)</span></div>
 </div>
 
-
-        <span class="c1"># await self.stabilize()</span>
 </pre></div>
 
            </div>

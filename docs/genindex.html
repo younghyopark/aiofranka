@@ -5,14 +5,14 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Index &mdash; aiofranka 0.6.1 documentation</title>
+  <title>Index &mdash; aiofranka 0.7.0 documentation</title>
       <link rel="stylesheet" type="text/css" href="_static/pygments.css?v=b86133f3" />
       <link rel="stylesheet" type="text/css" href="_static/css/theme.css?v=9edc463e" />
 
   
       <script src="_static/jquery.js?v=5d32c60e"></script>
       <script src="_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
-      <script src="_static/documentation_options.js?v=2bd037f0"></script>
+      <script src="_static/documentation_options.js?v=fe7df9b0"></script>
       <script src="_static/doctools.js?v=fd6eb6e6"></script>
       <script src="_static/sphinx_highlight.js?v=6ffebe34"></script>
     <script src="_static/js/theme.js"></script>
@@ -44,6 +44,7 @@
 <li class="toctree-l1"><a class="reference internal" href="installation.html">Installation</a></li>
 <li class="toctree-l1"><a class="reference internal" href="quickstart.html">Quick Start</a></li>
 <li class="toctree-l1"><a class="reference internal" href="controllers.html">Controllers</a></li>
+<li class="toctree-l1"><a class="reference internal" href="native.html">Native Control Loop</a></li>
 <li class="toctree-l1"><a class="reference internal" href="cli.html">CLI Reference</a></li>
 <li class="toctree-l1"><a class="reference internal" href="async_mode.html">Async Mode Guide</a></li>
 <li class="toctree-l1"><a class="reference internal" href="examples.html">Examples</a></li>
@@ -53,6 +54,7 @@
 <ul>
 <li class="toctree-l1"><a class="reference internal" href="api/remote.html">FrankaRemoteController (Server Mode)</a></li>
 <li class="toctree-l1"><a class="reference internal" href="api/controller.html">Franka Controller</a></li>
+<li class="toctree-l1"><a class="reference internal" href="api/native.html">Native Controller</a></li>
 <li class="toctree-l1"><a class="reference internal" href="api/robot.html">Robot Interface</a></li>
 <li class="toctree-l1"><a class="reference internal" href="api/payload.html">Payload Identification and Tools</a></li>
 <li class="toctree-l1"><a class="reference internal" href="api/config.html">Controller Configurations</a></li>
@@ -124,6 +126,10 @@
 </li>
         <li><a href="api/gripper.html#aiofranka.gripper.GripperController.__init__">(aiofranka.gripper.GripperController method)</a>
 </li>
+        <li><a href="api/native.html#aiofranka.native.ControlLaw.__init__">(aiofranka.native.ControlLaw method)</a>
+</li>
+        <li><a href="api/native.html#aiofranka.native.NativeFrankaController.__init__">(aiofranka.native.NativeFrankaController method)</a>
+</li>
         <li><a href="api/payload.html#aiofranka.payload.PayloadEstimate.__init__">(aiofranka.payload.PayloadEstimate method)</a>
 </li>
         <li><a href="api/remote.html#aiofranka.remote.FrankaRemoteController.__init__">(aiofranka.remote.FrankaRemoteController method)</a>
@@ -131,6 +137,8 @@
         <li><a href="api/remote.html#aiofranka.remote.ServerDiedError.__init__">(aiofranka.remote.ServerDiedError method)</a>
 </li>
         <li><a href="api/robot.html#aiofranka.robot.RobotInterface.__init__">(aiofranka.robot.RobotInterface method)</a>
+</li>
+        <li><a href="api/native.html#aiofranka.server_native.NativeServerController.__init__">(aiofranka.server_native.NativeServerController method)</a>
 </li>
         <li><a href="api/payload.html#aiofranka.tools.Tool.__init__">(aiofranka.tools.Tool method)</a>
 </li>
@@ -142,7 +150,11 @@
 <table style="width: 100%" class="indextable genindextable"><tr>
   <td style="width: 33%; vertical-align: top;"><ul>
       <li><a href="api/controller.html#aiofranka.controller.FrankaController.activate">activate() (aiofranka.controller.FrankaController method)</a>
+
+      <ul>
+        <li><a href="api/native.html#aiofranka.native.NativeFrankaController.activate">(aiofranka.native.NativeFrankaController method)</a>
 </li>
+      </ul></li>
       <li><a href="api/payload.html#aiofranka.tools.Tool.active">active (aiofranka.tools.Tool attribute)</a>, <a href="api/payload.html#id18">[1]</a>
 </li>
       <li><a href="api/payload.html#aiofranka.tools.active_tool">active_tool() (in module aiofranka.tools)</a>
@@ -180,6 +192,13 @@
   </ul></td>
   <td style="width: 33%; vertical-align: top;"><ul>
       <li>
+    aiofranka.native
+
+      <ul>
+        <li><a href="api/native.html#module-aiofranka.native">module</a>
+</li>
+      </ul></li>
+      <li>
     aiofranka.payload
 
       <ul>
@@ -198,6 +217,13 @@
 
       <ul>
         <li><a href="api/robot.html#module-aiofranka.robot">module</a>
+</li>
+      </ul></li>
+      <li>
+    aiofranka.server_native
+
+      <ul>
+        <li><a href="api/native.html#module-aiofranka.server_native">module</a>
 </li>
       </ul></li>
       <li>
@@ -228,7 +254,11 @@
       <li><a href="api/controller.html#aiofranka.controller.FrankaController.check_tool">check_tool() (aiofranka.controller.FrankaController method)</a>
 </li>
       <li><a href="api/controller.html#aiofranka.controller.FrankaController.clip">clip (aiofranka.controller.FrankaController attribute)</a>
+
+      <ul>
+        <li><a href="api/native.html#aiofranka.native.NativeFrankaController.clip">(aiofranka.native.NativeFrankaController property)</a>
 </li>
+      </ul></li>
       <li><a href="api/gripper.html#aiofranka.gripper.GripperController.close">close() (aiofranka.gripper.GripperController method)</a>
 </li>
       <li><a href="api/payload.html#aiofranka.payload.PayloadEstimate.com">com (aiofranka.payload.PayloadEstimate attribute)</a>, <a href="api/payload.html#id1">[1]</a>
@@ -237,13 +267,21 @@
         <li><a href="api/payload.html#aiofranka.tools.Tool.com">(aiofranka.tools.Tool attribute)</a>, <a href="api/payload.html#id13">[1]</a>
 </li>
       </ul></li>
-  </ul></td>
-  <td style="width: 33%; vertical-align: top;"><ul>
       <li><a href="api/payload.html#aiofranka.payload.PayloadEstimate.com_std">com_std (aiofranka.payload.PayloadEstimate attribute)</a>, <a href="api/payload.html#id3">[1]</a>
 </li>
+  </ul></td>
+  <td style="width: 33%; vertical-align: top;"><ul>
       <li><a href="api/payload.html#aiofranka.payload.PayloadEstimate.condition">condition (aiofranka.payload.PayloadEstimate attribute)</a>, <a href="api/payload.html#id8">[1]</a>
 </li>
+      <li><a href="api/native.html#aiofranka.native.control_law">control_law() (in module aiofranka.native)</a>
+</li>
       <li><a href="api/controller.html#aiofranka.controller.FrankaController.control_transform">control_transform (aiofranka.controller.FrankaController attribute)</a>
+
+      <ul>
+        <li><a href="api/native.html#aiofranka.native.NativeFrankaController.control_transform">(aiofranka.native.NativeFrankaController attribute)</a>
+</li>
+      </ul></li>
+      <li><a href="api/native.html#aiofranka.native.ControlLaw">ControlLaw (class in aiofranka.native)</a>
 </li>
       <li><a href="api/utilities.html#aiofranka.async_utils.CudaInferenceThread">CudaInferenceThread (class in aiofranka.async_utils)</a>
 </li>
@@ -270,14 +308,26 @@
       <li><a href="api/controller.html#aiofranka.controller.FrankaController.ee_desired">ee_desired (aiofranka.controller.FrankaController attribute)</a>
 
       <ul>
+        <li><a href="api/native.html#aiofranka.native.NativeFrankaController.ee_desired">(aiofranka.native.NativeFrankaController attribute)</a>
+</li>
         <li><a href="api/remote.html#aiofranka.remote.FrankaRemoteController.ee_desired">(aiofranka.remote.FrankaRemoteController property)</a>
+</li>
+      </ul></li>
+      <li><a href="api/controller.html#aiofranka.controller.FrankaController.ee_kd">ee_kd (aiofranka.controller.FrankaController attribute)</a>
+
+      <ul>
+        <li><a href="api/native.html#aiofranka.native.NativeFrankaController.ee_kd">(aiofranka.native.NativeFrankaController attribute)</a>
 </li>
       </ul></li>
   </ul></td>
   <td style="width: 33%; vertical-align: top;"><ul>
-      <li><a href="api/controller.html#aiofranka.controller.FrankaController.ee_kd">ee_kd (aiofranka.controller.FrankaController attribute)</a>
-</li>
       <li><a href="api/controller.html#aiofranka.controller.FrankaController.ee_kp">ee_kp (aiofranka.controller.FrankaController attribute)</a>
+
+      <ul>
+        <li><a href="api/native.html#aiofranka.native.NativeFrankaController.ee_kp">(aiofranka.native.NativeFrankaController attribute)</a>
+</li>
+      </ul></li>
+      <li><a href="api/native.html#aiofranka.native.NativeFrankaController.error_integral">error_integral (aiofranka.native.NativeFrankaController property)</a>
 </li>
   </ul></td>
 </tr></table>
@@ -289,11 +339,15 @@
 </li>
       <li><a href="api/gripper.html#aiofranka.gripper.GripperController.force">force (aiofranka.gripper.GripperController property)</a>
 </li>
-  </ul></td>
-  <td style="width: 33%; vertical-align: top;"><ul>
       <li><a href="api/controller.html#aiofranka.controller.FrankaController">FrankaController (class in aiofranka.controller)</a>
 </li>
+  </ul></td>
+  <td style="width: 33%; vertical-align: top;"><ul>
       <li><a href="api/remote.html#aiofranka.remote.FrankaRemoteController">FrankaRemoteController (class in aiofranka.remote)</a>
+</li>
+      <li><a href="api/remote.html#aiofranka.remote.FrankaRemoteControllerNative">FrankaRemoteControllerNative (class in aiofranka.remote)</a>
+</li>
+      <li><a href="api/native.html#aiofranka.native.ControlLaw.function">function (aiofranka.native.ControlLaw attribute)</a>
 </li>
   </ul></td>
 </tr></table>
@@ -319,15 +373,21 @@
       </ul></li>
       <li><a href="api/payload.html#aiofranka.tools.Tool.inertia">inertia (aiofranka.tools.Tool attribute)</a>, <a href="api/payload.html#id14">[1]</a>
 </li>
-  </ul></td>
-  <td style="width: 33%; vertical-align: top;"><ul>
       <li><a href="api/remote.html#aiofranka.remote.FrankaRemoteController.initial_ee">initial_ee (aiofranka.remote.FrankaRemoteController property)</a>
 </li>
-      <li><a href="api/remote.html#aiofranka.remote.FrankaRemoteController.initial_qpos">initial_qpos (aiofranka.remote.FrankaRemoteController property)</a>
+  </ul></td>
+  <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="api/native.html#aiofranka.native.NativeFrankaController.initial_qpos">initial_qpos (aiofranka.native.NativeFrankaController attribute)</a>
+
+      <ul>
+        <li><a href="api/remote.html#aiofranka.remote.FrankaRemoteController.initial_qpos">(aiofranka.remote.FrankaRemoteController property)</a>
 </li>
+      </ul></li>
       <li><a href="api/controller.html#aiofranka.controller.FrankaController.initialize">initialize() (aiofranka.controller.FrankaController method)</a>
 
       <ul>
+        <li><a href="api/native.html#aiofranka.native.NativeFrankaController.initialize">(aiofranka.native.NativeFrankaController method)</a>
+</li>
         <li><a href="api/remote.html#aiofranka.remote.FrankaRemoteController.initialize">(aiofranka.remote.FrankaRemoteController method)</a>
 </li>
       </ul></li>
@@ -338,11 +398,21 @@
 <table style="width: 100%" class="indextable genindextable"><tr>
   <td style="width: 33%; vertical-align: top;"><ul>
       <li><a href="api/controller.html#aiofranka.controller.FrankaController.kd">kd (aiofranka.controller.FrankaController attribute)</a>
+
+      <ul>
+        <li><a href="api/native.html#aiofranka.native.NativeFrankaController.kd">(aiofranka.native.NativeFrankaController attribute)</a>
 </li>
+      </ul></li>
   </ul></td>
   <td style="width: 33%; vertical-align: top;"><ul>
-      <li><a href="api/controller.html#aiofranka.controller.FrankaController.kp">kp (aiofranka.controller.FrankaController attribute)</a>
+      <li><a href="api/native.html#aiofranka.native.NativeFrankaController.ki">ki (aiofranka.native.NativeFrankaController attribute)</a>
 </li>
+      <li><a href="api/controller.html#aiofranka.controller.FrankaController.kp">kp (aiofranka.controller.FrankaController attribute)</a>
+
+      <ul>
+        <li><a href="api/native.html#aiofranka.native.NativeFrankaController.kp">(aiofranka.native.NativeFrankaController attribute)</a>
+</li>
+      </ul></li>
   </ul></td>
 </tr></table>
 
@@ -350,8 +420,14 @@
 <table style="width: 100%" class="indextable genindextable"><tr>
   <td style="width: 33%; vertical-align: top;"><ul>
       <li><a href="api/controller.html#aiofranka.controller.FrankaController.last_command">last_command (aiofranka.controller.FrankaController attribute)</a>
+
+      <ul>
+        <li><a href="api/native.html#aiofranka.native.NativeFrankaController.last_command">(aiofranka.native.NativeFrankaController property)</a>
 </li>
+      </ul></li>
       <li><a href="api/config.html#aiofranka.config.latest_recording">latest_recording() (in module aiofranka.config)</a>
+</li>
+      <li><a href="api/native.html#aiofranka.native.NativeFrankaController.law_memory">law_memory (aiofranka.native.NativeFrankaController property)</a>
 </li>
       <li><a href="api/robot.html#aiofranka.robot.link_inertial">link_inertial() (in module aiofranka.robot)</a>
 </li>
@@ -361,9 +437,13 @@
 </li>
       <li><a href="api/config.html#aiofranka.config.load_config">load_config() (in module aiofranka.config)</a>
 </li>
+      <li><a href="api/native.html#aiofranka.native.load_native">load_native() (in module aiofranka.native)</a>
+</li>
       <li><a href="api/payload.html#aiofranka.tools.load_tool">load_tool() (in module aiofranka.tools)</a>
 </li>
       <li><a href="api/server.html#aiofranka.server.lock">lock() (in module aiofranka.server)</a>
+</li>
+      <li><a href="api/native.html#aiofranka.native.NativeFrankaController.loop_stats">loop_stats() (aiofranka.native.NativeFrankaController method)</a>
 </li>
   </ul></td>
 </tr></table>
@@ -378,6 +458,8 @@
 </li>
       </ul></li>
       <li><a href="api/payload.html#aiofranka.payload.PayloadEstimate.mass_std">mass_std (aiofranka.payload.PayloadEstimate attribute)</a>, <a href="api/payload.html#id2">[1]</a>
+</li>
+      <li><a href="api/native.html#aiofranka.native.ControlLaw.memory">memory (aiofranka.native.ControlLaw attribute)</a>
 </li>
       <li><a href="api/robot.html#aiofranka.robot.merge_payload">merge_payload() (in module aiofranka.robot)</a>
 </li>
@@ -395,11 +477,15 @@
 </li>
         <li><a href="api/gripper.html#module-aiofranka.gripper">aiofranka.gripper</a>
 </li>
+        <li><a href="api/native.html#module-aiofranka.native">aiofranka.native</a>
+</li>
         <li><a href="api/payload.html#module-aiofranka.payload">aiofranka.payload</a>
 </li>
         <li><a href="api/remote.html#module-aiofranka.remote">aiofranka.remote</a>
 </li>
         <li><a href="api/robot.html#module-aiofranka.robot">aiofranka.robot</a>
+</li>
+        <li><a href="api/native.html#module-aiofranka.server_native">aiofranka.server_native</a>
 </li>
         <li><a href="api/payload.html#module-aiofranka.tools">aiofranka.tools</a>
 </li>
@@ -409,6 +495,8 @@
       <li><a href="api/controller.html#aiofranka.controller.FrankaController.move">move() (aiofranka.controller.FrankaController method)</a>
 
       <ul>
+        <li><a href="api/native.html#aiofranka.native.NativeFrankaController.move">(aiofranka.native.NativeFrankaController method)</a>
+</li>
         <li><a href="api/remote.html#aiofranka.remote.FrankaRemoteController.move">(aiofranka.remote.FrankaRemoteController method)</a>
 </li>
       </ul></li>
@@ -420,14 +508,30 @@
 <h2 id="N">N</h2>
 <table style="width: 100%" class="indextable genindextable"><tr>
   <td style="width: 33%; vertical-align: top;"><ul>
-      <li><a href="api/payload.html#aiofranka.tools.Tool.name">name (aiofranka.tools.Tool attribute)</a>, <a href="api/payload.html#id11">[1]</a>
+      <li><a href="api/native.html#aiofranka.native.ControlLaw.name">name (aiofranka.native.ControlLaw attribute)</a>
+
+      <ul>
+        <li><a href="api/payload.html#aiofranka.tools.Tool.name">(aiofranka.tools.Tool attribute)</a>, <a href="api/payload.html#id11">[1]</a>
+</li>
+      </ul></li>
+      <li><a href="api/native.html#aiofranka.native.NativeFrankaController">NativeFrankaController (class in aiofranka.native)</a>
+</li>
+      <li><a href="api/native.html#aiofranka.server_native.NativeServerController">NativeServerController (class in aiofranka.server_native)</a>
 </li>
   </ul></td>
   <td style="width: 33%; vertical-align: top;"><ul>
       <li><a href="api/controller.html#aiofranka.controller.FrankaController.null_kd">null_kd (aiofranka.controller.FrankaController attribute)</a>
+
+      <ul>
+        <li><a href="api/native.html#aiofranka.native.NativeFrankaController.null_kd">(aiofranka.native.NativeFrankaController attribute)</a>
 </li>
+      </ul></li>
       <li><a href="api/controller.html#aiofranka.controller.FrankaController.null_kp">null_kp (aiofranka.controller.FrankaController attribute)</a>
+
+      <ul>
+        <li><a href="api/native.html#aiofranka.native.NativeFrankaController.null_kp">(aiofranka.native.NativeFrankaController attribute)</a>
 </li>
+      </ul></li>
   </ul></td>
 </tr></table>
 
@@ -442,6 +546,8 @@
 <h2 id="P">P</h2>
 <table style="width: 100%" class="indextable genindextable"><tr>
   <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="api/native.html#aiofranka.native.ControlLaw.params">params (aiofranka.native.ControlLaw attribute)</a>
+</li>
       <li><a href="api/payload.html#aiofranka.payload.payload_regressor">payload_regressor() (in module aiofranka.payload)</a>
 </li>
       <li><a href="api/payload.html#aiofranka.payload.PayloadEstimate">PayloadEstimate (class in aiofranka.payload)</a>
@@ -465,6 +571,8 @@
       <ul>
         <li><a href="api/gripper.html#aiofranka.gripper.GripperController.q_desired">(aiofranka.gripper.GripperController property)</a>
 </li>
+        <li><a href="api/native.html#aiofranka.native.NativeFrankaController.q_desired">(aiofranka.native.NativeFrankaController attribute)</a>
+</li>
         <li><a href="api/remote.html#aiofranka.remote.FrankaRemoteController.q_desired">(aiofranka.remote.FrankaRemoteController property)</a>
 </li>
       </ul></li>
@@ -484,6 +592,10 @@
   <td style="width: 33%; vertical-align: top;"><ul>
       <li><a href="api/robot.html#aiofranka.robot.RobotInterface.real">real (aiofranka.robot.RobotInterface attribute)</a>
 </li>
+      <li><a href="api/native.html#aiofranka.native.NativeFrankaController.realtime_priority">realtime_priority (aiofranka.native.NativeFrankaController attribute)</a>
+</li>
+      <li><a href="api/native.html#aiofranka.native.NativeFrankaController.register_law">register_law() (aiofranka.native.NativeFrankaController method)</a>
+</li>
       <li><a href="api/payload.html#aiofranka.tools.remove_tool">remove_tool() (in module aiofranka.tools)</a>
 </li>
       <li><a href="api/robot.html#aiofranka.robot.require_pylibfranka">require_pylibfranka() (in module aiofranka.robot)</a>
@@ -494,14 +606,14 @@
 </li>
       <li><a href="api/payload.html#aiofranka.payload.PayloadEstimate.rms_before">rms_before (aiofranka.payload.PayloadEstimate attribute)</a>, <a href="api/payload.html#id6">[1]</a>
 </li>
+  </ul></td>
+  <td style="width: 33%; vertical-align: top;"><ul>
       <li><a href="api/controller.html#aiofranka.controller.FrankaController.robot">robot (aiofranka.controller.FrankaController attribute)</a>
 
       <ul>
         <li><a href="api/robot.html#aiofranka.robot.RobotInterface.robot">(aiofranka.robot.RobotInterface attribute)</a>
 </li>
       </ul></li>
-  </ul></td>
-  <td style="width: 33%; vertical-align: top;"><ul>
       <li><a href="api/robot.html#aiofranka.robot.RobotInterface">RobotInterface (class in aiofranka.robot)</a>
 </li>
       <li><a href="api/payload.html#aiofranka.tools.Tool.rotation">rotation (aiofranka.tools.Tool attribute)</a>, <a href="api/payload.html#id16">[1]</a>
@@ -512,6 +624,8 @@
 
       <ul>
         <li><a href="api/gripper.html#aiofranka.gripper.GripperController.running">(aiofranka.gripper.GripperController attribute)</a>
+</li>
+        <li><a href="api/native.html#aiofranka.native.NativeFrankaController.running">(aiofranka.native.NativeFrankaController property)</a>
 </li>
         <li><a href="api/remote.html#aiofranka.remote.FrankaRemoteController.running">(aiofranka.remote.FrankaRemoteController property)</a>
 </li>
@@ -555,7 +669,11 @@
       <li><a href="api/robot.html#aiofranka.robot.set_macos_control_thread_qos">set_macos_control_thread_qos() (in module aiofranka.robot)</a>
 </li>
       <li><a href="api/controller.html#aiofranka.controller.FrankaController.set_tcp">set_tcp() (aiofranka.controller.FrankaController method)</a>
+
+      <ul>
+        <li><a href="api/native.html#aiofranka.native.NativeFrankaController.set_tcp">(aiofranka.native.NativeFrankaController method)</a>
 </li>
+      </ul></li>
       <li><a href="api/config.html#aiofranka.config.sim_entry">sim_entry() (in module aiofranka.config)</a>
 </li>
       <li><a href="api/robot.html#aiofranka.robot.RobotInterface.site_id">site_id (aiofranka.robot.RobotInterface attribute)</a>
@@ -571,9 +689,13 @@
 </li>
         <li><a href="api/gripper.html#aiofranka.gripper.GripperController.start">(aiofranka.gripper.GripperController method)</a>
 </li>
+        <li><a href="api/native.html#aiofranka.native.NativeFrankaController.start">(aiofranka.native.NativeFrankaController method)</a>
+</li>
         <li><a href="api/remote.html#aiofranka.remote.FrankaRemoteController.start">(aiofranka.remote.FrankaRemoteController method)</a>
 </li>
         <li><a href="api/robot.html#aiofranka.robot.RobotInterface.start">(aiofranka.robot.RobotInterface method)</a>
+</li>
+        <li><a href="api/native.html#aiofranka.server_native.NativeServerController.start">(aiofranka.server_native.NativeServerController method)</a>
 </li>
         <li><a href="api/server.html#aiofranka.server.start">(in module aiofranka.server)</a>
 </li>
@@ -585,6 +707,8 @@
       <ul>
         <li><a href="api/gripper.html#aiofranka.gripper.GripperController.state">(aiofranka.gripper.GripperController property)</a>
 </li>
+        <li><a href="api/native.html#aiofranka.native.NativeFrankaController.state">(aiofranka.native.NativeFrankaController property)</a>
+</li>
         <li><a href="api/remote.html#aiofranka.remote.FrankaRemoteController.state">(aiofranka.remote.FrankaRemoteController property)</a>
 </li>
         <li><a href="api/robot.html#aiofranka.robot.RobotInterface.state">(aiofranka.robot.RobotInterface property)</a>
@@ -595,6 +719,8 @@
       <li><a href="api/controller.html#aiofranka.controller.FrankaController.step">step() (aiofranka.controller.FrankaController method)</a>
 
       <ul>
+        <li><a href="api/native.html#aiofranka.native.NativeFrankaController.step">(aiofranka.native.NativeFrankaController method)</a>
+</li>
         <li><a href="api/robot.html#aiofranka.robot.RobotInterface.step">(aiofranka.robot.RobotInterface method)</a>
 </li>
       </ul></li>
@@ -617,6 +743,8 @@
       <li><a href="api/controller.html#aiofranka.controller.FrankaController.switch">switch() (aiofranka.controller.FrankaController method)</a>
 
       <ul>
+        <li><a href="api/native.html#aiofranka.native.NativeFrankaController.switch">(aiofranka.native.NativeFrankaController method)</a>
+</li>
         <li><a href="api/remote.html#aiofranka.remote.FrankaRemoteController.switch">(aiofranka.remote.FrankaRemoteController method)</a>
 </li>
       </ul></li>
@@ -641,6 +769,8 @@
       <li><a href="api/controller.html#aiofranka.controller.FrankaController.torque">torque (aiofranka.controller.FrankaController attribute)</a>
 
       <ul>
+        <li><a href="api/native.html#aiofranka.native.NativeFrankaController.torque">(aiofranka.native.NativeFrankaController property)</a>
+</li>
         <li><a href="api/remote.html#aiofranka.remote.FrankaRemoteController.torque">(aiofranka.remote.FrankaRemoteController property)</a>
 </li>
       </ul></li>
@@ -649,11 +779,21 @@
       <li><a href="api/robot.html#aiofranka.robot.RobotInterface.torque_controller">torque_controller (aiofranka.robot.RobotInterface attribute)</a>
 </li>
       <li><a href="api/controller.html#aiofranka.controller.FrankaController.torque_diff_limit">torque_diff_limit (aiofranka.controller.FrankaController attribute)</a>
+
+      <ul>
+        <li><a href="api/native.html#aiofranka.native.NativeFrankaController.torque_diff_limit">(aiofranka.native.NativeFrankaController property)</a>
+</li>
+      </ul></li>
+      <li><a href="api/native.html#aiofranka.native.NativeFrankaController.torque_limit">torque_limit (aiofranka.native.NativeFrankaController attribute)</a>
 </li>
       <li><a href="api/payload.html#aiofranka.tools.Tool.translation">translation (aiofranka.tools.Tool attribute)</a>, <a href="api/payload.html#id15">[1]</a>
 </li>
       <li><a href="api/controller.html#aiofranka.controller.FrankaController.type">type (aiofranka.controller.FrankaController attribute)</a>
+
+      <ul>
+        <li><a href="api/native.html#aiofranka.native.NativeFrankaController.type">(aiofranka.native.NativeFrankaController property)</a>
 </li>
+      </ul></li>
   </ul></td>
 </tr></table>
 

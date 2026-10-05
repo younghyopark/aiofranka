@@ -50,7 +50,7 @@ pip install -e .
 
 On macOS, aiofranka installs [pylibfranka-macos](https://pypi.org/project/pylibfranka-macos/), an unofficial build of pylibfranka with macOS support from [younghyopark/libfranka](https://github.com/younghyopark/libfranka/tree/macos-support). It is not affiliated with Franka Robotics. To keep up with the 1 kHz control loop, it keeps one performance core busy while a control loop runs, so plug in the Mac when controlling the robot, and connect the robot via wired Ethernet.
 
-Other Macs need pylibfranka built from source, see the [libfranka macOS instructions](https://github.com/younghyopark/libfranka/tree/macos-support/pylibfranka#installing-prerequisites-on-macos).
+Other Macs need pylibfranka built from source, see the [libfranka macOS instructions](https://github.com/younghyopark/libfranka/tree/macos-support/pylibfranka#installing-prerequisites-on-macos). On an Apple Silicon Mac with macOS 14 or older, pylibfranka-macos does not install, so install aiofranka with `pip install --no-deps aiofranka` and its other dependencies yourself.
 
 ## Quick Start
 
@@ -406,7 +406,7 @@ What changes:
 
 On an FR3 driven from a Linux PREEMPT_RT laptop, tracking 2 cm OSC circles for 15 s per test, the native loop sent every command in time while the same process blocked its event loop for 300 ms every second, ran 4 threads holding the GIL, ran 20-thread BLAS, or collected garbage over a 3 M object heap: 0 robot states missed, the robot's command success rate never below 0.98. The Python loop dropped to 0.92 with no load and stopped with `communication_constraints_violation` under the BLAS load. Saturating every core of that laptop, even at nice 19, stalled its networking and stopped either loop; with the robot NIC's interrupt cores left free, the native loop was unaffected.
 
-The loop is a compiled extension, built when aiofranka is installed from source with a C++17 compiler. For a development install:
+The loop is a compiled extension. The wheels for macOS on Apple Silicon (CPython 3.10 to 3.14) and Linux x86_64 (CPython 3.10 to 3.12) include it; elsewhere, or from a git checkout, it is built with a C++17 compiler. For a development install:
 
 ```bash
 pip install "pybind11>=3.1,<3.2"

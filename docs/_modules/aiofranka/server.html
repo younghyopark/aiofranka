@@ -5,14 +5,14 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>aiofranka.server &mdash; aiofranka 0.6.1 documentation</title>
+  <title>aiofranka.server &mdash; aiofranka 0.7.0 documentation</title>
       <link rel="stylesheet" type="text/css" href="../../_static/pygments.css?v=b86133f3" />
       <link rel="stylesheet" type="text/css" href="../../_static/css/theme.css?v=9edc463e" />
 
   
       <script src="../../_static/jquery.js?v=5d32c60e"></script>
       <script src="../../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
-      <script src="../../_static/documentation_options.js?v=2bd037f0"></script>
+      <script src="../../_static/documentation_options.js?v=fe7df9b0"></script>
       <script src="../../_static/doctools.js?v=fd6eb6e6"></script>
       <script src="../../_static/sphinx_highlight.js?v=6ffebe34"></script>
     <script src="../../_static/js/theme.js"></script>
@@ -44,6 +44,7 @@
 <li class="toctree-l1"><a class="reference internal" href="../../installation.html">Installation</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../quickstart.html">Quick Start</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../controllers.html">Controllers</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../native.html">Native Control Loop</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../cli.html">CLI Reference</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../async_mode.html">Async Mode Guide</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../examples.html">Examples</a></li>
@@ -53,6 +54,7 @@
 <ul>
 <li class="toctree-l1"><a class="reference internal" href="../../api/remote.html">FrankaRemoteController (Server Mode)</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../api/controller.html">Franka Controller</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../api/native.html">Native Controller</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../api/robot.html">Robot Interface</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../api/payload.html">Payload Identification and Tools</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../api/config.html">Controller Configurations</a></li>
@@ -1244,6 +1246,9 @@
     <span class="c1"># asyncio control loop (libfranka requires strict 1kHz timing).</span>
     <span class="k">if</span> <span class="n">controller_cls</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
         <span class="n">controller_cls</span> <span class="o">=</span> <span class="n">ServerController</span>
+    <span class="k">elif</span> <span class="n">controller_cls</span> <span class="o">==</span> <span class="s2">"native"</span><span class="p">:</span>
+        <span class="kn">from</span><span class="w"> </span><span class="nn">aiofranka.server_native</span><span class="w"> </span><span class="kn">import</span> <span class="n">NativeServerController</span>
+        <span class="n">controller_cls</span> <span class="o">=</span> <span class="n">NativeServerController</span>
     <span class="n">robot</span> <span class="o">=</span> <span class="n">RobotInterface</span><span class="p">(</span><span class="n">robot_ip</span><span class="p">,</span> <span class="n">read_tool</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
     <span class="n">controller</span> <span class="o">=</span> <span class="n">controller_cls</span><span class="p">(</span><span class="n">robot</span><span class="p">,</span> <span class="n">shm</span><span class="p">)</span>
     <span class="n">cmd_handler</span> <span class="o">=</span> <span class="n">CommandHandler</span><span class="p">(</span><span class="n">controller</span><span class="p">,</span> <span class="n">shm</span><span class="p">,</span> <span class="n">robot_ip</span><span class="p">)</span>
@@ -1444,7 +1449,8 @@
 <span class="k">def</span><span class="w"> </span><span class="nf">daemonize_and_run</span><span class="p">(</span><span class="n">robot_ip</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">unlock</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
                       <span class="n">username</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">"admin"</span><span class="p">,</span> <span class="n">password</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">"admin"</span><span class="p">,</span>
                       <span class="n">protocol</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">"https"</span><span class="p">,</span> <span class="n">skip_token</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
-                      <span class="n">lock_on_error</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span> <span class="n">home</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">):</span>
+                      <span class="n">lock_on_error</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span> <span class="n">home</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
+                      <span class="n">controller_cls</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
 <span class="w">    </span><span class="sd">"""Fork into background and run the server."""</span>
     <span class="n">pid</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">fork</span><span class="p">()</span>
     <span class="k">if</span> <span class="n">pid</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
@@ -1463,12 +1469,14 @@
 
     <span class="n">run_server</span><span class="p">(</span><span class="n">robot_ip</span><span class="p">,</span> <span class="n">foreground</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">unlock</span><span class="o">=</span><span class="n">unlock</span><span class="p">,</span>
                <span class="n">username</span><span class="o">=</span><span class="n">username</span><span class="p">,</span> <span class="n">password</span><span class="o">=</span><span class="n">password</span><span class="p">,</span> <span class="n">protocol</span><span class="o">=</span><span class="n">protocol</span><span class="p">,</span>
-               <span class="n">skip_token</span><span class="o">=</span><span class="n">skip_token</span><span class="p">,</span> <span class="n">lock_on_error</span><span class="o">=</span><span class="n">lock_on_error</span><span class="p">,</span> <span class="n">home</span><span class="o">=</span><span class="n">home</span><span class="p">)</span>
+               <span class="n">skip_token</span><span class="o">=</span><span class="n">skip_token</span><span class="p">,</span> <span class="n">lock_on_error</span><span class="o">=</span><span class="n">lock_on_error</span><span class="p">,</span> <span class="n">home</span><span class="o">=</span><span class="n">home</span><span class="p">,</span>
+               <span class="n">controller_cls</span><span class="o">=</span><span class="n">controller_cls</span><span class="p">)</span>
     <span class="n">os</span><span class="o">.</span><span class="n">_exit</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span>  <span class="c1"># Don't fall through to caller's code</span>
 
 
 <span class="k">def</span><span class="w"> </span><span class="nf">start_subprocess</span><span class="p">(</span><span class="n">ip</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span>
-                     <span class="n">timeout</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">60.0</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="s2">"multiprocessing.Process"</span><span class="p">:</span>
+                     <span class="n">timeout</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">60.0</span><span class="p">,</span>
+                     <span class="n">controller_cls</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="s2">"multiprocessing.Process"</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">"""Start server in a child process tied to the parent's lifecycle.</span>
 
 <span class="sd">    Unlike daemonize_and_run(), the child process terminates when the parent</span>
@@ -1477,6 +1485,8 @@
 <span class="sd">    Args:</span>
 <span class="sd">        ip: Robot IP address.</span>
 <span class="sd">        timeout: Seconds to wait for the server to become ready.</span>
+<span class="sd">        controller_cls: The server's controller class (default: ServerController), or</span>
+<span class="sd">            "native" for NativeServerController, whose 1 kHz loop runs in C++.</span>
 
 <span class="sd">    Returns:</span>
 <span class="sd">        The multiprocessing.Process running the server.</span>
@@ -1526,7 +1536,8 @@
             <span class="k">pass</span>
         <span class="n">run_server</span><span class="p">(</span><span class="n">ip</span><span class="p">,</span> <span class="n">foreground</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">unlock</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
                    <span class="n">username</span><span class="o">=</span><span class="n">username</span><span class="p">,</span> <span class="n">password</span><span class="o">=</span><span class="n">password</span><span class="p">,</span>
-                   <span class="n">lock_on_error</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">home</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+                   <span class="n">lock_on_error</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">home</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+                   <span class="n">controller_cls</span><span class="o">=</span><span class="n">controller_cls</span><span class="p">)</span>
 
     <span class="n">proc</span> <span class="o">=</span> <span class="n">multiprocessing</span><span class="o">.</span><span class="n">Process</span><span class="p">(</span><span class="n">target</span><span class="o">=</span><span class="n">_target</span><span class="p">,</span> <span class="n">daemon</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
     <span class="n">proc</span><span class="o">.</span><span class="n">start</span><span class="p">()</span>
@@ -1557,7 +1568,7 @@
                         <span class="n">sys</span><span class="o">.</span><span class="n">stdout</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="sa">f</span><span class="s2">"</span><span class="se">\r</span><span class="s2">  [</span><span class="si">{</span><span class="n">bar</span><span class="si">}</span><span class="s2">] </span><span class="si">{</span><span class="p">(</span><span class="n">i</span><span class="o">+</span><span class="mi">1</span><span class="p">)</span><span class="o">*</span><span class="mi">2</span><span class="si">}</span><span class="s2">%"</span><span class="p">)</span>
                         <span class="n">sys</span><span class="o">.</span><span class="n">stdout</span><span class="o">.</span><span class="n">flush</span><span class="p">()</span>
                     <span class="nb">print</span><span class="p">()</span>
-                    <span class="k">return</span> <span class="n">start_subprocess</span><span class="p">(</span><span class="n">ip</span><span class="p">,</span> <span class="n">timeout</span><span class="o">=</span><span class="n">timeout</span><span class="p">)</span>
+                    <span class="k">return</span> <span class="n">start_subprocess</span><span class="p">(</span><span class="n">ip</span><span class="p">,</span> <span class="n">timeout</span><span class="o">=</span><span class="n">timeout</span><span class="p">,</span> <span class="n">controller_cls</span><span class="o">=</span><span class="n">controller_cls</span><span class="p">)</span>
                 <span class="k">raise</span> <span class="ne">RuntimeError</span><span class="p">(</span><span class="n">err</span><span class="p">)</span>
             <span class="n">shm</span><span class="o">.</span><span class="n">close</span><span class="p">()</span>
         <span class="k">except</span> <span class="ne">FileNotFoundError</span><span class="p">:</span>
@@ -1827,7 +1838,7 @@
 <span class="k">def</span><span class="w"> </span><span class="nf">start</span><span class="p">(</span><span class="n">ip</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">foreground</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
           <span class="n">unlock</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span> <span class="n">username</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="n">password</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
           <span class="n">protocol</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">"https"</span><span class="p">,</span> <span class="n">lock_on_error</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
-          <span class="n">timeout</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">60.0</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
+          <span class="n">timeout</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">60.0</span><span class="p">,</span> <span class="n">native</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">"""Start the aiofranka server from a Python script.</span>
 
 <span class="sd">    When ip, username, or password are not provided, values are read from</span>
@@ -1844,6 +1855,7 @@
 <span class="sd">        lock_on_error: If True, lock joints when the server dies due to a control error.</span>
 <span class="sd">            If False (default), joints are left unlocked on error so you can recover.</span>
 <span class="sd">        timeout: Seconds to wait for the server to become ready (ignored if foreground).</span>
+<span class="sd">        native: Run the 1 kHz control loop in C++ (NativeServerController).</span>
 
 <span class="sd">    Returns:</span>
 <span class="sd">        The server PID (0 if foreground, since it blocks).</span>
@@ -1879,14 +1891,16 @@
         <span class="k">except</span> <span class="ne">ProcessLookupError</span><span class="p">:</span>
             <span class="n">os</span><span class="o">.</span><span class="n">unlink</span><span class="p">(</span><span class="n">pid_path</span><span class="p">)</span>
 
+    <span class="n">controller_cls</span> <span class="o">=</span> <span class="s2">"native"</span> <span class="k">if</span> <span class="n">native</span> <span class="k">else</span> <span class="kc">None</span>
     <span class="k">if</span> <span class="n">foreground</span><span class="p">:</span>
         <span class="n">run_server</span><span class="p">(</span><span class="n">ip</span><span class="p">,</span> <span class="n">foreground</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">unlock</span><span class="o">=</span><span class="n">unlock</span><span class="p">,</span>
                    <span class="n">username</span><span class="o">=</span><span class="n">username</span><span class="p">,</span> <span class="n">password</span><span class="o">=</span><span class="n">password</span><span class="p">,</span> <span class="n">protocol</span><span class="o">=</span><span class="n">protocol</span><span class="p">,</span>
-                   <span class="n">lock_on_error</span><span class="o">=</span><span class="n">lock_on_error</span><span class="p">)</span>
+                   <span class="n">lock_on_error</span><span class="o">=</span><span class="n">lock_on_error</span><span class="p">,</span> <span class="n">controller_cls</span><span class="o">=</span><span class="n">controller_cls</span><span class="p">)</span>
         <span class="k">return</span> <span class="mi">0</span>
 
     <span class="n">daemonize_and_run</span><span class="p">(</span><span class="n">ip</span><span class="p">,</span> <span class="n">unlock</span><span class="o">=</span><span class="n">unlock</span><span class="p">,</span> <span class="n">username</span><span class="o">=</span><span class="n">username</span><span class="p">,</span> <span class="n">password</span><span class="o">=</span><span class="n">password</span><span class="p">,</span>
-                      <span class="n">protocol</span><span class="o">=</span><span class="n">protocol</span><span class="p">,</span> <span class="n">lock_on_error</span><span class="o">=</span><span class="n">lock_on_error</span><span class="p">)</span>
+                      <span class="n">protocol</span><span class="o">=</span><span class="n">protocol</span><span class="p">,</span> <span class="n">lock_on_error</span><span class="o">=</span><span class="n">lock_on_error</span><span class="p">,</span>
+                      <span class="n">controller_cls</span><span class="o">=</span><span class="n">controller_cls</span><span class="p">)</span>
 
     <span class="c1"># Wait for server to become ready</span>
     <span class="n">deadline</span> <span class="o">=</span> <span class="n">time</span><span class="o">.</span><span class="n">time</span><span class="p">()</span> <span class="o">+</span> <span class="n">timeout</span>

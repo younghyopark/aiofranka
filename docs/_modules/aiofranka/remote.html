@@ -5,14 +5,14 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>aiofranka.remote &mdash; aiofranka 0.5.1 documentation</title>
+  <title>aiofranka.remote &mdash; aiofranka 0.7.0 documentation</title>
       <link rel="stylesheet" type="text/css" href="../../_static/pygments.css?v=b86133f3" />
       <link rel="stylesheet" type="text/css" href="../../_static/css/theme.css?v=9edc463e" />
 
   
       <script src="../../_static/jquery.js?v=5d32c60e"></script>
       <script src="../../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
-      <script src="../../_static/documentation_options.js?v=b9afe91b"></script>
+      <script src="../../_static/documentation_options.js?v=fe7df9b0"></script>
       <script src="../../_static/doctools.js?v=fd6eb6e6"></script>
       <script src="../../_static/sphinx_highlight.js?v=6ffebe34"></script>
     <script src="../../_static/js/theme.js"></script>
@@ -44,6 +44,7 @@
 <li class="toctree-l1"><a class="reference internal" href="../../installation.html">Installation</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../quickstart.html">Quick Start</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../controllers.html">Controllers</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../native.html">Native Control Loop</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../cli.html">CLI Reference</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../async_mode.html">Async Mode Guide</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../examples.html">Examples</a></li>
@@ -53,7 +54,10 @@
 <ul>
 <li class="toctree-l1"><a class="reference internal" href="../../api/remote.html">FrankaRemoteController (Server Mode)</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../api/controller.html">Franka Controller</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../api/native.html">Native Controller</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../api/robot.html">Robot Interface</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../api/payload.html">Payload Identification and Tools</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../api/config.html">Controller Configurations</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../api/server.html">Server Functions</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../api/gripper.html">GripperController</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../api/utilities.html">Async Utilities</a></li>
@@ -174,6 +178,9 @@
 <span class="sd">        &gt;&gt;&gt; controller.stop()</span>
 <span class="sd">    """</span>
 
+    <span class="c1"># The server's controller class, for start_subprocess() (None: ServerController).</span>
+    <span class="n">_server_controller</span> <span class="o">=</span> <span class="kc">None</span>
+
 <div class="viewcode-block" id="FrankaRemoteController.__init__">
 <a class="viewcode-back" href="../../api/remote.html#aiofranka.remote.FrankaRemoteController.__init__">[docs]</a>
     <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">robot_ip</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">home</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">):</span>
@@ -226,7 +233,7 @@
 
         <span class="c1"># Spawn server subprocess (no homing — user script controls movement)</span>
         <span class="k">try</span><span class="p">:</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">_server_proc</span> <span class="o">=</span> <span class="n">start_subprocess</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">robot_ip</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_server_proc</span> <span class="o">=</span> <span class="n">start_subprocess</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">robot_ip</span><span class="p">,</span> <span class="n">controller_cls</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">_server_controller</span><span class="p">)</span>
         <span class="k">except</span> <span class="ne">RuntimeError</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
             <span class="n">err</span> <span class="o">=</span> <span class="nb">str</span><span class="p">(</span><span class="n">e</span><span class="p">)</span><span class="o">.</span><span class="n">lower</span><span class="p">()</span>
             <span class="k">if</span> <span class="s2">"unlock"</span> <span class="ow">in</span> <span class="n">err</span> <span class="ow">or</span> <span class="s2">"fci"</span> <span class="ow">in</span> <span class="n">err</span> <span class="ow">or</span> <span class="s2">"joint"</span> <span class="ow">in</span> <span class="n">err</span> <span class="ow">or</span> <span class="s2">"not ready"</span> <span class="ow">in</span> <span class="n">err</span><span class="p">:</span>
@@ -490,6 +497,20 @@
     <span class="k">def</span><span class="w"> </span><span class="fm">__del__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_disconnect</span><span class="p">()</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_terminate_server</span><span class="p">()</span></div>
+
+
+
+<div class="viewcode-block" id="FrankaRemoteControllerNative">
+<a class="viewcode-back" href="../../api/remote.html#aiofranka.remote.FrankaRemoteControllerNative">[docs]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">FrankaRemoteControllerNative</span><span class="p">(</span><span class="n">FrankaRemoteController</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">"""</span>
+<span class="sd">    FrankaRemoteController whose server runs the 1 kHz control loop in C++.</span>
+
+<span class="sd">    Same API as FrankaRemoteController. The server subprocess uses NativeServerController</span>
+<span class="sd">    (aiofranka.server_native), so nothing in Python can delay a torque command.</span>
+<span class="sd">    """</span>
+
+    <span class="n">_server_controller</span> <span class="o">=</span> <span class="s2">"native"</span></div>
 
 
 
