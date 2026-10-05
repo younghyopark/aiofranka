@@ -1156,6 +1156,9 @@ async def _run_server(robot_ip: str, unlock: bool = True,
     # asyncio control loop (libfranka requires strict 1kHz timing).
     if controller_cls is None:
         controller_cls = ServerController
+    elif controller_cls == "native":
+        from aiofranka.server_native import NativeServerController
+        controller_cls = NativeServerController
     robot = RobotInterface(robot_ip, read_tool=False)
     controller = controller_cls(robot, shm)
     cmd_handler = CommandHandler(controller, shm, robot_ip)
@@ -1356,7 +1359,8 @@ def run_server(robot_ip: str, foreground: bool = False,
 def daemonize_and_run(robot_ip: str, unlock: bool = True,
                       username: str = "admin", password: str = "admin",
                       protocol: str = "https", skip_token: bool = False,
-                      lock_on_error: bool = False, home: bool = True):
+                      lock_on_error: bool = False, home: bool = True,
+                      controller_cls=None):
     """Fork into background and run the server."""
     pid = os.fork()
     if pid > 0:
@@ -1375,12 +1379,14 @@ def daemonize_and_run(robot_ip: str, unlock: bool = True,
 
     run_server(robot_ip, foreground=False, unlock=unlock,
                username=username, password=password, protocol=protocol,
-               skip_token=skip_token, lock_on_error=lock_on_error, home=home)
+               skip_token=skip_token, lock_on_error=lock_on_error, home=home,
+               controller_cls=controller_cls)
     os._exit(0)  # Don't fall through to caller's code
 
 
 def start_subprocess(ip: str, *,
-                     timeout: float = 60.0) -> "multiprocessing.Process":
+                     timeout: float = 60.0,
+                     controller_cls=None) -> "multiprocessing.Process":
     """Start server in a child process tied to the parent's lifecycle.
 
     Unlike daemonize_and_run(), the child process terminates when the parent
@@ -1389,6 +1395,8 @@ def start_subprocess(ip: str, *,
     Args:
         ip: Robot IP address.
         timeout: Seconds to wait for the server to become ready.
+        controller_cls: The server's controller class (default: ServerController), or
+            "native" for NativeServerController, whose 1 kHz loop runs in C++.
 
     Returns:
         The multiprocessing.Process running the server.
@@ -1438,7 +1446,8 @@ def start_subprocess(ip: str, *,
             pass
         run_server(ip, foreground=True, unlock=False,
                    username=username, password=password,
-                   lock_on_error=False, home=False)
+                   lock_on_error=False, home=False,
+                   controller_cls=controller_cls)
 
     proc = multiprocessing.Process(target=_target, daemon=True)
     proc.start()
@@ -1469,7 +1478,7 @@ def start_subprocess(ip: str, *,
                         sys.stdout.write(f"\r  [{bar}] {(i+1)*2}%")
                         sys.stdout.flush()
                     print()
-                    return start_subprocess(ip, timeout=timeout)
+                    return start_subprocess(ip, timeout=timeout, controller_cls=controller_cls)
                 raise RuntimeError(err)
             shm.close()
         except FileNotFoundError:
@@ -1737,7 +1746,7 @@ def _run_with_spinner(label: str, step: int, total: int, fn, *args, **kwargs):
 def start(ip: str = None, *, foreground: bool = False,
           unlock: bool = True, username: str = None, password: str = None,
           protocol: str = "https", lock_on_error: bool = False,
-          timeout: float = 60.0) -> int:
+          timeout: float = 60.0, native: bool = False) -> int:
     """Start the aiofranka server from a Python script.
 
     When ip, username, or password are not provided, values are read from
@@ -1754,6 +1763,7 @@ def start(ip: str = None, *, foreground: bool = False,
         lock_on_error: If True, lock joints when the server dies due to a control error.
             If False (default), joints are left unlocked on error so you can recover.
         timeout: Seconds to wait for the server to become ready (ignored if foreground).
+        native: Run the 1 kHz control loop in C++ (NativeServerController).
 
     Returns:
         The server PID (0 if foreground, since it blocks).
@@ -1789,14 +1799,16 @@ def start(ip: str = None, *, foreground: bool = False,
         except ProcessLookupError:
             os.unlink(pid_path)
 
+    controller_cls = "native" if native else None
     if foreground:
         run_server(ip, foreground=True, unlock=unlock,
                    username=username, password=password, protocol=protocol,
-                   lock_on_error=lock_on_error)
+                   lock_on_error=lock_on_error, controller_cls=controller_cls)
         return 0
 
     daemonize_and_run(ip, unlock=unlock, username=username, password=password,
-                      protocol=protocol, lock_on_error=lock_on_error)
+                      protocol=protocol, lock_on_error=lock_on_error,
+                      controller_cls=controller_cls)
 
     # Wait for server to become ready
     deadline = time.time() + timeout

@@ -224,18 +224,19 @@ def cmd_start(args):
     lock_on_error = args.lock_on_error
     home = not args.no_home
 
+    controller_cls = "native" if args.native else None
     if args.foreground:
         from aiofranka.server import run_server
         run_server(robot_ip, foreground=True, unlock=unlock,
                    username=username, password=password, protocol=protocol,
                    skip_token=skip_token, lock_on_error=lock_on_error,
-                   home=home)
+                   home=home, controller_cls=controller_cls)
     else:
         from aiofranka.server import daemonize_and_run
         daemonize_and_run(robot_ip, unlock=unlock,
                           username=username, password=password, protocol=protocol,
                           skip_token=skip_token, lock_on_error=lock_on_error,
-                          home=home)
+                          home=home, controller_cls=controller_cls)
         _wait_for_server(robot_ip)
 
 
@@ -2411,6 +2412,8 @@ def main():
                          help="Lock joints when the server dies due to a control error (default: leave unlocked)")
     p_start.add_argument("--no-home", action="store_true",
                          help="Skip moving to home pose on startup")
+    p_start.add_argument("--native", action="store_true",
+                         help="Run the 1 kHz control loop in C++ (NativeServerController)")
 
     # gravcomp
     p_gravcomp = subparsers.add_parser("gravcomp", help="Gravity compensation mode (foreground, Ctrl+C to stop)")

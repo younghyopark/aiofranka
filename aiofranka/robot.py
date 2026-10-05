@@ -283,6 +283,11 @@ class RobotInterface:
             Robot will hold position briefly then release brakes. Ensure robot
             is in a safe configuration before stopping.
         """
+        native = self._native_loop()
+        if native is not None:
+            # The loop must not read or write the motion this stops.
+            native._loop.request_stop()
+            native._loop.join()
         if self.real:
             self.robot.stop()
             # Release the torque controller right away. Its destructor cleans up the
@@ -366,8 +371,29 @@ class RobotInterface:
 
         self.payload = {"mass": mass, "com": com, "inertia": inertia}
 
+        # A NativeFrankaController computes with its own copy of the model.
+        native = self._native()
+        if native is not None:
+            native._model_changed()
+
+    def _native(self):
+        """The NativeFrankaController that runs, or ran, on this robot, or None."""
+        ref = getattr(self, "_native_ref", None)
+        return ref() if ref is not None else None
+
+    def _native_loop(self):
+        """The NativeFrankaController whose loop runs now and reads every robot state, or None."""
+        native = self._native()
+        return native if native is not None and native._owns_connection() else None
+
     def sync_mj(self):
         """ Sync mujoco state with real robot state """
+
+        native = self._native_loop()
+        if native is not None:
+            # The native loop reads every state; take its last one instead.
+            native._sync_world()
+            return
 
         if self.torque_controller is None:
             robot_state = self.robot.read_once()
@@ -434,6 +460,12 @@ class RobotInterface:
                 - qvel (np.ndarray): Joint velocities [rad/s] (7,)
                 - last_torque (np.ndarray): Last commanded torques [Nm] (7,)
         """
+        native = self._native_loop()
+        if native is not None:
+            # The native loop reads every state; take its last one instead.
+            state = native.state
+            if state is not None:
+                return {key: state[key] for key in ("qpos", "qvel", "last_torque")}
         if self.real:
             if self.torque_controller is None:
                 robot_state = self.robot.read_once()
@@ -502,7 +534,10 @@ class RobotInterface:
             >>> robot.step(torque)
         """
 
-        if self.real: 
+        if self._native_loop() is not None:
+            raise RuntimeError("A NativeFrankaController's loop sends the torques while it runs; "
+                               "command them with controller.torque in torque mode")
+        if self.real:
             import pylibfranka
             torque_command = pylibfranka.Torques(torque.tolist())
             torque_command.motion_finished = False

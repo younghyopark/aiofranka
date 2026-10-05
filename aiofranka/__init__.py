@@ -7,6 +7,7 @@ Combines pylibfranka for real-time control with MuJoCo for kinematics/dynamics.
 Main Components:
     RobotInterface: Low-level robot interface (real or simulation)
     FrankaController: High-level asyncio controller with multiple modes
+    NativeFrankaController: FrankaController with its 1 kHz loop in C++
     FrankaLockUnlock: Client for robot authentication and brake control
 
 Quick Example:
@@ -28,9 +29,10 @@ For detailed documentation, see README.md and USAGE_GUIDE.md
 from importlib.metadata import PackageNotFoundError, version as package_version
 
 from aiofranka.controller import FrankaController
+from aiofranka.native import NativeFrankaController, control_law
 from aiofranka.robot import RobotInterface
 from aiofranka.async_utils import asyncify, async_input, CudaInferenceThread, mpify
-from aiofranka.remote import FrankaRemoteController, ServerDiedError
+from aiofranka.remote import FrankaRemoteController, FrankaRemoteControllerNative, ServerDiedError
 from aiofranka.remote_v2 import FrankaRemoteControllerV2
 from aiofranka.server import start, stop, lock, unlock, set_configuration
 from aiofranka.tools import Tool, active_tool, list_tools, load_tool, remove_tool, save_tool, unload_tool
@@ -49,7 +51,7 @@ try:
 except PackageNotFoundError:
     __version__ = "0+unknown"
 
-__all__ = ["RobotInterface", "FrankaController", "FrankaRemoteController", "FrankaRemoteControllerV2", "ServerDiedError", "asyncify", "async_input", "CudaInferenceThread", "mpify", "start", "stop", "lock", "unlock", "set_configuration", "Tool", "active_tool", "list_tools", "load_tool", "remove_tool", "save_tool", "unload_tool", "load_config"]
+__all__ = ["RobotInterface", "FrankaController", "NativeFrankaController", "control_law", "FrankaRemoteController", "FrankaRemoteControllerNative", "FrankaRemoteControllerV2", "ServerDiedError", "asyncify", "async_input", "CudaInferenceThread", "mpify", "start", "stop", "lock", "unlock", "set_configuration", "Tool", "active_tool", "list_tools", "load_tool", "remove_tool", "save_tool", "unload_tool", "load_config"]
 
 if _HAS_ROBOTIQ:
     __all__.extend(["GripperController", "GripperRemoteController", "RobotiqGripperInterface", "create_gripper"])

@@ -2,6 +2,9 @@ __pycache__/
 *.py[cod]
 dist/
 *.egg-info/
+build/
+aiofranka/_native*.so
+aiofranka/_native*.pyd
 examples/vision
 examples/03_collect.py
 examples/sysid

@@ -80,6 +80,9 @@ class FrankaRemoteController:
         >>> controller.stop()
     """
 
+    # The server's controller class, for start_subprocess() (None: ServerController).
+    _server_controller = None
+
     def __init__(self, robot_ip: str = None, *, home: bool = True):
         if robot_ip is None:
             robot_ip = _load_last_ip()
@@ -127,7 +130,7 @@ class FrankaRemoteController:
 
         # Spawn server subprocess (no homing — user script controls movement)
         try:
-            self._server_proc = start_subprocess(self.robot_ip)
+            self._server_proc = start_subprocess(self.robot_ip, controller_cls=self._server_controller)
         except RuntimeError as e:
             err = str(e).lower()
             if "unlock" in err or "fci" in err or "joint" in err or "not ready" in err:
@@ -372,6 +375,17 @@ class FrankaRemoteController:
     def __del__(self):
         self._disconnect()
         self._terminate_server()
+
+
+class FrankaRemoteControllerNative(FrankaRemoteController):
+    """
+    FrankaRemoteController whose server runs the 1 kHz control loop in C++.
+
+    Same API as FrankaRemoteController. The server subprocess uses NativeServerController
+    (aiofranka.server_native), so nothing in Python can delay a torque command.
+    """
+
+    _server_controller = "native"
 
 
 def _load_last_ip() -> str:

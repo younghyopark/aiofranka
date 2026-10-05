@@ -30,6 +30,7 @@ Contents
    installation
    quickstart
    controllers
+   native
    cli
    async_mode
    examples
@@ -41,6 +42,7 @@ Contents
 
    api/remote
    api/controller
+   api/native
    api/robot
    api/payload
    api/config

@@ -1,5 +1,7 @@
 [build-system]
-requires = ["setuptools>=77.0.3"]
+# pybind11 builds the optional native control loop (setup.py). Its internals version must
+# be pylibfranka's (12, pybind11 3.1) for the loop to hand out pylibfranka.RobotState objects.
+requires = ["setuptools>=77.0.3", "pybind11>=3.1,<3.2"]
 build-backend = "setuptools.build_meta"
 
 [project]
@@ -40,6 +42,10 @@ dependencies = [
 aiofranka = "aiofranka.__main__:main"
 
 [project.optional-dependencies]
+# Custom control laws of NativeFrankaController, compiled with Numba.
+native = [
+    "numba>=0.60",
+]
 docs = [
     "sphinx>=7.0.0",
     "sphinx-rtd-theme>=2.0.0",

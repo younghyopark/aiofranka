@@ -16,9 +16,11 @@ def tip(z):
 
 
 class SetTcpTest(unittest.TestCase):
+    controller_cls = FrankaController  # test_native runs these with NativeFrankaController
+
     def setUp(self):
         self.robot = simulated_robot(mujoco.MjModel.from_xml_path(str(MODEL_PATH)))
-        self.controller = FrankaController(self.robot)
+        self.controller = self.controller_cls(self.robot)
 
     def test_tracks_the_new_tcp_where_it_is(self):
         self.controller.switch("osc")

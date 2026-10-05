@@ -9,6 +9,7 @@ recursive-include aiofranka/model/assets link*_*.obj *.stl
 include aiofranka/model/assets/link1.obj
 include aiofranka/model/assets/link2.obj
 recursive-include tests *.py
+recursive-include src/native *.h *.hpp *.cpp LICENSE
 
 prune .github
 prune .vscode

@@ -1,5 +1,17 @@
 # Changelog
 
+## Unreleased
+
+### Highlights
+
+- Add `NativeFrankaController`, a drop-in for `FrankaController` whose 1 kHz control loop runs in C++, in a thread that never waits for Python: blocking the event loop or holding the GIL no longer delays torque commands. Its impedance, pid, osc and torque laws match `FrankaController`'s to rounding. For server mode, use `FrankaRemoteControllerNative` or `aiofranka start-server --native`.
+- Write new control laws in Python with `aiofranka.control_law`: Numba compiles them for the native loop (`pip install "aiofranka[native]"`), and their parameters become controller attributes.
+
+### Changes
+
+- aiofranka builds the optional extension `aiofranka._native` with pybind11 3.1 when installed from source; without a compiler, it installs without it. `examples/08_native_custom_law.py` holds the arm with a custom law.
+- `RobotInterface` defers to a running native loop: `state`, `state_minimal` and `sync_mj()` take its last state, `step()` refuses, `stop()` stops it first, and `sync_payload()` gives it the new model.
+
 ## 0.6.1 - 2026-10-03
 
 ### Changes
