@@ -6,14 +6,14 @@
   <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>CLI Reference &mdash; aiofranka 0.7.0 documentation</title>
+  <title>CLI Reference &mdash; aiofranka 0.7.1 documentation</title>
       <link rel="stylesheet" type="text/css" href="_static/pygments.css?v=b86133f3" />
       <link rel="stylesheet" type="text/css" href="_static/css/theme.css?v=9edc463e" />
 
   
       <script src="_static/jquery.js?v=5d32c60e"></script>
       <script src="_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
-      <script src="_static/documentation_options.js?v=fe7df9b0"></script>
+      <script src="_static/documentation_options.js?v=5a057da9"></script>
       <script src="_static/doctools.js?v=fd6eb6e6"></script>
       <script src="_static/sphinx_highlight.js?v=6ffebe34"></script>
     <script src="_static/js/theme.js"></script>
@@ -109,7 +109,7 @@
 <div class="highlight-text notranslate"><div class="highlight"><pre><span></span>aiofranka start-server [--ip IP] [--no-home]  Start the control server
 aiofranka unlock   [--ip IP]              Unlock joints + activate FCI
 aiofranka lock     [--ip IP]              Lock joints + deactivate FCI
-aiofranka gravcomp [--ip IP] [--damping]  Gravity compensation (freedrive)
+aiofranka gravcomp [--ip IP] [--mode program]  Move the robot by hand (freedrive)
 aiofranka home     [--ip IP]              Move the robot to its home pose
 aiofranka status   [--ip IP]              Show robot &amp; server status
 aiofranka stop     [--ip IP]              Stop a running server
@@ -148,8 +148,12 @@ aiofranka<span class="w"> </span>lock
 <p>Runs gravity compensation mode in the foreground. The robot is freely movable by hand.
 Press Ctrl+C to stop control; the joints remain unlocked with FCI active.
 Run <code class="docutils literal notranslate"><span class="pre">aiofranka</span> <span class="pre">lock</span></code> when finished.</p>
+<p>With <code class="docutils literal notranslate"><span class="pre">--mode</span> <span class="pre">program</span></code>, it switches the robot to Programming mode instead, as
+<code class="docutils literal notranslate"><span class="pre">aiofranka</span> <span class="pre">mode</span> <span class="pre">program</span></code> does: the arm moves by hand only while the guiding button on the end
+effector is held, and nothing keeps running. <code class="docutils literal notranslate"><span class="pre">aiofranka</span> <span class="pre">unlock</span></code> switches back for FCI.</p>
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>aiofranka<span class="w"> </span>gravcomp<span class="w">                  </span><span class="c1"># default: zero damping</span>
 aiofranka<span class="w"> </span>gravcomp<span class="w"> </span>--damping<span class="w"> </span><span class="m">2</span>.0<span class="w">    </span><span class="c1"># add velocity damping</span>
+aiofranka<span class="w"> </span>gravcomp<span class="w"> </span>--mode<span class="w"> </span>program<span class="w">   </span><span class="c1"># hand-guide with the guiding button instead</span>
 </pre></div>
 </div>
 </section>
@@ -238,12 +242,14 @@ active Desk profile. It needs the camera extra: <code class="docutils literal no
 aiofranka<span class="w"> </span>camera<span class="w"> </span>fit<span class="w"> </span>SESSION<span class="w">    </span><span class="c1"># fit a recorded session again</span>
 </pre></div>
 </div>
-<p><code class="docutils literal notranslate"><span class="pre">camera</span> <span class="pre">calibrate</span></code> unlocks the robot like <code class="docutils literal notranslate"><span class="pre">tool</span> <span class="pre">identify</span></code> and runs it in gravity compensation
-with light damping (<code class="docutils literal notranslate"><span class="pre">--damping</span></code>, default 1 Nm s/rad), with a live view of the camera image in the
-terminal. Whenever the arm has rested for 0.7 s at a new pose, 5 cm or 10 deg from every view so
-far, with the cube in view, it records the view and beeps. Space captures anyway, <code class="docutils literal notranslate"><span class="pre">u</span></code> removes the
-last view, Enter fits and <code class="docutils literal notranslate"><span class="pre">q</span></code> quits keeping the views. The fit writes <code class="docutils literal notranslate"><span class="pre">calibration.json</span></code> with
-<code class="docutils literal notranslate"><span class="pre">T_base_camera</span></code>, <code class="docutils literal notranslate"><span class="pre">T_ee_cube</span></code>, the intrinsics and the reprojection errors on held-out views.</p>
+<p><code class="docutils literal notranslate"><span class="pre">camera</span> <span class="pre">calibrate</span></code> switches the robot to Programming mode like <code class="docutils literal notranslate"><span class="pre">aiofranka</span> <span class="pre">mode</span> <span class="pre">program</span></code>, with a
+live view of the camera image in the terminal. Move the arm holding the guiding button on the end
+effector, and let go: whenever it has rested for 0.7 s at a new pose, 5 cm or 10 deg from every view
+so far, with the cube in view, it records the view and beeps. The joint positions come from Desk, as
+its web UI gets them. Space captures anyway, <code class="docutils literal notranslate"><span class="pre">u</span></code> removes the last view, Enter fits and <code class="docutils literal notranslate"><span class="pre">q</span></code> quits
+keeping the views. The fit writes <code class="docutils literal notranslate"><span class="pre">calibration.json</span></code> with <code class="docutils literal notranslate"><span class="pre">T_base_camera</span></code>, <code class="docutils literal notranslate"><span class="pre">T_ee_cube</span></code>, the
+intrinsics and the reprojection errors on held-out views. The robot stays in Programming mode;
+<code class="docutils literal notranslate"><span class="pre">aiofranka</span> <span class="pre">unlock</span></code> switches back.</p>
 </section>
 <section id="selftest">
 <h2>selftest<a class="headerlink" href="#selftest" title="Link to this heading"></a></h2>

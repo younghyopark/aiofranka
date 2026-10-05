@@ -5,14 +5,14 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>aiofranka.payload &mdash; aiofranka 0.6.0 documentation</title>
+  <title>aiofranka.payload &mdash; aiofranka 0.7.1 documentation</title>
       <link rel="stylesheet" type="text/css" href="../../_static/pygments.css?v=b86133f3" />
       <link rel="stylesheet" type="text/css" href="../../_static/css/theme.css?v=9edc463e" />
 
   
       <script src="../../_static/jquery.js?v=5d32c60e"></script>
       <script src="../../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
-      <script src="../../_static/documentation_options.js?v=8fa8b3e9"></script>
+      <script src="../../_static/documentation_options.js?v=5a057da9"></script>
       <script src="../../_static/doctools.js?v=fd6eb6e6"></script>
       <script src="../../_static/sphinx_highlight.js?v=6ffebe34"></script>
     <script src="../../_static/js/theme.js"></script>
@@ -44,6 +44,7 @@
 <li class="toctree-l1"><a class="reference internal" href="../../installation.html">Installation</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../quickstart.html">Quick Start</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../controllers.html">Controllers</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../native.html">Native Control Loop</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../cli.html">CLI Reference</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../async_mode.html">Async Mode Guide</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../examples.html">Examples</a></li>
@@ -53,6 +54,7 @@
 <ul>
 <li class="toctree-l1"><a class="reference internal" href="../../api/remote.html">FrankaRemoteController (Server Mode)</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../api/controller.html">Franka Controller</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../api/native.html">Native Controller</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../api/robot.html">Robot Interface</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../api/payload.html">Payload Identification and Tools</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../api/config.html">Controller Configurations</a></li>
@@ -405,7 +407,10 @@
 <span class="k">def</span><span class="w"> </span><span class="nf">_is_clear</span><span class="p">(</span><span class="n">model</span><span class="p">,</span> <span class="n">data</span><span class="p">,</span> <span class="n">qpos</span><span class="p">):</span>
     <span class="n">data</span><span class="o">.</span><span class="n">qpos</span><span class="p">[:</span><span class="mi">7</span><span class="p">]</span> <span class="o">=</span> <span class="n">qpos</span>
     <span class="n">mujoco</span><span class="o">.</span><span class="n">mj_fwdPosition</span><span class="p">(</span><span class="n">model</span><span class="p">,</span> <span class="n">data</span><span class="p">)</span>
-    <span class="k">return</span> <span class="n">data</span><span class="o">.</span><span class="n">ncon</span> <span class="o">==</span> <span class="mi">0</span>
+    <span class="c1"># MuJoCo adds the margins of two geoms, so it reports the tool from as far as twice</span>
+    <span class="c1"># the clearance from the floor: only contacts within the larger margin count.</span>
+    <span class="n">margin</span> <span class="o">=</span> <span class="n">model</span><span class="o">.</span><span class="n">geom_margin</span>
+    <span class="k">return</span> <span class="nb">all</span><span class="p">(</span><span class="n">c</span><span class="o">.</span><span class="n">dist</span> <span class="o">&gt;=</span> <span class="nb">max</span><span class="p">(</span><span class="n">margin</span><span class="p">[</span><span class="n">c</span><span class="o">.</span><span class="n">geom1</span><span class="p">],</span> <span class="n">margin</span><span class="p">[</span><span class="n">c</span><span class="o">.</span><span class="n">geom2</span><span class="p">])</span> <span class="k">for</span> <span class="n">c</span> <span class="ow">in</span> <span class="n">data</span><span class="o">.</span><span class="n">contact</span><span class="p">[:</span><span class="n">data</span><span class="o">.</span><span class="n">ncon</span><span class="p">])</span>
 
 
 <span class="k">def</span><span class="w"> </span><span class="nf">_closest</span><span class="p">(</span><span class="n">model</span><span class="p">,</span> <span class="n">data</span><span class="p">,</span> <span class="n">qpos</span><span class="p">,</span> <span class="n">clearance</span><span class="p">):</span>
