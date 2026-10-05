@@ -5,7 +5,7 @@ from __future__ import annotations
 import argparse
 import asyncio
 
-from aiofranka import FrankaController, RobotInterface
+from aiofranka import NativeFrankaController, RobotInterface
 
 
 async def main() -> int:
@@ -19,7 +19,7 @@ async def main() -> int:
     if not 0 <= args.joint < 7:
         parser.error(f"--joint must be in [0, 6], got {args.joint}")
 
-    controller = FrankaController(RobotInterface(args.ip))
+    controller = NativeFrankaController(RobotInterface(args.ip))
     await controller.start()
     try:
         target = controller.initial_qpos.copy()

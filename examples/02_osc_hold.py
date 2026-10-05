@@ -7,7 +7,7 @@ import asyncio
 
 import numpy as np
 
-from aiofranka import FrankaController, RobotInterface
+from aiofranka import NativeFrankaController, RobotInterface
 
 
 async def main() -> int:
@@ -17,7 +17,7 @@ async def main() -> int:
     parser.add_argument("ip", nargs="?")
     args = parser.parse_args()
 
-    controller = FrankaController(RobotInterface(args.ip))
+    controller = NativeFrankaController(RobotInterface(args.ip))
     await controller.start()
     try:
         print("Moving to initial position...")
