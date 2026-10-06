@@ -6,24 +6,25 @@ Combines pylibfranka for real-time control with MuJoCo for kinematics/dynamics.
 
 Main Components:
     RobotInterface: Low-level robot interface (real or simulation)
-    FrankaController: High-level asyncio controller with multiple modes
-    NativeFrankaController: FrankaController with its 1 kHz loop in C++
-    FrankaLockUnlock: Client for robot authentication and brake control
+    NativeFrankaController: High-level asyncio controller with multiple modes, whose
+        1 kHz loop runs in C++
+    FrankaRemoteController: The same with a sync API, its loop in a server subprocess
+    FrankaController: The legacy controller, with its 1 kHz loop in Python
 
 Quick Example:
     >>> import asyncio
-    >>> from aiofranka import RobotInterface, FrankaController
-    >>> 
+    >>> from aiofranka import RobotInterface, NativeFrankaController
+    >>>
     >>> async def main():
     ...     robot = RobotInterface("172.16.0.2")
-    ...     controller = FrankaController(robot)
+    ...     controller = NativeFrankaController(robot)
     ...     await controller.start()
     ...     await controller.move()  # Move to home
     ...     await controller.stop()
-    >>> 
+    >>>
     >>> asyncio.run(main())
 
-For detailed documentation, see README.md and USAGE_GUIDE.md
+For detailed documentation, see README.md and docs/
 """
 
 from importlib.metadata import PackageNotFoundError, version as package_version

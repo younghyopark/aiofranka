@@ -224,7 +224,7 @@ def cmd_start(args):
     lock_on_error = args.lock_on_error
     home = not args.no_home
 
-    controller_cls = "native" if args.native else None
+    controller_cls = "python" if args.python else None
     if args.foreground:
         from aiofranka.server import run_server
         run_server(robot_ip, foreground=True, unlock=unlock,
@@ -2515,8 +2515,11 @@ def main():
                          help="Lock joints when the server dies due to a control error (default: leave unlocked)")
     p_start.add_argument("--no-home", action="store_true",
                          help="Skip moving to home pose on startup")
-    p_start.add_argument("--native", action="store_true",
-                         help="Run the 1 kHz control loop in C++ (NativeServerController)")
+    p_start.add_argument("--python", action="store_true",
+                         help="Run the legacy 1 kHz control loop in Python (ServerController) "
+                              "instead of the native one in C++")
+    # The native loop is the default; --native stays accepted for existing scripts.
+    p_start.add_argument("--native", action="store_true", help=argparse.SUPPRESS)
 
     # gravcomp
     p_gravcomp = subparsers.add_parser("gravcomp", help="Gravity compensation mode (foreground, Ctrl+C to stop)")

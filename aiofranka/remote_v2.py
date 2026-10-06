@@ -5,6 +5,9 @@ Drop-in replacement for FrankaRemoteController. The only difference is that
 the server subprocess uses ServerControllerV2 (dedicated RT thread) instead
 of the asyncio-based ServerController. Also includes client-side jitter
 warnings read from shared memory.
+
+Legacy: its loop runs in Python. FrankaRemoteController's server runs the loop
+in C++ (NativeServerController), which nothing in Python can delay.
 """
 
 import logging
@@ -24,6 +27,8 @@ class FrankaRemoteControllerV2(FrankaRemoteController):
     of asyncio, reducing jitter on PREEMPT_RT systems.
 
     Includes client-side jitter warnings (v2 server writes stats to shm).
+
+    Legacy: the v2 loop runs in Python. FrankaRemoteController's server runs it in C++.
     """
 
     def __init__(self, robot_ip=None, *, home=True):

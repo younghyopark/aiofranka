@@ -126,7 +126,7 @@ Robot Triggers Safety Stop
 
 3. **Collision Detected** — Clear workspace, check for obstacles
 
-4. **Communication Constraints Violation** (async mode only) — A blocking call starved the 1kHz loop. See :doc:`async_mode`.
+4. **Communication Constraints Violation** — Torque commands reached the robot late, e.g. a blocking call starved the legacy ``FrankaController``'s loop. See `Communication Constraints Violation`_ below.
 
 **Recovery:**
 
@@ -189,17 +189,25 @@ Robot Doesn't Move
 Control Loop Issues
 -------------------
 
-Communication Constraints Violation (Async Mode)
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+Communication Constraints Violation
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 **Symptoms:** Robot aborts motion with ``communication_constraints_violation`` error.
 
-**Cause:** A blocking call in your async code starved the 1kHz control loop.
+**Cause:** Torque commands reached the robot late. With the legacy Python loop
+(``FrankaController``, ``aiofranka start-server --python``), a blocking call in your code
+starved it. The native loop does not wait for Python, so with it the cause is the system: a
+saturated CPU, the network, or a loop thread without real-time priority.
 
 **Solutions:**
 
-- Switch to **server mode** (``FrankaRemoteController``) — the recommended approach for heavy workloads
-- Or follow the :doc:`async_mode` guide to avoid blocking the event loop
+- Use the native loop: ``NativeFrankaController`` in your process, or server mode
+  (``FrankaRemoteController``), whose server runs it by default
+- With the legacy ``FrankaController``, follow the :doc:`async_mode` guide to avoid blocking the
+  event loop
+- With the native loop, use wired Ethernet, keep a core free for the robot NIC's interrupts, and
+  give the loop's thread its SCHED_FIFO priority (see :doc:`native`). ``aiofranka rt-benchmark``
+  measures the loop (see :doc:`cli`).
 
 Low Control Frequency
 ~~~~~~~~~~~~~~~~~~~~~
@@ -315,7 +323,7 @@ When asking for help, include:
 2. **Operating system and Python version**
 3. **Minimal code** that reproduces the issue
 4. **Full error message** from terminal
-5. **Whether you're using server mode or async mode**
+5. **Whether you're using async mode or server mode**, with the native or the legacy Python loop
 
 Where to ask:
 

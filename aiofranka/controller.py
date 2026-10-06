@@ -22,10 +22,15 @@ CUR_DIR = Path(__file__).parent.resolve()
 
 
 
-class FrankaController: 
+class FrankaController:
     """
     High-level asyncio controller for Franka robots with multiple control modes.
-    
+
+    Legacy: its 1 kHz loop runs in Python, on the event loop, where anything else that
+    runs (a planner, garbage collection, a thread holding the GIL) delays the next
+    torque command. Use NativeFrankaController, which has this API and runs the loop in
+    C++; FrankaController keeps working for existing code, and for a subclass's step().
+
     This controller runs a 1kHz torque control loop in the background using asyncio,
     while allowing you to send high-level commands asynchronously. Supports three
     control modes:

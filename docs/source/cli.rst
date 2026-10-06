@@ -72,6 +72,19 @@ self-test status, end-effector configuration) and server status if running.
 
    aiofranka status
 
+start-server
+------------
+
+Runs the control server in the background for clients such as ``FrankaRemoteController``
+(``--foreground`` keeps it in the terminal). It unlocks the robot (``--no-unlock`` skips that),
+moves it home (``--no-home`` skips that) and runs the 1 kHz loop in C++
+(``NativeServerController``). ``--python`` runs the legacy Python loop instead.
+
+.. code-block:: bash
+
+   aiofranka start-server              # the native loop
+   aiofranka start-server --python     # the legacy Python loop
+
 stop
 ----
 
@@ -194,6 +207,22 @@ View recent server log entries from ``~/.aiofranka/server.log``.
    aiofranka log              # last 20 lines
    aiofranka log -n 100       # last 100 lines
    aiofranka log -f           # follow (like tail -f)
+
+rt-benchmark
+------------
+
+Measures the 1 kHz loop on this machine. It holds the current pose in gravcomp, impedance and
+OSC in turn, 10 s each (``--duration``), records every cycle and compares the modes. ``--mode``
+picks the modes; one mode prints its full report: the periods and their percentiles, the
+response time from ``readOnce`` to ``writeOnce`` against a 300 us budget, skipped robot
+states, dropped commands and a histogram. ``--python`` benchmarks the legacy Python loop
+instead, with a breakdown per phase, and ``--all-combos`` compares its real-time settings.
+
+.. code-block:: bash
+
+   aiofranka rt-benchmark                 # the native loop, every mode
+   aiofranka rt-benchmark --mode osc      # one mode, its full report
+   aiofranka rt-benchmark --python        # the legacy Python loop
 
 Common Flags
 ------------

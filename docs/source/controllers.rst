@@ -2,7 +2,8 @@ Controllers
 ===========
 
 aiofranka supports four control modes, each suited for different applications.
-All modes work with both server mode (``FrankaRemoteController``) and async mode (``FrankaController``).
+All modes work in async mode (``NativeFrankaController``) and server mode
+(``FrankaRemoteController``), both on the native loop, and with the legacy ``FrankaController``.
 
 .. contents:: Table of Contents
    :local:
@@ -29,8 +30,8 @@ where:
 
 Torque rate limiting is applied when ``controller.clip = True`` (default).
 
-Usage (server mode)
-~~~~~~~~~~~~~~~~~~~
+Usage (async mode)
+~~~~~~~~~~~~~~~~~~
 
 .. code-block:: python
 
@@ -41,10 +42,10 @@ Usage (server mode)
 
    for i in range(200):
        target = compute_target(i)
-       controller.set("q_desired", target)
+       await controller.set("q_desired", target)
 
-Usage (async mode)
-~~~~~~~~~~~~~~~~~~
+Usage (server mode)
+~~~~~~~~~~~~~~~~~~~
 
 .. code-block:: python
 
@@ -55,7 +56,7 @@ Usage (async mode)
 
    for i in range(200):
        target = compute_target(i)
-       await controller.set("q_desired", target)
+       controller.set("q_desired", target)
 
 **Best for**: Joint-space trajectories, compliant behavior, system identification.
 
@@ -89,7 +90,7 @@ Usage
 
    for i in range(200):
        target = compute_target(i)
-       controller.set("q_desired", target)  # or await in async mode
+       await controller.set("q_desired", target)  # without await in server mode
 
 **Best for**: Tasks requiring zero steady-state error, precise positioning.
 
@@ -138,7 +139,7 @@ Usage
    desired_ee[:3, :3] = rotation_matrix  # 3x3 rotation
    desired_ee[:3, 3] = [x, y, z]         # position
 
-   controller.set("ee_desired", desired_ee)  # or await in async mode
+   await controller.set("ee_desired", desired_ee)  # without await in server mode
 
 End-Effector Pose Format
 ~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -238,12 +239,12 @@ You can switch between controllers at runtime:
    # Start with impedance
    controller.switch("impedance")
    controller.kp = np.ones(7) * 80.0
-   controller.set("q_desired", target1)
+   await controller.set("q_desired", target1)
 
    # Switch to OSC
    controller.switch("osc")
    controller.ee_kp = np.array([300, 300, 300, 1000, 1000, 1000])
-   controller.set("ee_desired", target2)
+   await controller.set("ee_desired", target2)
 
    # Switch to PID
    controller.switch("pid")
@@ -332,12 +333,12 @@ The ``move()`` method generates a smooth, time-optimal, jerk-limited trajectory 
 .. code-block:: python
 
    # Move to home position
-   controller.move()
+   await controller.move()
 
    # Move to custom position
-   controller.move([0, -0.785, 0, -2.356, 0, 1.571, 0.785])
+   await controller.move([0, -0.785, 0, -2.356, 0, 1.571, 0.785])
 
-In async mode, use ``await controller.move(...)``.
+In server mode, call ``controller.move(...)`` without ``await``.
 
 ``move()`` temporarily switches to impedance control. Trajectory limits are:
 

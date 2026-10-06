@@ -1,14 +1,14 @@
 Native Control Loop
 ===================
 
-``FrankaController`` runs its 1 kHz control loop on the asyncio event loop, in Python.
-Anything else that runs there delays the next torque command: a planner, loading a model,
-garbage collection, a thread holding the GIL. When commands are late, the robot stops with
-``communication_constraints_violation``.
+aiofranka's 1 kHz control loop runs in C++, in a thread that never waits for Python:
+``NativeFrankaController`` runs it in your process, and server mode in its subprocess.
 
-``NativeFrankaController`` runs the same loop in C++, in a thread that never waits for
-Python. It has ``FrankaController``'s constructor, methods and attributes, so porting means
-swapping the class:
+The legacy ``FrankaController`` runs the loop on the asyncio event loop, in Python. Anything
+else that runs there delays the next torque command: a planner, loading a model, garbage
+collection, a thread holding the GIL. When commands are late, the robot stops with
+``communication_constraints_violation``. ``NativeFrankaController`` has ``FrankaController``'s
+constructor, methods and attributes, so porting legacy code means swapping the class:
 
 .. code-block:: python
 
@@ -20,9 +20,12 @@ swapping the class:
    controller.switch("osc")
    await controller.set("ee_desired", target)
 
-For server mode, swap ``FrankaRemoteController`` for ``FrankaRemoteControllerNative``, or
-start the server with ``aiofranka start-server --native`` (``aiofranka.start(native=True)``
-from Python).
+Server mode runs it too: ``FrankaRemoteController``, ``aiofranka start-server`` and
+``aiofranka.start()`` start the server with ``NativeServerController``, and ``aiofranka home``,
+``aiofranka gravcomp`` and ``aiofranka tool identify`` run ``NativeFrankaController``. Where the
+native loop is not built, the server, ``home`` and ``gravcomp`` fall back to the Python loop
+with a warning. ``aiofranka start-server --python``, ``aiofranka.start(native=False)`` and
+``FrankaRemoteController(native=False)`` run the legacy Python loop.
 
 .. contents:: Table of Contents
    :local:

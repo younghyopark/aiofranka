@@ -4,6 +4,7 @@
 
 ### Highlights
 
+- The native loop is the default everywhere. `aiofranka start-server`, `aiofranka.start()` and `FrankaRemoteController` start the server with `NativeServerController`, `aiofranka home` and `aiofranka gravcomp` run `NativeFrankaController`, and the README, the docs and their examples use it. The Python loop is soft-deprecated: `FrankaController`, the server's `ServerController` (`aiofranka start-server --python`, `aiofranka.start(native=False)`, `FrankaRemoteController(native=False)`) and `FrankaRemoteControllerV2` keep working, but new code should use the native loop. Where it is not built, the server, `home` and `gravcomp` fall back to the Python loop with a warning. `start-server --native` and `FrankaRemoteControllerNative` stay for existing code.
 - `NativeFrankaController.record()` logs every cycle of the native loop: the state, the targets and gains the cycle used, the torque sent and any number of the robot state, with the host time each state arrived. The loop writes the rows into a buffer in C++ without waiting for Python, so a blocked event loop loses none, and `stop()` returns them as numpy arrays or saves them to an .npz file, as does a loop that stops with an error.
 
 ### Changes

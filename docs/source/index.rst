@@ -18,7 +18,7 @@ Welcome to aiofranka's documentation!
 
 **aiofranka** is an asyncio-based Python library for controlling Franka Emika robots. It provides a high-level interface that combines **pylibfranka** for real-time 1kHz torque control, **MuJoCo** for kinematics/dynamics computation, and **Ruckig** for smooth trajectory generation.
 
-The library is designed for research applications requiring precise, real-time control with minimal latency and maximum flexibility.
+Its 1 kHz control loop runs in C++, in a thread that never waits for Python (see :doc:`native`). The library is designed for research applications requiring precise, real-time control with minimal latency and maximum flexibility.
 
 Contents
 --------
@@ -40,9 +40,9 @@ Contents
    :maxdepth: 2
    :caption: API Reference
 
-   api/remote
-   api/controller
    api/native
+   api/controller
+   api/remote
    api/robot
    api/payload
    api/config

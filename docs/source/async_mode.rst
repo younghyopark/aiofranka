@@ -5,27 +5,35 @@ Async Mode Guide
    **Using server mode** (``FrankaRemoteController``)? You can skip this entire document.
    The 1kHz loop runs in a separate process, so your script can't starve it.
 
-This guide covers the sharp edges of **async mode** (``FrankaController``) — the in-process
-control loop that requires careful async discipline.
+In async mode, ``controller.start()`` starts the 1 kHz loop, and your script runs on the
+asyncio event loop next to it. ``NativeFrankaController``'s loop runs in C++ and keeps sending
+torques whatever the event loop does, so blocking the event loop does not stop the robot. It
+delays what runs there: your next ``set()``, a ``move()`` (which streams its trajectory from
+the event loop), and the copy of the loop's state into ``robot.data`` and ``robot.robot_state``.
+This guide keeps the event loop responsive.
+
+With the legacy ``FrankaController``, whose 1 kHz loop itself runs on the event loop, the rules
+below are required.
 
 The Core Rule
 -------------
 
-After ``controller.start()``, a **1kHz async control loop** runs in the background
-communicating with the robot via libfranka. If this loop is starved (i.e., doesn't
-get to run on time), the robot triggers a ``communication_constraints_violation``
-reflex and aborts the motion.
+After ``controller.start()``, **don't block the asyncio event loop**:
 
-**Never block the asyncio event loop after** ``controller.start()``.
+- With ``NativeFrankaController``, the arm holds its last target until the event loop runs
+  again. ``controller.state`` reads the loop directly and stays current.
+- With the legacy ``FrankaController``, the 1 kHz loop starves: the robot triggers a
+  ``communication_constraints_violation`` reflex and aborts the motion.
 
 What Blocks the Event Loop
 --------------------------
 
-Any synchronous (non-awaiting) work that takes more than ~1ms will starve the 1kHz loop:
+Any synchronous (non-awaiting) work blocks it. With the native loop, it delays your targets by
+as long; more than ~1ms starves the legacy loop:
 
 .. code-block:: python
 
-   # BAD — blocks the event loop, will trigger reflex
+   # BAD — blocks the event loop
    await controller.start()
    result = model(input_tensor)          # 2ms+ of GPU compute
    frame = cv2.imread("image.png")       # disk I/O
@@ -76,8 +84,8 @@ async_input
 time.sleep vs asyncio.sleep
 ----------------------------
 
-A common gotcha: ``time.sleep()`` blocks the entire event loop, which **will** starve
-the 1kHz control loop. Always use ``await asyncio.sleep()`` instead:
+A common gotcha: ``time.sleep()`` blocks the entire event loop, which holds your targets,
+and **will** starve the legacy 1kHz control loop. Always use ``await asyncio.sleep()`` instead:
 
 .. code-block:: python
 
@@ -87,8 +95,8 @@ the 1kHz control loop. Always use ``await asyncio.sleep()`` instead:
    # GOOD — yields control back to the event loop
    await asyncio.sleep(0.1)
 
-This applies anywhere after ``controller.start()``. Even a short ``time.sleep(0.002)``
-can cause a violation.
+This applies anywhere after ``controller.start()``. With the legacy loop, even a short
+``time.sleep(0.002)`` can cause a violation.
 
 Quick Checklist
 ---------------
@@ -115,7 +123,7 @@ CUDA and run_in_executor
 
 If your model runs on GPU, **avoid** ``run_in_executor`` for CUDA operations. The
 default ``ThreadPoolExecutor`` causes GIL contention between the worker thread
-(launching CUDA kernels) and the main thread (running the 1kHz loop). This can
+(launching CUDA kernels) and the main thread (running the event loop). This can
 inflate a 1ms forward pass to 50ms+.
 
 .. code-block:: python
@@ -124,7 +132,7 @@ inflate a 1ms forward pass to 50ms+.
    ee_desired = await loop.run_in_executor(None, model, input_tensor)
 
    # GOOD — if your GPU forward pass is <2ms, call it directly
-   ee_desired = model(input_tensor)  # fast enough to not starve the 1kHz loop
+   ee_desired = model(input_tensor)  # fast enough not to hold up the event loop
 
 **Rule of thumb**: profile your model's forward pass. If it's under ~2ms on GPU,
 call it directly on the event loop. If it's slower, use ``CudaInferenceThread``

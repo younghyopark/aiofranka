@@ -8,6 +8,9 @@ For simulated robots, it spin-waits for precise 1ms timing.
 
 Everything else (ZMQ command handler, startup, shutdown) reuses the original
 server infrastructure.
+
+Legacy: its loop runs in Python. The server's default, NativeServerController
+(aiofranka.server_native), runs it in C++.
 """
 
 import asyncio

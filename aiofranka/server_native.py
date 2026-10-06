@@ -3,11 +3,13 @@ The aiofranka server with the native control loop.
 
 NativeServerController is ServerController on NativeFrankaController: the server process
 runs the 1 kHz loop in C++ and keeps writing the robot state to shared memory, so clients
-(FrankaRemoteController) work unchanged. Start it with:
+(FrankaRemoteController) work unchanged. The server runs it by default:
 
-    $ aiofranka start-server --native
+    $ aiofranka start-server
 
-or aiofranka.start(native=True), or connect with FrankaRemoteControllerNative.
+as do aiofranka.start() and FrankaRemoteController. aiofranka start-server --python,
+aiofranka.start(native=False) and FrankaRemoteController(native=False) run the legacy
+ServerController, with the loop in Python.
 """
 
 import asyncio

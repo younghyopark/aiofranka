@@ -1,7 +1,10 @@
 """
 aiofranka control server — runs the 1kHz control loop in a dedicated process.
 
-Launch via CLI:  aiofranka start [--ip IP] [--foreground]
+The loop runs in C++ (NativeServerController, aiofranka.server_native), or in
+Python (ServerController, legacy) when asked or where the native loop is not built.
+
+Launch via CLI:  aiofranka start-server [--ip IP] [--foreground] [--python]
 
 Features:
   - Auto unlock/lock brakes via Franka Desk API
@@ -51,8 +54,44 @@ _TARGET_ATTRS = {
 }
 
 
+def _native_loop_available() -> bool:
+    """Whether the native control loop is built; if not, logs that the Python loop runs instead."""
+    from aiofranka.native import load_native
+
+    try:
+        load_native()
+        return True
+    except ImportError as error:
+        logger.warning("The native control loop is unavailable, running the legacy Python loop: "
+                       f"{str(error).splitlines()[0]}")
+        return False
+
+
+def _controller_class():
+    """NativeFrankaController, or the legacy FrankaController where the native loop is not built."""
+    if _native_loop_available():
+        from aiofranka.native import NativeFrankaController
+        return NativeFrankaController
+    return FrankaController
+
+
+def _server_controller_class(controller_cls=None):
+    """The server's controller class for a controller_cls of start_subprocess()."""
+    if controller_cls is None:
+        controller_cls = "native" if _native_loop_available() else "python"
+    if controller_cls == "python":
+        return ServerController
+    if controller_cls == "native":
+        from aiofranka.server_native import NativeServerController
+        return NativeServerController
+    return controller_cls
+
+
 class ServerController(FrankaController):
     """FrankaController subclass that writes state to shared memory each step.
+
+    The server's legacy controller, with the 1 kHz loop in Python; the server runs
+    NativeServerController (aiofranka.server_native) unless asked for this one.
 
     Overrides _run() to NOT sys.exit(1) on error — instead sets running=False
     and stores the error so the server can handle restart.
@@ -1154,11 +1193,7 @@ async def _run_server(robot_ip: str, unlock: bool = True,
 
     # Start ZMQ command handler in a dedicated thread so it never blocks the
     # asyncio control loop (libfranka requires strict 1kHz timing).
-    if controller_cls is None:
-        controller_cls = ServerController
-    elif controller_cls == "native":
-        from aiofranka.server_native import NativeServerController
-        controller_cls = NativeServerController
+    controller_cls = _server_controller_class(controller_cls)
     robot = RobotInterface(robot_ip, read_tool=False)
     controller = controller_cls(robot, shm)
     cmd_handler = CommandHandler(controller, shm, robot_ip)
@@ -1395,8 +1430,10 @@ def start_subprocess(ip: str, *,
     Args:
         ip: Robot IP address.
         timeout: Seconds to wait for the server to become ready.
-        controller_cls: The server's controller class (default: ServerController), or
-            "native" for NativeServerController, whose 1 kHz loop runs in C++.
+        controller_cls: The server's controller class: None (default) for
+            NativeServerController, whose 1 kHz loop runs in C++, or ServerController
+            where the native loop is not built; "native" or "python" (legacy) for
+            either; or a class.
 
     Returns:
         The multiprocessing.Process running the server.
@@ -1512,10 +1549,8 @@ async def _run_gravcomp_loop(robot_ip: str, damping: float = 0.0,
     Assumes robot is already unlocked with FCI active.
     If http_port > 0, serves GET /qpos on that port returning JSON joint positions.
     """
-    from aiofranka.controller import FrankaController
-
     robot = RobotInterface(robot_ip, read_tool=False)
-    controller = FrankaController(robot)
+    controller = _controller_class()(robot)
     controller.kp = np.zeros(7)
     controller.kd = np.ones(7) * damping
     controller.ki = np.zeros(7)
@@ -1600,10 +1635,8 @@ _HOME_QPOS = [0, 0, 0.0, -1.57079, 0, 1.57079, -0.7853]
 
 async def _run_home_move(robot_ip: str):
     """Move robot to home position. Assumes robot is already unlocked with FCI active."""
-    from aiofranka.controller import FrankaController
-
     robot = RobotInterface(robot_ip, read_tool=False)
-    controller = FrankaController(robot)
+    controller = _controller_class()(robot)
 
     base = np.array([1, 1, 1, 1, 0.6, 0.6, 0.6])
     controller.kp = base * 80
@@ -1746,7 +1779,7 @@ def _run_with_spinner(label: str, step: int, total: int, fn, *args, **kwargs):
 def start(ip: str = None, *, foreground: bool = False,
           unlock: bool = True, username: str = None, password: str = None,
           protocol: str = "https", lock_on_error: bool = False,
-          timeout: float = 60.0, native: bool = False) -> int:
+          timeout: float = 60.0, native: bool = True) -> int:
     """Start the aiofranka server from a Python script.
 
     When ip, username, or password are not provided, values are read from
@@ -1763,7 +1796,9 @@ def start(ip: str = None, *, foreground: bool = False,
         lock_on_error: If True, lock joints when the server dies due to a control error.
             If False (default), joints are left unlocked on error so you can recover.
         timeout: Seconds to wait for the server to become ready (ignored if foreground).
-        native: Run the 1 kHz control loop in C++ (NativeServerController).
+        native: Run the 1 kHz control loop in C++ (NativeServerController, the default;
+            the Python loop where it is not built). False runs the legacy Python loop
+            (ServerController).
 
     Returns:
         The server PID (0 if foreground, since it blocks).
@@ -1799,7 +1834,7 @@ def start(ip: str = None, *, foreground: bool = False,
         except ProcessLookupError:
             os.unlink(pid_path)
 
-    controller_cls = "native" if native else None
+    controller_cls = None if native else "python"
     if foreground:
         run_server(ip, foreground=True, unlock=unlock,
                    username=username, password=password, protocol=protocol,

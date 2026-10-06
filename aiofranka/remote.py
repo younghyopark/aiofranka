@@ -66,8 +66,13 @@ class FrankaRemoteController:
     Connects to a running aiofranka server process and provides the same
     API as FrankaController, but fully synchronous (no async/await needed).
 
-    The 1kHz control loop runs in the server process. This client sends
+    The 1kHz control loop runs in the server process, in C++ (NativeServerController),
+    or in Python where the native loop is not built. This client sends
     commands via ZMQ and reads state from shared memory (zero-copy).
+
+    Args:
+        robot_ip (str): Robot IP address (default: the last used one)
+        native (bool): False runs the server's legacy Python loop (ServerController)
 
     Examples:
         >>> controller = FrankaRemoteController()  # default IP
@@ -80,14 +85,16 @@ class FrankaRemoteController:
         >>> controller.stop()
     """
 
-    # The server's controller class, for start_subprocess() (None: ServerController).
+    # The server's controller class, for start_subprocess() (None: its default, the native loop).
     _server_controller = None
 
-    def __init__(self, robot_ip: str = None, *, home: bool = True):
+    def __init__(self, robot_ip: str = None, *, home: bool = True, native: bool = True):
         if robot_ip is None:
             robot_ip = _load_last_ip()
         self.robot_ip = robot_ip
         self._home = home
+        if not native:
+            self._server_controller = "python"
 
         self._shm = None
         self._zmq_ctx = None
@@ -382,7 +389,8 @@ class FrankaRemoteControllerNative(FrankaRemoteController):
     FrankaRemoteController whose server runs the 1 kHz control loop in C++.
 
     Same API as FrankaRemoteController. The server subprocess uses NativeServerController
-    (aiofranka.server_native), so nothing in Python can delay a torque command.
+    (aiofranka.server_native), so nothing in Python can delay a torque command. Since
+    FrankaRemoteController's server does too by default, this class is kept for existing code.
     """
 
     _server_controller = "native"
