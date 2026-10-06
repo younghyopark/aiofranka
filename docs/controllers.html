@@ -6,14 +6,14 @@
   <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Controllers &mdash; aiofranka 0.8.0 documentation</title>
+  <title>Controllers &mdash; aiofranka 0.9.0 documentation</title>
       <link rel="stylesheet" type="text/css" href="_static/pygments.css?v=b86133f3" />
       <link rel="stylesheet" type="text/css" href="_static/css/theme.css?v=9edc463e" />
 
   
       <script src="_static/jquery.js?v=5d32c60e"></script>
       <script src="_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
-      <script src="_static/documentation_options.js?v=486e5634"></script>
+      <script src="_static/documentation_options.js?v=39bb1c6d"></script>
       <script src="_static/doctools.js?v=fd6eb6e6"></script>
       <script src="_static/sphinx_highlight.js?v=6ffebe34"></script>
       <script defer="defer" src="https://cdn.jsdelivr.net/npm/mathjax@4/tex-mml-chtml.js"></script>
@@ -49,22 +49,21 @@
 <li class="toctree-l1"><a class="reference internal" href="quickstart.html">Quick Start</a></li>
 <li class="toctree-l1 current"><a class="current reference internal" href="#">Controllers</a><ul>
 <li class="toctree-l2"><a class="reference internal" href="#impedance-control">Impedance Control</a><ul>
-<li class="toctree-l3"><a class="reference internal" href="#usage-async-mode">Usage (async mode)</a></li>
-<li class="toctree-l3"><a class="reference internal" href="#usage-server-mode">Usage (server mode)</a></li>
-</ul>
-</li>
-<li class="toctree-l2"><a class="reference internal" href="#pid-control">PID Control</a><ul>
 <li class="toctree-l3"><a class="reference internal" href="#usage">Usage</a></li>
 </ul>
 </li>
-<li class="toctree-l2"><a class="reference internal" href="#operational-space-control-osc">Operational Space Control (OSC)</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="#pid-control">PID Control</a><ul>
 <li class="toctree-l3"><a class="reference internal" href="#id1">Usage</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="#operational-space-control-osc">Operational Space Control (OSC)</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#id2">Usage</a></li>
 <li class="toctree-l3"><a class="reference internal" href="#end-effector-pose-format">End-Effector Pose Format</a></li>
 <li class="toctree-l3"><a class="reference internal" href="#tool-center-point">Tool Center Point</a></li>
 </ul>
 </li>
 <li class="toctree-l2"><a class="reference internal" href="#direct-torque-control">Direct Torque Control</a><ul>
-<li class="toctree-l3"><a class="reference internal" href="#id2">Usage</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#id3">Usage</a></li>
 </ul>
 </li>
 <li class="toctree-l2"><a class="reference internal" href="#switching-controllers">Switching Controllers</a></li>
@@ -86,6 +85,7 @@
 </ul>
 <p class="caption" role="heading"><span class="caption-text">API Reference</span></p>
 <ul>
+<li class="toctree-l1"><a class="reference internal" href="api/franka.html">Robot and Controller</a></li>
 <li class="toctree-l1"><a class="reference internal" href="api/native.html">NativeFrankaController</a></li>
 <li class="toctree-l1"><a class="reference internal" href="api/controller.html">FrankaController</a></li>
 <li class="toctree-l1"><a class="reference internal" href="api/remote.html">FrankaRemoteController (Server Mode)</a></li>
@@ -124,32 +124,32 @@
   <section id="controllers">
 <h1>Controllers<a class="headerlink" href="#controllers" title="Link to this heading"></a></h1>
 <p>aiofranka supports four control modes, each suited for different applications.
-All modes work in async mode (<code class="docutils literal notranslate"><span class="pre">NativeFrankaController</span></code>) and server mode
-(<code class="docutils literal notranslate"><span class="pre">FrankaRemoteController</span></code>), both on the native loop, and with the legacy <code class="docutils literal notranslate"><span class="pre">FrankaController</span></code>.</p>
+All modes work with <code class="docutils literal notranslate"><span class="pre">Controller</span></code>, and with <code class="docutils literal notranslate"><span class="pre">NativeFrankaController</span></code>, the same controller
+for asyncio code, whose calls take an <code class="docutils literal notranslate"><span class="pre">await</span></code>. The legacy <code class="docutils literal notranslate"><span class="pre">FrankaController</span></code> and server
+mode have them too.</p>
 <nav class="contents local" id="table-of-contents">
 <p class="topic-title">Table of Contents</p>
 <ul class="simple">
-<li><p><a class="reference internal" href="#impedance-control" id="id4">Impedance Control</a></p>
+<li><p><a class="reference internal" href="#impedance-control" id="id5">Impedance Control</a></p>
 <ul>
-<li><p><a class="reference internal" href="#usage-async-mode" id="id5">Usage (async mode)</a></p></li>
-<li><p><a class="reference internal" href="#usage-server-mode" id="id6">Usage (server mode)</a></p></li>
+<li><p><a class="reference internal" href="#usage" id="id6">Usage</a></p></li>
 </ul>
 </li>
 <li><p><a class="reference internal" href="#pid-control" id="id7">PID Control</a></p>
 <ul>
-<li><p><a class="reference internal" href="#usage" id="id8">Usage</a></p></li>
+<li><p><a class="reference internal" href="#id1" id="id8">Usage</a></p></li>
 </ul>
 </li>
 <li><p><a class="reference internal" href="#operational-space-control-osc" id="id9">Operational Space Control (OSC)</a></p>
 <ul>
-<li><p><a class="reference internal" href="#id1" id="id10">Usage</a></p></li>
+<li><p><a class="reference internal" href="#id2" id="id10">Usage</a></p></li>
 <li><p><a class="reference internal" href="#end-effector-pose-format" id="id11">End-Effector Pose Format</a></p></li>
 <li><p><a class="reference internal" href="#tool-center-point" id="id12">Tool Center Point</a></p></li>
 </ul>
 </li>
 <li><p><a class="reference internal" href="#direct-torque-control" id="id13">Direct Torque Control</a></p>
 <ul>
-<li><p><a class="reference internal" href="#id2" id="id14">Usage</a></p></li>
+<li><p><a class="reference internal" href="#id3" id="id14">Usage</a></p></li>
 </ul>
 </li>
 <li><p><a class="reference internal" href="#switching-controllers" id="id15">Switching Controllers</a></p></li>
@@ -165,7 +165,7 @@ All modes work in async mode (<code class="docutils literal notranslate"><span c
 </ul>
 </nav>
 <section id="impedance-control">
-<h2><a class="toc-backref" href="#id4" role="doc-backlink">Impedance Control</a><a class="headerlink" href="#impedance-control" title="Link to this heading"></a></h2>
+<h2><a class="toc-backref" href="#id5" role="doc-backlink">Impedance Control</a><a class="headerlink" href="#impedance-control" title="Link to this heading"></a></h2>
 <p>Joint-space impedance control implements a spring-damper system:</p>
 <div class="math notranslate nohighlight">
 \[\tau = K_{\text{p}} (\mathbf{q}_{\text{desired}} - \mathbf{q}) - K_{\text{d}} \dot{\mathbf{q}}\]</div>
@@ -179,8 +179,8 @@ All modes work in async mode (<code class="docutils literal notranslate"><span c
 <li><p><span class="math notranslate nohighlight">\(\dot{\mathbf{q}}\)</span>: Joint velocities [rad/s]</p></li>
 </ul>
 <p>Torque rate limiting is applied when <code class="docutils literal notranslate"><span class="pre">controller.clip</span> <span class="pre">=</span> <span class="pre">True</span></code> (default).</p>
-<section id="usage-async-mode">
-<h3><a class="toc-backref" href="#id5" role="doc-backlink">Usage (async mode)</a><a class="headerlink" href="#usage-async-mode" title="Link to this heading"></a></h3>
+<section id="usage">
+<h3><a class="toc-backref" href="#id6" role="doc-backlink">Usage</a><a class="headerlink" href="#usage" title="Link to this heading"></a></h3>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">controller</span><span class="o">.</span><span class="n">switch</span><span class="p">(</span><span class="s2">&quot;impedance&quot;</span><span class="p">)</span>
 <span class="n">controller</span><span class="o">.</span><span class="n">kp</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">ones</span><span class="p">(</span><span class="mi">7</span><span class="p">)</span> <span class="o">*</span> <span class="mf">80.0</span>  <span class="c1"># Stiffness</span>
 <span class="n">controller</span><span class="o">.</span><span class="n">kd</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">ones</span><span class="p">(</span><span class="mi">7</span><span class="p">)</span> <span class="o">*</span> <span class="mf">4.0</span>   <span class="c1"># Damping</span>
@@ -188,20 +188,7 @@ All modes work in async mode (<code class="docutils literal notranslate"><span c
 
 <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">200</span><span class="p">):</span>
     <span class="n">target</span> <span class="o">=</span> <span class="n">compute_target</span><span class="p">(</span><span class="n">i</span><span class="p">)</span>
-    <span class="k">await</span> <span class="n">controller</span><span class="o">.</span><span class="n">set</span><span class="p">(</span><span class="s2">&quot;q_desired&quot;</span><span class="p">,</span> <span class="n">target</span><span class="p">)</span>
-</pre></div>
-</div>
-</section>
-<section id="usage-server-mode">
-<h3><a class="toc-backref" href="#id6" role="doc-backlink">Usage (server mode)</a><a class="headerlink" href="#usage-server-mode" title="Link to this heading"></a></h3>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">controller</span><span class="o">.</span><span class="n">switch</span><span class="p">(</span><span class="s2">&quot;impedance&quot;</span><span class="p">)</span>
-<span class="n">controller</span><span class="o">.</span><span class="n">kp</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">ones</span><span class="p">(</span><span class="mi">7</span><span class="p">)</span> <span class="o">*</span> <span class="mf">80.0</span>
-<span class="n">controller</span><span class="o">.</span><span class="n">kd</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">ones</span><span class="p">(</span><span class="mi">7</span><span class="p">)</span> <span class="o">*</span> <span class="mf">4.0</span>
-<span class="n">controller</span><span class="o">.</span><span class="n">set_freq</span><span class="p">(</span><span class="mi">50</span><span class="p">)</span>
-
-<span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">200</span><span class="p">):</span>
-    <span class="n">target</span> <span class="o">=</span> <span class="n">compute_target</span><span class="p">(</span><span class="n">i</span><span class="p">)</span>
-    <span class="n">controller</span><span class="o">.</span><span class="n">set</span><span class="p">(</span><span class="s2">&quot;q_desired&quot;</span><span class="p">,</span> <span class="n">target</span><span class="p">)</span>
+    <span class="n">controller</span><span class="o">.</span><span class="n">set</span><span class="p">(</span><span class="s2">&quot;q_desired&quot;</span><span class="p">,</span> <span class="n">target</span><span class="p">)</span>  <span class="c1"># await it with NativeFrankaController</span>
 </pre></div>
 </div>
 <p><strong>Best for</strong>: Joint-space trajectories, compliant behavior, system identification.</p>
@@ -216,8 +203,8 @@ All modes work in async mode (<code class="docutils literal notranslate"><span c
 <p>where <span class="math notranslate nohighlight">\(\mathbf{e} = \mathbf{q}_{\text{desired}} - \mathbf{q}\)</span>.</p>
 <p>The integral term is clamped (anti-windup) to prevent unbounded growth.
 Integral state is reset when switching controllers via <code class="docutils literal notranslate"><span class="pre">switch()</span></code>.</p>
-<section id="usage">
-<h3><a class="toc-backref" href="#id8" role="doc-backlink">Usage</a><a class="headerlink" href="#usage" title="Link to this heading"></a></h3>
+<section id="id1">
+<h3><a class="toc-backref" href="#id8" role="doc-backlink">Usage</a><a class="headerlink" href="#id1" title="Link to this heading"></a></h3>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">controller</span><span class="o">.</span><span class="n">switch</span><span class="p">(</span><span class="s2">&quot;pid&quot;</span><span class="p">)</span>
 <span class="n">controller</span><span class="o">.</span><span class="n">kp</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">ones</span><span class="p">(</span><span class="mi">7</span><span class="p">)</span> <span class="o">*</span> <span class="mf">80.0</span>   <span class="c1"># Proportional</span>
 <span class="n">controller</span><span class="o">.</span><span class="n">ki</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">ones</span><span class="p">(</span><span class="mi">7</span><span class="p">)</span> <span class="o">*</span> <span class="mf">0.1</span>    <span class="c1"># Integral</span>
@@ -226,7 +213,7 @@ Integral state is reset when switching controllers via <code class="docutils lit
 
 <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">200</span><span class="p">):</span>
     <span class="n">target</span> <span class="o">=</span> <span class="n">compute_target</span><span class="p">(</span><span class="n">i</span><span class="p">)</span>
-    <span class="k">await</span> <span class="n">controller</span><span class="o">.</span><span class="n">set</span><span class="p">(</span><span class="s2">&quot;q_desired&quot;</span><span class="p">,</span> <span class="n">target</span><span class="p">)</span>  <span class="c1"># without await in server mode</span>
+    <span class="n">controller</span><span class="o">.</span><span class="n">set</span><span class="p">(</span><span class="s2">&quot;q_desired&quot;</span><span class="p">,</span> <span class="n">target</span><span class="p">)</span>
 </pre></div>
 </div>
 <p><strong>Best for</strong>: Tasks requiring zero steady-state error, precise positioning.</p>
@@ -249,8 +236,8 @@ Integral state is reset when switching controllers via <code class="docutils lit
 <li><p><span class="math notranslate nohighlight">\((\mathbf{I} - \mathbf{J}^T \bar{\mathbf{J}}^T)\)</span>: Null-space projection matrix</p></li>
 <li><p><span class="math notranslate nohighlight">\(\mathbf{q}_0\)</span>: Null-space reference configuration (<code class="docutils literal notranslate"><span class="pre">controller.initial_qpos</span></code>)</p></li>
 </ul>
-<section id="id1">
-<h3><a class="toc-backref" href="#id10" role="doc-backlink">Usage</a><a class="headerlink" href="#id1" title="Link to this heading"></a></h3>
+<section id="id2">
+<h3><a class="toc-backref" href="#id10" role="doc-backlink">Usage</a><a class="headerlink" href="#id2" title="Link to this heading"></a></h3>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">controller</span><span class="o">.</span><span class="n">switch</span><span class="p">(</span><span class="s2">&quot;osc&quot;</span><span class="p">)</span>
 
 <span class="c1"># Task-space gains [x, y, z, roll, pitch, yaw]</span>
@@ -268,7 +255,7 @@ Integral state is reset when switching controllers via <code class="docutils lit
 <span class="n">desired_ee</span><span class="p">[:</span><span class="mi">3</span><span class="p">,</span> <span class="p">:</span><span class="mi">3</span><span class="p">]</span> <span class="o">=</span> <span class="n">rotation_matrix</span>  <span class="c1"># 3x3 rotation</span>
 <span class="n">desired_ee</span><span class="p">[:</span><span class="mi">3</span><span class="p">,</span> <span class="mi">3</span><span class="p">]</span> <span class="o">=</span> <span class="p">[</span><span class="n">x</span><span class="p">,</span> <span class="n">y</span><span class="p">,</span> <span class="n">z</span><span class="p">]</span>         <span class="c1"># position</span>
 
-<span class="k">await</span> <span class="n">controller</span><span class="o">.</span><span class="n">set</span><span class="p">(</span><span class="s2">&quot;ee_desired&quot;</span><span class="p">,</span> <span class="n">desired_ee</span><span class="p">)</span>  <span class="c1"># without await in server mode</span>
+<span class="n">controller</span><span class="o">.</span><span class="n">set</span><span class="p">(</span><span class="s2">&quot;ee_desired&quot;</span><span class="p">,</span> <span class="n">desired_ee</span><span class="p">)</span>
 </pre></div>
 </div>
 </section>
@@ -319,8 +306,8 @@ red, y green and z blue, and on the right a TCP 10 cm along z:</p>
 <section id="direct-torque-control">
 <h2><a class="toc-backref" href="#id13" role="doc-backlink">Direct Torque Control</a><a class="headerlink" href="#direct-torque-control" title="Link to this heading"></a></h2>
 <p>Send raw torque commands directly. You are responsible for computing the full torque vector.</p>
-<section id="id2">
-<h3><a class="toc-backref" href="#id14" role="doc-backlink">Usage</a><a class="headerlink" href="#id2" title="Link to this heading"></a></h3>
+<section id="id3">
+<h3><a class="toc-backref" href="#id14" role="doc-backlink">Usage</a><a class="headerlink" href="#id3" title="Link to this heading"></a></h3>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">controller</span><span class="o">.</span><span class="n">switch</span><span class="p">(</span><span class="s2">&quot;torque&quot;</span><span class="p">)</span>
 
 <span class="c1"># Your custom control law</span>
@@ -350,12 +337,12 @@ Test in simulation first!</p>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="c1"># Start with impedance</span>
 <span class="n">controller</span><span class="o">.</span><span class="n">switch</span><span class="p">(</span><span class="s2">&quot;impedance&quot;</span><span class="p">)</span>
 <span class="n">controller</span><span class="o">.</span><span class="n">kp</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">ones</span><span class="p">(</span><span class="mi">7</span><span class="p">)</span> <span class="o">*</span> <span class="mf">80.0</span>
-<span class="k">await</span> <span class="n">controller</span><span class="o">.</span><span class="n">set</span><span class="p">(</span><span class="s2">&quot;q_desired&quot;</span><span class="p">,</span> <span class="n">target1</span><span class="p">)</span>
+<span class="n">controller</span><span class="o">.</span><span class="n">set</span><span class="p">(</span><span class="s2">&quot;q_desired&quot;</span><span class="p">,</span> <span class="n">target1</span><span class="p">)</span>
 
 <span class="c1"># Switch to OSC</span>
 <span class="n">controller</span><span class="o">.</span><span class="n">switch</span><span class="p">(</span><span class="s2">&quot;osc&quot;</span><span class="p">)</span>
 <span class="n">controller</span><span class="o">.</span><span class="n">ee_kp</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="mi">300</span><span class="p">,</span> <span class="mi">300</span><span class="p">,</span> <span class="mi">300</span><span class="p">,</span> <span class="mi">1000</span><span class="p">,</span> <span class="mi">1000</span><span class="p">,</span> <span class="mi">1000</span><span class="p">])</span>
-<span class="k">await</span> <span class="n">controller</span><span class="o">.</span><span class="n">set</span><span class="p">(</span><span class="s2">&quot;ee_desired&quot;</span><span class="p">,</span> <span class="n">target2</span><span class="p">)</span>
+<span class="n">controller</span><span class="o">.</span><span class="n">set</span><span class="p">(</span><span class="s2">&quot;ee_desired&quot;</span><span class="p">,</span> <span class="n">target2</span><span class="p">)</span>
 
 <span class="c1"># Switch to PID</span>
 <span class="n">controller</span><span class="o">.</span><span class="n">switch</span><span class="p">(</span><span class="s2">&quot;pid&quot;</span><span class="p">)</span>
@@ -404,7 +391,7 @@ there, every joint within <code class="docutils literal notranslate"><span class
 MuJoCo, a configuration whose target was 1.6 rad away swung joint 1 at 4.6 rad/s). Move there
 first:</p>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">config</span> <span class="o">=</span> <span class="n">aiofranka</span><span class="o">.</span><span class="n">load_config</span><span class="p">(</span><span class="s2">&quot;configs/pocky/lv1_osc.yaml&quot;</span><span class="p">)</span>
-<span class="k">await</span> <span class="n">controller</span><span class="o">.</span><span class="n">move</span><span class="p">(</span><span class="n">config</span><span class="p">[</span><span class="s2">&quot;null_target&quot;</span><span class="p">])</span>  <span class="c1"># also puts the TCP where the policy starts</span>
+<span class="n">controller</span><span class="o">.</span><span class="n">move</span><span class="p">(</span><span class="n">config</span><span class="p">[</span><span class="s2">&quot;null_target&quot;</span><span class="p">])</span>  <span class="c1"># also puts the TCP where the policy starts</span>
 <span class="n">controller</span><span class="o">.</span><span class="n">activate</span><span class="p">(</span><span class="n">config</span><span class="p">)</span>
 </pre></div>
 </div>
@@ -432,13 +419,13 @@ milliseconds.</p>
 <h2><a class="toc-backref" href="#id17" role="doc-backlink">Trajectory Motion</a><a class="headerlink" href="#trajectory-motion" title="Link to this heading"></a></h2>
 <p>The <code class="docutils literal notranslate"><span class="pre">move()</span></code> method generates a smooth, time-optimal, jerk-limited trajectory using Ruckig and executes it automatically:</p>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="c1"># Move to home position</span>
-<span class="k">await</span> <span class="n">controller</span><span class="o">.</span><span class="n">move</span><span class="p">()</span>
+<span class="n">controller</span><span class="o">.</span><span class="n">move</span><span class="p">()</span>
 
 <span class="c1"># Move to custom position</span>
-<span class="k">await</span> <span class="n">controller</span><span class="o">.</span><span class="n">move</span><span class="p">([</span><span class="mi">0</span><span class="p">,</span> <span class="o">-</span><span class="mf">0.785</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="o">-</span><span class="mf">2.356</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mf">1.571</span><span class="p">,</span> <span class="mf">0.785</span><span class="p">])</span>
+<span class="n">controller</span><span class="o">.</span><span class="n">move</span><span class="p">([</span><span class="mi">0</span><span class="p">,</span> <span class="o">-</span><span class="mf">0.785</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="o">-</span><span class="mf">2.356</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mf">1.571</span><span class="p">,</span> <span class="mf">0.785</span><span class="p">])</span>
 </pre></div>
 </div>
-<p>In server mode, call <code class="docutils literal notranslate"><span class="pre">controller.move(...)</span></code> without <code class="docutils literal notranslate"><span class="pre">await</span></code>.</p>
+<p>With <code class="docutils literal notranslate"><span class="pre">NativeFrankaController</span></code>, <code class="docutils literal notranslate"><span class="pre">await</span> <span class="pre">controller.move(...)</span></code>.</p>
 <p><code class="docutils literal notranslate"><span class="pre">move()</span></code> temporarily switches to impedance control. Trajectory limits are:</p>
 <ul class="simple">
 <li><p>Max velocity: 10 rad/s per joint</p></li>
@@ -447,7 +434,7 @@ milliseconds.</p>
 </ul>
 </section>
 <section id="payload-identification">
-<span id="id3"></span><h2><a class="toc-backref" href="#id18" role="doc-backlink">Payload Identification</a><a class="headerlink" href="#payload-identification" title="Link to this heading"></a></h2>
+<span id="id4"></span><h2><a class="toc-backref" href="#id18" role="doc-backlink">Payload Identification</a><a class="headerlink" href="#payload-identification" title="Link to this heading"></a></h2>
 <p>The robot compensates the gravity of the arm and of the tool on the flange, as configured by the
 active end-effector profile in Desk (Settings &gt; End Effector). <code class="docutils literal notranslate"><span class="pre">RobotInterface</span></code> merges the profile
 into the MuJoCo model when it connects, so the mass matrix used by the OSC includes it too. If the
@@ -456,8 +443,8 @@ profile does not match the tool, the arm drifts in torque control, e.g. with zer
 e.g. “No End Effector”. Save the result as a profile and activate it:</p>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span><span class="w"> </span><span class="nn">aiofranka</span>
 
-<span class="n">controller</span> <span class="o">=</span> <span class="n">aiofranka</span><span class="o">.</span><span class="n">NativeFrankaController</span><span class="p">(</span><span class="n">aiofranka</span><span class="o">.</span><span class="n">RobotInterface</span><span class="p">(</span><span class="s2">&quot;172.16.0.2&quot;</span><span class="p">))</span>
-<span class="n">estimate</span> <span class="o">=</span> <span class="k">await</span> <span class="n">controller</span><span class="o">.</span><span class="n">identify_payload</span><span class="p">(</span><span class="n">tool_length</span><span class="o">=</span><span class="mf">0.25</span><span class="p">)</span>   <span class="c1"># moves the robot</span>
+<span class="n">controller</span> <span class="o">=</span> <span class="n">aiofranka</span><span class="o">.</span><span class="n">Controller</span><span class="p">(</span><span class="n">aiofranka</span><span class="o">.</span><span class="n">Robot</span><span class="p">(</span><span class="s2">&quot;172.16.0.2&quot;</span><span class="p">))</span>
+<span class="n">estimate</span> <span class="o">=</span> <span class="n">controller</span><span class="o">.</span><span class="n">identify_payload</span><span class="p">(</span><span class="n">tool_length</span><span class="o">=</span><span class="mf">0.25</span><span class="p">)</span>   <span class="c1"># moves the robot</span>
 <span class="n">aiofranka</span><span class="o">.</span><span class="n">save_tool</span><span class="p">(</span><span class="s2">&quot;gripper&quot;</span><span class="p">,</span> <span class="n">estimate</span><span class="o">.</span><span class="n">mass</span><span class="p">,</span> <span class="n">estimate</span><span class="o">.</span><span class="n">com</span><span class="p">)</span>       <span class="c1"># create or update the profile</span>
 <span class="n">aiofranka</span><span class="o">.</span><span class="n">load_tool</span><span class="p">(</span><span class="s2">&quot;gripper&quot;</span><span class="p">)</span>                                     <span class="c1"># activate it</span>
 </pre></div>

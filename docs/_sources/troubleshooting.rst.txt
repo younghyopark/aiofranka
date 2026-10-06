@@ -11,6 +11,7 @@ Error: "Robot is not ready"
 
 **Symptoms:**
 
+Connecting with ``aiofranka.Robot(ip)`` fails, or, in the legacy server mode,
 ``controller.start()`` prints a status summary and exits:
 
 .. code-block:: text
@@ -22,14 +23,14 @@ Error: "Robot is not ready"
 
 **Solution:**
 
-Unlock the robot before starting the controller:
+Unlock the robot before connecting:
 
 .. code-block:: python
 
    import aiofranka
 
-   aiofranka.unlock()        # unlock joints + activate FCI
-   controller.start()        # now this works
+   aiofranka.unlock()                       # unlock joints + activate FCI
+   robot = aiofranka.Robot("172.16.0.2")    # now this connects
 
 Or from the CLI:
 
@@ -201,8 +202,7 @@ saturated CPU, the network, or a loop thread without real-time priority.
 
 **Solutions:**
 
-- Use the native loop: ``NativeFrankaController`` in your process, or server mode
-  (``FrankaRemoteController``), whose server runs it by default
+- Use the native loop: ``Controller``, or ``NativeFrankaController`` in asyncio code
 - With the legacy ``FrankaController``, follow the :doc:`async_mode` guide to avoid blocking the
   event loop
 - With the native loop, use wired Ethernet, keep a core free for the robot NIC's interrupts, and
@@ -219,7 +219,7 @@ Low Control Frequency
 - Use a wired Ethernet connection (not WiFi)
 - Reduce system load (close unnecessary programs)
 - Consider a real-time Linux kernel
-- Move heavy computation to a separate process (server mode handles this automatically)
+- Run ``aiofranka rt-benchmark`` to measure the loop on this machine
 
 OSC Issues
 ----------
@@ -282,14 +282,14 @@ TypeError: 'coroutine' object is not iterable
 
 .. code-block:: python
 
-   # Wrong (async mode)
+   # Wrong (NativeFrankaController)
    controller.start()
 
-   # Correct (async mode)
+   # Correct (NativeFrankaController)
    await controller.start()
 
 .. note::
-   This only applies to async mode. In server mode, ``controller.start()`` is synchronous.
+   This only applies to ``NativeFrankaController``. ``Controller``'s calls are plain.
 
 RuntimeError: This event loop is already running
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -312,7 +312,7 @@ Getting Help
 Before asking for help:
 
 1. Check this guide — is your issue covered?
-2. Test in simulation — does it work with ``RobotInterface(None)``?
+2. Test in simulation — does it work with ``aiofranka.Robot(None)``?
 3. Review the examples in :doc:`examples`
 4. Check server logs: ``aiofranka log -n 50``
 5. Simplify — does a minimal example reproduce the issue?
@@ -323,7 +323,7 @@ When asking for help, include:
 2. **Operating system and Python version**
 3. **Minimal code** that reproduces the issue
 4. **Full error message** from terminal
-5. **Whether you're using async mode or server mode**, with the native or the legacy Python loop
+5. **Which controller you use**: ``Controller``, ``NativeFrankaController``, or a legacy one
 
 Where to ask:
 

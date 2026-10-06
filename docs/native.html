@@ -6,14 +6,14 @@
   <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Native Control Loop &mdash; aiofranka 0.8.0 documentation</title>
+  <title>Native Control Loop &mdash; aiofranka 0.9.0 documentation</title>
       <link rel="stylesheet" type="text/css" href="_static/pygments.css?v=b86133f3" />
       <link rel="stylesheet" type="text/css" href="_static/css/theme.css?v=9edc463e" />
 
   
       <script src="_static/jquery.js?v=5d32c60e"></script>
       <script src="_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
-      <script src="_static/documentation_options.js?v=486e5634"></script>
+      <script src="_static/documentation_options.js?v=39bb1c6d"></script>
       <script src="_static/doctools.js?v=fd6eb6e6"></script>
       <script src="_static/sphinx_highlight.js?v=6ffebe34"></script>
     <script src="_static/js/theme.js"></script>
@@ -61,6 +61,7 @@
 </ul>
 <p class="caption" role="heading"><span class="caption-text">API Reference</span></p>
 <ul>
+<li class="toctree-l1"><a class="reference internal" href="api/franka.html">Robot and Controller</a></li>
 <li class="toctree-l1"><a class="reference internal" href="api/native.html">NativeFrankaController</a></li>
 <li class="toctree-l1"><a class="reference internal" href="api/controller.html">FrankaController</a></li>
 <li class="toctree-l1"><a class="reference internal" href="api/remote.html">FrankaRemoteController (Server Mode)</a></li>
@@ -98,23 +99,25 @@
              
   <section id="native-control-loop">
 <h1>Native Control Loop<a class="headerlink" href="#native-control-loop" title="Link to this heading"></a></h1>
-<p>aiofranka’s 1 kHz control loop runs in C++, in a thread that never waits for Python:
-<code class="docutils literal notranslate"><span class="pre">NativeFrankaController</span></code> runs it in your process, and server mode in its subprocess.</p>
+<p>aiofranka’s 1 kHz control loop runs in C++, in a thread that never waits for Python.
+<code class="docutils literal notranslate"><span class="pre">Controller</span></code> runs it in your process with plain calls, and <code class="docutils literal notranslate"><span class="pre">NativeFrankaController</span></code> with
+awaitable ones, for asyncio code.</p>
 <p>The legacy <code class="docutils literal notranslate"><span class="pre">FrankaController</span></code> runs the loop on the asyncio event loop, in Python. Anything
 else that runs there delays the next torque command: a planner, loading a model, garbage
 collection, a thread holding the GIL. When commands are late, the robot stops with
-<code class="docutils literal notranslate"><span class="pre">communication_constraints_violation</span></code>. <code class="docutils literal notranslate"><span class="pre">NativeFrankaController</span></code> has <code class="docutils literal notranslate"><span class="pre">FrankaController</span></code>’s
-constructor, methods and attributes, so porting legacy code means swapping the class:</p>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">aiofranka</span><span class="w"> </span><span class="kn">import</span> <span class="n">NativeFrankaController</span><span class="p">,</span> <span class="n">RobotInterface</span>
+<code class="docutils literal notranslate"><span class="pre">communication_constraints_violation</span></code>. The native controllers have <code class="docutils literal notranslate"><span class="pre">FrankaController</span></code>’s
+methods and attributes, so porting legacy code means swapping the class:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span><span class="w"> </span><span class="nn">aiofranka</span>
 
-<span class="n">robot</span> <span class="o">=</span> <span class="n">RobotInterface</span><span class="p">(</span><span class="s2">&quot;172.16.0.2&quot;</span><span class="p">)</span>
-<span class="n">controller</span> <span class="o">=</span> <span class="n">NativeFrankaController</span><span class="p">(</span><span class="n">robot</span><span class="p">)</span>  <span class="c1"># instead of FrankaController(robot)</span>
-<span class="k">await</span> <span class="n">controller</span><span class="o">.</span><span class="n">start</span><span class="p">()</span>
+<span class="n">controller</span> <span class="o">=</span> <span class="n">aiofranka</span><span class="o">.</span><span class="n">Controller</span><span class="p">(</span><span class="n">aiofranka</span><span class="o">.</span><span class="n">Robot</span><span class="p">(</span><span class="s2">&quot;172.16.0.2&quot;</span><span class="p">))</span>
+<span class="n">controller</span><span class="o">.</span><span class="n">start</span><span class="p">()</span>
 <span class="n">controller</span><span class="o">.</span><span class="n">switch</span><span class="p">(</span><span class="s2">&quot;osc&quot;</span><span class="p">)</span>
-<span class="k">await</span> <span class="n">controller</span><span class="o">.</span><span class="n">set</span><span class="p">(</span><span class="s2">&quot;ee_desired&quot;</span><span class="p">,</span> <span class="n">target</span><span class="p">)</span>
+<span class="n">controller</span><span class="o">.</span><span class="n">set</span><span class="p">(</span><span class="s2">&quot;ee_desired&quot;</span><span class="p">,</span> <span class="n">target</span><span class="p">)</span>
 </pre></div>
 </div>
-<p>Server mode runs it too: <code class="docutils literal notranslate"><span class="pre">FrankaRemoteController</span></code>, <code class="docutils literal notranslate"><span class="pre">aiofranka</span> <span class="pre">start-server</span></code> and
+<p>or, keeping the <code class="docutils literal notranslate"><span class="pre">await</span></code>s, <code class="docutils literal notranslate"><span class="pre">NativeFrankaController(RobotInterface(ip))</span></code> for
+<code class="docutils literal notranslate"><span class="pre">FrankaController(RobotInterface(ip))</span></code>.</p>
+<p>Server mode runs the native loop too: <code class="docutils literal notranslate"><span class="pre">FrankaRemoteController</span></code>, <code class="docutils literal notranslate"><span class="pre">aiofranka</span> <span class="pre">start-server</span></code> and
 <code class="docutils literal notranslate"><span class="pre">aiofranka.start()</span></code> start the server with <code class="docutils literal notranslate"><span class="pre">NativeServerController</span></code>, and <code class="docutils literal notranslate"><span class="pre">aiofranka</span> <span class="pre">home</span></code>,
 <code class="docutils literal notranslate"><span class="pre">aiofranka</span> <span class="pre">gravcomp</span></code> and <code class="docutils literal notranslate"><span class="pre">aiofranka</span> <span class="pre">tool</span> <span class="pre">identify</span></code> run <code class="docutils literal notranslate"><span class="pre">NativeFrankaController</span></code>. Where the
 native loop is not built, the server, <code class="docutils literal notranslate"><span class="pre">home</span></code> and <code class="docutils literal notranslate"><span class="pre">gravcomp</span></code> fall back to the Python loop
@@ -160,12 +163,14 @@ gap between two torque commands was:</p>
 </table>
 <p>What changes:</p>
 <ul class="simple">
-<li><p>A subclass’s <code class="docutils literal notranslate"><span class="pre">step()</span></code> would never run, so <code class="docutils literal notranslate"><span class="pre">NativeFrankaController</span></code> refuses one: write
-it as a control law, and log every cycle with <code class="docutils literal notranslate"><span class="pre">record()</span></code> (both below).</p></li>
+<li><p>A subclass’s <code class="docutils literal notranslate"><span class="pre">step()</span></code> would never run, so the native controllers refuse one: write it
+as a control law, and log every cycle with <code class="docutils literal notranslate"><span class="pre">record()</span></code> (both below).</p></li>
 <li><p>Attributes the loop reads (<code class="docutils literal notranslate"><span class="pre">kp</span></code>, <code class="docutils literal notranslate"><span class="pre">q_desired</span></code>, <code class="docutils literal notranslate"><span class="pre">ee_desired</span></code>, …) are views of its
 memory. Assigning one copies the value in, and the loop takes it whole at its next cycle.</p></li>
-<li><p>While the loop runs, <code class="docutils literal notranslate"><span class="pre">robot.data</span></code> and <code class="docutils literal notranslate"><span class="pre">robot.robot_state</span></code> follow it, updated from the
-event loop about every millisecond. In simulation, the loop owns the simulated arm.</p></li>
+<li><p>While the loop runs, <code class="docutils literal notranslate"><span class="pre">robot.state</span></code> is what it read at its last cycle. With
+<code class="docutils literal notranslate"><span class="pre">NativeFrankaController</span></code>, the <code class="docutils literal notranslate"><span class="pre">RobotInterface</span></code>’s <code class="docutils literal notranslate"><span class="pre">robot.data</span></code> and <code class="docutils literal notranslate"><span class="pre">robot.robot_state</span></code>
+follow it, updated from the event loop about every millisecond. In simulation, the loop
+owns the simulated arm.</p></li>
 <li><p>On Linux, the loop’s thread runs at SCHED_FIFO priority 80, which needs an rtprio limit
 (<code class="docutils literal notranslate"><span class="pre">ulimit</span> <span class="pre">-r</span></code>) of at least that. Set <code class="docutils literal notranslate"><span class="pre">controller.realtime_priority</span> <span class="pre">=</span> <span class="pre">0</span></code> before
 <code class="docutils literal notranslate"><span class="pre">start()</span></code> for normal priority.</p></li>
@@ -193,7 +198,7 @@ be rebuilt for another libfranka minor version.</p>
 writes the chosen fields into a buffer in C++ without waiting for Python, and the
 controller moves them to Python about every 10 ms, so a blocked event loop loses nothing:</p>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="k">with</span> <span class="n">controller</span><span class="o">.</span><span class="n">record</span><span class="p">([</span><span class="s2">&quot;time&quot;</span><span class="p">,</span> <span class="s2">&quot;q&quot;</span><span class="p">,</span> <span class="s2">&quot;dq&quot;</span><span class="p">,</span> <span class="s2">&quot;tau&quot;</span><span class="p">,</span> <span class="s2">&quot;tau_J_d&quot;</span><span class="p">],</span> <span class="n">path</span><span class="o">=</span><span class="s2">&quot;control.npz&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">recording</span><span class="p">:</span>
-    <span class="k">await</span> <span class="n">run_policy</span><span class="p">(</span><span class="n">controller</span><span class="p">)</span>
+    <span class="n">run_policy</span><span class="p">(</span><span class="n">controller</span><span class="p">)</span>
 <span class="n">data</span> <span class="o">=</span> <span class="n">recording</span><span class="o">.</span><span class="n">data</span><span class="p">()</span>  <span class="c1"># {&quot;time&quot;: (n,), &quot;q&quot;: (n, 7), ...}, one row per cycle</span>
 </pre></div>
 </div>
@@ -232,7 +237,7 @@ Python:</p>
 <span class="n">controller</span><span class="o">.</span><span class="n">switch</span><span class="p">(</span><span class="n">pi_damping</span><span class="p">)</span>            <span class="c1"># compiles it, a few seconds the first time</span>
 <span class="n">controller</span><span class="o">.</span><span class="n">stiffness</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">full</span><span class="p">(</span><span class="mi">7</span><span class="p">,</span> <span class="mf">60.0</span><span class="p">)</span>  <span class="c1"># its params are controller attributes, zero at first</span>
 <span class="n">controller</span><span class="o">.</span><span class="n">damping</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">full</span><span class="p">(</span><span class="mi">7</span><span class="p">,</span> <span class="mf">4.0</span><span class="p">)</span>
-<span class="k">await</span> <span class="n">controller</span><span class="o">.</span><span class="n">set</span><span class="p">(</span><span class="s2">&quot;q_desired&quot;</span><span class="p">,</span> <span class="n">target</span><span class="p">)</span>
+<span class="n">controller</span><span class="o">.</span><span class="n">set</span><span class="p">(</span><span class="s2">&quot;q_desired&quot;</span><span class="p">,</span> <span class="n">target</span><span class="p">)</span>
 </pre></div>
 </div>
 <p>A law gets:</p>

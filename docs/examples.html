@@ -6,14 +6,14 @@
   <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Examples &mdash; aiofranka 0.8.0 documentation</title>
+  <title>Examples &mdash; aiofranka 0.9.0 documentation</title>
       <link rel="stylesheet" type="text/css" href="_static/pygments.css?v=b86133f3" />
       <link rel="stylesheet" type="text/css" href="_static/css/theme.css?v=9edc463e" />
 
   
       <script src="_static/jquery.js?v=5d32c60e"></script>
       <script src="_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
-      <script src="_static/documentation_options.js?v=486e5634"></script>
+      <script src="_static/documentation_options.js?v=39bb1c6d"></script>
       <script src="_static/doctools.js?v=fd6eb6e6"></script>
       <script src="_static/sphinx_highlight.js?v=6ffebe34"></script>
     <script src="_static/js/theme.js"></script>
@@ -52,7 +52,7 @@
 <li class="toctree-l1"><a class="reference internal" href="async_mode.html">Async Mode Guide</a></li>
 <li class="toctree-l1 current"><a class="current reference internal" href="#">Examples</a><ul>
 <li class="toctree-l2"><a class="reference internal" href="#example-1-simple-motion">Example 1: Simple Motion</a></li>
-<li class="toctree-l2"><a class="reference internal" href="#example-2-simple-motion-server-mode">Example 2: Simple Motion (Server Mode)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#example-2-simple-motion-with-asyncio">Example 2: Simple Motion with asyncio</a></li>
 <li class="toctree-l2"><a class="reference internal" href="#example-3-impedance-control">Example 3: Impedance Control</a></li>
 <li class="toctree-l2"><a class="reference internal" href="#example-4-operational-space-control">Example 4: Operational Space Control</a></li>
 <li class="toctree-l2"><a class="reference internal" href="#example-5-data-collection">Example 5: Data Collection</a></li>
@@ -68,6 +68,7 @@
 </ul>
 <p class="caption" role="heading"><span class="caption-text">API Reference</span></p>
 <ul>
+<li class="toctree-l1"><a class="reference internal" href="api/franka.html">Robot and Controller</a></li>
 <li class="toctree-l1"><a class="reference internal" href="api/native.html">NativeFrankaController</a></li>
 <li class="toctree-l1"><a class="reference internal" href="api/controller.html">FrankaController</a></li>
 <li class="toctree-l1"><a class="reference internal" href="api/remote.html">FrankaRemoteController (Server Mode)</a></li>
@@ -105,22 +106,35 @@
              
   <section id="examples">
 <h1>Examples<a class="headerlink" href="#examples" title="Link to this heading"></a></h1>
-<p>This page provides complete, working examples for common use cases. They use async mode,
-<code class="docutils literal notranslate"><span class="pre">NativeFrankaController</span></code>; Example 2 shows the same motion in server mode, with the sync API.
-In server mode, the others run without the <code class="docutils literal notranslate"><span class="pre">await</span></code> on <code class="docutils literal notranslate"><span class="pre">FrankaRemoteController</span></code>, except for
-<code class="docutils literal notranslate"><span class="pre">record()</span></code>, which only async mode has.</p>
+<p>This page provides complete, working examples for common use cases, with <code class="docutils literal notranslate"><span class="pre">Robot</span></code> and
+<code class="docutils literal notranslate"><span class="pre">Controller</span></code>. Example 2 shows the same motion for asyncio code, with <code class="docutils literal notranslate"><span class="pre">NativeFrankaController</span></code>.</p>
 <section id="example-1-simple-motion">
 <h2>Example 1: Simple Motion<a class="headerlink" href="#example-1-simple-motion" title="Link to this heading"></a></h2>
 <p>Move the robot through positions:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span><span class="w"> </span><span class="nn">time</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">aiofranka</span>
+
+<span class="n">robot</span> <span class="o">=</span> <span class="n">aiofranka</span><span class="o">.</span><span class="n">Robot</span><span class="p">(</span><span class="s2">&quot;172.16.0.2&quot;</span><span class="p">)</span>
+<span class="k">with</span> <span class="n">aiofranka</span><span class="o">.</span><span class="n">Controller</span><span class="p">(</span><span class="n">robot</span><span class="p">)</span> <span class="k">as</span> <span class="n">controller</span><span class="p">:</span>  <span class="c1"># start() here, stop() at the end</span>
+    <span class="n">home</span> <span class="o">=</span> <span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="o">-</span><span class="mf">1.57079</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mf">1.57079</span><span class="p">,</span> <span class="o">-</span><span class="mf">0.7853</span><span class="p">]</span>
+    <span class="n">pose1</span> <span class="o">=</span> <span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="o">-</span><span class="mf">0.785</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="o">-</span><span class="mf">2.356</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mf">1.571</span><span class="p">,</span> <span class="mf">0.785</span><span class="p">]</span>
+
+    <span class="k">for</span> <span class="n">pose</span> <span class="ow">in</span> <span class="p">[</span><span class="n">home</span><span class="p">,</span> <span class="n">pose1</span><span class="p">,</span> <span class="n">home</span><span class="p">]:</span>
+        <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Moving to: </span><span class="si">{</span><span class="n">pose</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+        <span class="n">controller</span><span class="o">.</span><span class="n">move</span><span class="p">(</span><span class="n">pose</span><span class="p">)</span>
+        <span class="n">time</span><span class="o">.</span><span class="n">sleep</span><span class="p">(</span><span class="mf">1.0</span><span class="p">)</span>
+</pre></div>
+</div>
+</section>
+<section id="example-2-simple-motion-with-asyncio">
+<h2>Example 2: Simple Motion with asyncio<a class="headerlink" href="#example-2-simple-motion-with-asyncio" title="Link to this heading"></a></h2>
+<p>Same motion in an asyncio program:</p>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span><span class="w"> </span><span class="nn">asyncio</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">aiofranka</span><span class="w"> </span><span class="kn">import</span> <span class="n">RobotInterface</span><span class="p">,</span> <span class="n">NativeFrankaController</span>
 
 <span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">simple_motion</span><span class="p">():</span>
-    <span class="n">robot</span> <span class="o">=</span> <span class="n">RobotInterface</span><span class="p">(</span><span class="s2">&quot;172.16.0.2&quot;</span><span class="p">)</span>
-    <span class="n">controller</span> <span class="o">=</span> <span class="n">NativeFrankaController</span><span class="p">(</span><span class="n">robot</span><span class="p">)</span>
-
+    <span class="n">controller</span> <span class="o">=</span> <span class="n">NativeFrankaController</span><span class="p">(</span><span class="n">RobotInterface</span><span class="p">(</span><span class="s2">&quot;172.16.0.2&quot;</span><span class="p">))</span>
     <span class="k">await</span> <span class="n">controller</span><span class="o">.</span><span class="n">start</span><span class="p">()</span>
-
     <span class="k">try</span><span class="p">:</span>
         <span class="n">home</span> <span class="o">=</span> <span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="o">-</span><span class="mf">1.57079</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mf">1.57079</span><span class="p">,</span> <span class="o">-</span><span class="mf">0.7853</span><span class="p">]</span>
         <span class="n">pose1</span> <span class="o">=</span> <span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="o">-</span><span class="mf">0.785</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="o">-</span><span class="mf">2.356</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mf">1.571</span><span class="p">,</span> <span class="mf">0.785</span><span class="p">]</span>
@@ -129,181 +143,125 @@ In server mode, the others run without the <code class="docutils literal notrans
             <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Moving to: </span><span class="si">{</span><span class="n">pose</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
             <span class="k">await</span> <span class="n">controller</span><span class="o">.</span><span class="n">move</span><span class="p">(</span><span class="n">pose</span><span class="p">)</span>
             <span class="k">await</span> <span class="n">asyncio</span><span class="o">.</span><span class="n">sleep</span><span class="p">(</span><span class="mf">1.0</span><span class="p">)</span>
-
     <span class="k">finally</span><span class="p">:</span>
         <span class="k">await</span> <span class="n">controller</span><span class="o">.</span><span class="n">stop</span><span class="p">()</span>
 
-<span class="k">if</span> <span class="vm">__name__</span> <span class="o">==</span> <span class="s2">&quot;__main__&quot;</span><span class="p">:</span>
-    <span class="n">asyncio</span><span class="o">.</span><span class="n">run</span><span class="p">(</span><span class="n">simple_motion</span><span class="p">())</span>
-</pre></div>
-</div>
-</section>
-<section id="example-2-simple-motion-server-mode">
-<h2>Example 2: Simple Motion (Server Mode)<a class="headerlink" href="#example-2-simple-motion-server-mode" title="Link to this heading"></a></h2>
-<p>Same motion using the sync API:</p>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span><span class="w"> </span><span class="nn">aiofranka</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">aiofranka</span><span class="w"> </span><span class="kn">import</span> <span class="n">FrankaRemoteController</span>
-
-<span class="n">aiofranka</span><span class="o">.</span><span class="n">unlock</span><span class="p">()</span>
-
-<span class="n">controller</span> <span class="o">=</span> <span class="n">FrankaRemoteController</span><span class="p">()</span>
-<span class="n">controller</span><span class="o">.</span><span class="n">start</span><span class="p">()</span>
-
-<span class="c1"># Define waypoints</span>
-<span class="n">home</span> <span class="o">=</span> <span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="o">-</span><span class="mf">1.57079</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mf">1.57079</span><span class="p">,</span> <span class="o">-</span><span class="mf">0.7853</span><span class="p">]</span>
-<span class="n">pose1</span> <span class="o">=</span> <span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="o">-</span><span class="mf">0.785</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="o">-</span><span class="mf">2.356</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mf">1.571</span><span class="p">,</span> <span class="mf">0.785</span><span class="p">]</span>
-
-<span class="c1"># Move through waypoints</span>
-<span class="k">for</span> <span class="n">pose</span> <span class="ow">in</span> <span class="p">[</span><span class="n">home</span><span class="p">,</span> <span class="n">pose1</span><span class="p">,</span> <span class="n">home</span><span class="p">]:</span>
-    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Moving to: </span><span class="si">{</span><span class="n">pose</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
-    <span class="n">controller</span><span class="o">.</span><span class="n">move</span><span class="p">(</span><span class="n">pose</span><span class="p">)</span>
-
-<span class="n">controller</span><span class="o">.</span><span class="n">stop</span><span class="p">()</span>
-<span class="n">aiofranka</span><span class="o">.</span><span class="n">lock</span><span class="p">()</span>
+<span class="n">asyncio</span><span class="o">.</span><span class="n">run</span><span class="p">(</span><span class="n">simple_motion</span><span class="p">())</span>
 </pre></div>
 </div>
 </section>
 <section id="example-3-impedance-control">
 <h2>Example 3: Impedance Control<a class="headerlink" href="#example-3-impedance-control" title="Link to this heading"></a></h2>
 <p>Compliant joint-space control with sinusoidal motion:</p>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span><span class="w"> </span><span class="nn">asyncio</span>
-<span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">aiofranka</span><span class="w"> </span><span class="kn">import</span> <span class="n">RobotInterface</span><span class="p">,</span> <span class="n">NativeFrankaController</span>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">aiofranka</span>
 
-<span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">main</span><span class="p">():</span>
-    <span class="n">controller</span> <span class="o">=</span> <span class="n">NativeFrankaController</span><span class="p">(</span><span class="n">RobotInterface</span><span class="p">(</span><span class="s2">&quot;172.16.0.2&quot;</span><span class="p">))</span>
-    <span class="k">await</span> <span class="n">controller</span><span class="o">.</span><span class="n">start</span><span class="p">()</span>
-    <span class="k">try</span><span class="p">:</span>
-        <span class="c1"># Move to start position</span>
-        <span class="k">await</span> <span class="n">controller</span><span class="o">.</span><span class="n">move</span><span class="p">()</span>
+<span class="n">robot</span> <span class="o">=</span> <span class="n">aiofranka</span><span class="o">.</span><span class="n">Robot</span><span class="p">(</span><span class="s2">&quot;172.16.0.2&quot;</span><span class="p">)</span>
+<span class="k">with</span> <span class="n">aiofranka</span><span class="o">.</span><span class="n">Controller</span><span class="p">(</span><span class="n">robot</span><span class="p">)</span> <span class="k">as</span> <span class="n">controller</span><span class="p">:</span>
+    <span class="c1"># Move to start position</span>
+    <span class="n">controller</span><span class="o">.</span><span class="n">move</span><span class="p">()</span>
 
-        <span class="c1"># Configure impedance control</span>
-        <span class="n">controller</span><span class="o">.</span><span class="n">switch</span><span class="p">(</span><span class="s2">&quot;impedance&quot;</span><span class="p">)</span>
-        <span class="n">controller</span><span class="o">.</span><span class="n">kp</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">ones</span><span class="p">(</span><span class="mi">7</span><span class="p">)</span> <span class="o">*</span> <span class="mf">80.0</span>
-        <span class="n">controller</span><span class="o">.</span><span class="n">kd</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">ones</span><span class="p">(</span><span class="mi">7</span><span class="p">)</span> <span class="o">*</span> <span class="mf">4.0</span>
-        <span class="n">controller</span><span class="o">.</span><span class="n">set_freq</span><span class="p">(</span><span class="mi">50</span><span class="p">)</span>
+    <span class="c1"># Configure impedance control</span>
+    <span class="n">controller</span><span class="o">.</span><span class="n">switch</span><span class="p">(</span><span class="s2">&quot;impedance&quot;</span><span class="p">)</span>
+    <span class="n">controller</span><span class="o">.</span><span class="n">kp</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">ones</span><span class="p">(</span><span class="mi">7</span><span class="p">)</span> <span class="o">*</span> <span class="mf">80.0</span>
+    <span class="n">controller</span><span class="o">.</span><span class="n">kd</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">ones</span><span class="p">(</span><span class="mi">7</span><span class="p">)</span> <span class="o">*</span> <span class="mf">4.0</span>
+    <span class="n">controller</span><span class="o">.</span><span class="n">set_freq</span><span class="p">(</span><span class="mi">50</span><span class="p">)</span>
 
-        <span class="c1"># Execute smooth sinusoidal motion</span>
-        <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">200</span><span class="p">):</span>  <span class="c1"># 4 seconds at 50 Hz</span>
-            <span class="n">delta</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">sin</span><span class="p">(</span><span class="n">i</span> <span class="o">/</span> <span class="mf">50.0</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">pi</span><span class="p">)</span> <span class="o">*</span> <span class="mf">0.1</span>
-            <span class="n">target</span> <span class="o">=</span> <span class="n">controller</span><span class="o">.</span><span class="n">initial_qpos</span> <span class="o">+</span> <span class="n">delta</span>
-            <span class="k">await</span> <span class="n">controller</span><span class="o">.</span><span class="n">set</span><span class="p">(</span><span class="s2">&quot;q_desired&quot;</span><span class="p">,</span> <span class="n">target</span><span class="p">)</span>
-    <span class="k">finally</span><span class="p">:</span>
-        <span class="k">await</span> <span class="n">controller</span><span class="o">.</span><span class="n">stop</span><span class="p">()</span>
-
-<span class="n">asyncio</span><span class="o">.</span><span class="n">run</span><span class="p">(</span><span class="n">main</span><span class="p">())</span>
+    <span class="c1"># Execute smooth sinusoidal motion</span>
+    <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">200</span><span class="p">):</span>  <span class="c1"># 4 seconds at 50 Hz</span>
+        <span class="n">delta</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">sin</span><span class="p">(</span><span class="n">i</span> <span class="o">/</span> <span class="mf">50.0</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">pi</span><span class="p">)</span> <span class="o">*</span> <span class="mf">0.1</span>
+        <span class="n">controller</span><span class="o">.</span><span class="n">set</span><span class="p">(</span><span class="s2">&quot;q_desired&quot;</span><span class="p">,</span> <span class="n">controller</span><span class="o">.</span><span class="n">initial_qpos</span> <span class="o">+</span> <span class="n">delta</span><span class="p">)</span>
 </pre></div>
 </div>
 </section>
 <section id="example-4-operational-space-control">
 <h2>Example 4: Operational Space Control<a class="headerlink" href="#example-4-operational-space-control" title="Link to this heading"></a></h2>
 <p>Control end-effector position in Cartesian space:</p>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span><span class="w"> </span><span class="nn">asyncio</span>
-<span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">aiofranka</span><span class="w"> </span><span class="kn">import</span> <span class="n">RobotInterface</span><span class="p">,</span> <span class="n">NativeFrankaController</span>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">aiofranka</span>
 
-<span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">main</span><span class="p">():</span>
-    <span class="n">controller</span> <span class="o">=</span> <span class="n">NativeFrankaController</span><span class="p">(</span><span class="n">RobotInterface</span><span class="p">(</span><span class="s2">&quot;172.16.0.2&quot;</span><span class="p">))</span>
-    <span class="k">await</span> <span class="n">controller</span><span class="o">.</span><span class="n">start</span><span class="p">()</span>
-    <span class="k">try</span><span class="p">:</span>
-        <span class="k">await</span> <span class="n">controller</span><span class="o">.</span><span class="n">move</span><span class="p">()</span>
+<span class="n">robot</span> <span class="o">=</span> <span class="n">aiofranka</span><span class="o">.</span><span class="n">Robot</span><span class="p">(</span><span class="s2">&quot;172.16.0.2&quot;</span><span class="p">)</span>
+<span class="k">with</span> <span class="n">aiofranka</span><span class="o">.</span><span class="n">Controller</span><span class="p">(</span><span class="n">robot</span><span class="p">)</span> <span class="k">as</span> <span class="n">controller</span><span class="p">:</span>
+    <span class="n">controller</span><span class="o">.</span><span class="n">move</span><span class="p">()</span>
 
-        <span class="c1"># Configure OSC</span>
-        <span class="n">controller</span><span class="o">.</span><span class="n">switch</span><span class="p">(</span><span class="s2">&quot;osc&quot;</span><span class="p">)</span>
-        <span class="n">controller</span><span class="o">.</span><span class="n">ee_kp</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="mi">300</span><span class="p">,</span> <span class="mi">300</span><span class="p">,</span> <span class="mi">300</span><span class="p">,</span> <span class="mi">1000</span><span class="p">,</span> <span class="mi">1000</span><span class="p">,</span> <span class="mi">1000</span><span class="p">])</span>
-        <span class="n">controller</span><span class="o">.</span><span class="n">ee_kd</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">ones</span><span class="p">(</span><span class="mi">6</span><span class="p">)</span> <span class="o">*</span> <span class="mf">10.0</span>
-        <span class="n">controller</span><span class="o">.</span><span class="n">set_freq</span><span class="p">(</span><span class="mi">50</span><span class="p">)</span>
+    <span class="c1"># Configure OSC</span>
+    <span class="n">controller</span><span class="o">.</span><span class="n">switch</span><span class="p">(</span><span class="s2">&quot;osc&quot;</span><span class="p">)</span>
+    <span class="n">controller</span><span class="o">.</span><span class="n">ee_kp</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="mi">300</span><span class="p">,</span> <span class="mi">300</span><span class="p">,</span> <span class="mi">300</span><span class="p">,</span> <span class="mi">1000</span><span class="p">,</span> <span class="mi">1000</span><span class="p">,</span> <span class="mi">1000</span><span class="p">])</span>
+    <span class="n">controller</span><span class="o">.</span><span class="n">ee_kd</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">ones</span><span class="p">(</span><span class="mi">6</span><span class="p">)</span> <span class="o">*</span> <span class="mf">10.0</span>
+    <span class="n">controller</span><span class="o">.</span><span class="n">set_freq</span><span class="p">(</span><span class="mi">50</span><span class="p">)</span>
 
-        <span class="c1"># Circular motion in XY plane</span>
-        <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">200</span><span class="p">):</span>
-            <span class="n">angle</span> <span class="o">=</span> <span class="n">i</span> <span class="o">/</span> <span class="mf">50.0</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">pi</span>
-            <span class="n">radius</span> <span class="o">=</span> <span class="mf">0.05</span>
+    <span class="c1"># Circular motion in XY plane</span>
+    <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">200</span><span class="p">):</span>
+        <span class="n">angle</span> <span class="o">=</span> <span class="n">i</span> <span class="o">/</span> <span class="mf">50.0</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">pi</span>
+        <span class="n">radius</span> <span class="o">=</span> <span class="mf">0.05</span>
 
-            <span class="n">desired_ee</span> <span class="o">=</span> <span class="n">controller</span><span class="o">.</span><span class="n">initial_ee</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
-            <span class="n">desired_ee</span><span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">3</span><span class="p">]</span> <span class="o">+=</span> <span class="n">radius</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">cos</span><span class="p">(</span><span class="n">angle</span><span class="p">)</span>
-            <span class="n">desired_ee</span><span class="p">[</span><span class="mi">1</span><span class="p">,</span> <span class="mi">3</span><span class="p">]</span> <span class="o">+=</span> <span class="n">radius</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">sin</span><span class="p">(</span><span class="n">angle</span><span class="p">)</span>
+        <span class="n">desired_ee</span> <span class="o">=</span> <span class="n">controller</span><span class="o">.</span><span class="n">initial_ee</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
+        <span class="n">desired_ee</span><span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">3</span><span class="p">]</span> <span class="o">+=</span> <span class="n">radius</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">cos</span><span class="p">(</span><span class="n">angle</span><span class="p">)</span>
+        <span class="n">desired_ee</span><span class="p">[</span><span class="mi">1</span><span class="p">,</span> <span class="mi">3</span><span class="p">]</span> <span class="o">+=</span> <span class="n">radius</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">sin</span><span class="p">(</span><span class="n">angle</span><span class="p">)</span>
 
-            <span class="k">await</span> <span class="n">controller</span><span class="o">.</span><span class="n">set</span><span class="p">(</span><span class="s2">&quot;ee_desired&quot;</span><span class="p">,</span> <span class="n">desired_ee</span><span class="p">)</span>
-    <span class="k">finally</span><span class="p">:</span>
-        <span class="k">await</span> <span class="n">controller</span><span class="o">.</span><span class="n">stop</span><span class="p">()</span>
-
-<span class="n">asyncio</span><span class="o">.</span><span class="n">run</span><span class="p">(</span><span class="n">main</span><span class="p">())</span>
+        <span class="n">controller</span><span class="o">.</span><span class="n">set</span><span class="p">(</span><span class="s2">&quot;ee_desired&quot;</span><span class="p">,</span> <span class="n">desired_ee</span><span class="p">)</span>
 </pre></div>
 </div>
 </section>
 <section id="example-5-data-collection">
 <h2>Example 5: Data Collection<a class="headerlink" href="#example-5-data-collection" title="Link to this heading"></a></h2>
 <p>Record every 1 kHz cycle during operation, with <code class="docutils literal notranslate"><span class="pre">record()</span></code> (see <a class="reference internal" href="native.html"><span class="doc">Native Control Loop</span></a>):</p>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span><span class="w"> </span><span class="nn">asyncio</span>
-<span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">aiofranka</span><span class="w"> </span><span class="kn">import</span> <span class="n">RobotInterface</span><span class="p">,</span> <span class="n">NativeFrankaController</span>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">aiofranka</span>
 
-<span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">main</span><span class="p">():</span>
-    <span class="n">controller</span> <span class="o">=</span> <span class="n">NativeFrankaController</span><span class="p">(</span><span class="n">RobotInterface</span><span class="p">(</span><span class="s2">&quot;172.16.0.2&quot;</span><span class="p">))</span>
-    <span class="k">await</span> <span class="n">controller</span><span class="o">.</span><span class="n">start</span><span class="p">()</span>
-    <span class="k">try</span><span class="p">:</span>
-        <span class="k">await</span> <span class="n">controller</span><span class="o">.</span><span class="n">move</span><span class="p">()</span>
+<span class="n">robot</span> <span class="o">=</span> <span class="n">aiofranka</span><span class="o">.</span><span class="n">Robot</span><span class="p">(</span><span class="s2">&quot;172.16.0.2&quot;</span><span class="p">)</span>
+<span class="k">with</span> <span class="n">aiofranka</span><span class="o">.</span><span class="n">Controller</span><span class="p">(</span><span class="n">robot</span><span class="p">)</span> <span class="k">as</span> <span class="n">controller</span><span class="p">:</span>
+    <span class="n">controller</span><span class="o">.</span><span class="n">move</span><span class="p">()</span>
 
-        <span class="n">controller</span><span class="o">.</span><span class="n">switch</span><span class="p">(</span><span class="s2">&quot;impedance&quot;</span><span class="p">)</span>
-        <span class="n">controller</span><span class="o">.</span><span class="n">kp</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">ones</span><span class="p">(</span><span class="mi">7</span><span class="p">)</span> <span class="o">*</span> <span class="mf">80.0</span>
-        <span class="n">controller</span><span class="o">.</span><span class="n">kd</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">ones</span><span class="p">(</span><span class="mi">7</span><span class="p">)</span> <span class="o">*</span> <span class="mf">4.0</span>
-        <span class="n">controller</span><span class="o">.</span><span class="n">set_freq</span><span class="p">(</span><span class="mi">50</span><span class="p">)</span>
+    <span class="n">controller</span><span class="o">.</span><span class="n">switch</span><span class="p">(</span><span class="s2">&quot;impedance&quot;</span><span class="p">)</span>
+    <span class="n">controller</span><span class="o">.</span><span class="n">kp</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">ones</span><span class="p">(</span><span class="mi">7</span><span class="p">)</span> <span class="o">*</span> <span class="mf">80.0</span>
+    <span class="n">controller</span><span class="o">.</span><span class="n">kd</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">ones</span><span class="p">(</span><span class="mi">7</span><span class="p">)</span> <span class="o">*</span> <span class="mf">4.0</span>
+    <span class="n">controller</span><span class="o">.</span><span class="n">set_freq</span><span class="p">(</span><span class="mi">50</span><span class="p">)</span>
 
-        <span class="c1"># The state of each cycle, the target it used and the torque it sent</span>
-        <span class="n">fields</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;time&quot;</span><span class="p">,</span> <span class="s2">&quot;q&quot;</span><span class="p">,</span> <span class="s2">&quot;dq&quot;</span><span class="p">,</span> <span class="s2">&quot;ee&quot;</span><span class="p">,</span> <span class="s2">&quot;q_desired&quot;</span><span class="p">,</span> <span class="s2">&quot;tau&quot;</span><span class="p">]</span>
-        <span class="k">with</span> <span class="n">controller</span><span class="o">.</span><span class="n">record</span><span class="p">(</span><span class="n">fields</span><span class="p">,</span> <span class="n">path</span><span class="o">=</span><span class="s2">&quot;robot_data.npz&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">recording</span><span class="p">:</span>
-            <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">200</span><span class="p">):</span>
-                <span class="n">delta</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">sin</span><span class="p">(</span><span class="n">i</span> <span class="o">/</span> <span class="mf">50.0</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">pi</span><span class="p">)</span> <span class="o">*</span> <span class="mf">0.1</span>
-                <span class="k">await</span> <span class="n">controller</span><span class="o">.</span><span class="n">set</span><span class="p">(</span><span class="s2">&quot;q_desired&quot;</span><span class="p">,</span> <span class="n">delta</span> <span class="o">+</span> <span class="n">controller</span><span class="o">.</span><span class="n">initial_qpos</span><span class="p">)</span>
+    <span class="c1"># The state of each cycle, the target it used and the torque it sent</span>
+    <span class="n">fields</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;time&quot;</span><span class="p">,</span> <span class="s2">&quot;q&quot;</span><span class="p">,</span> <span class="s2">&quot;dq&quot;</span><span class="p">,</span> <span class="s2">&quot;ee&quot;</span><span class="p">,</span> <span class="s2">&quot;q_desired&quot;</span><span class="p">,</span> <span class="s2">&quot;tau&quot;</span><span class="p">]</span>
+    <span class="k">with</span> <span class="n">controller</span><span class="o">.</span><span class="n">record</span><span class="p">(</span><span class="n">fields</span><span class="p">,</span> <span class="n">path</span><span class="o">=</span><span class="s2">&quot;robot_data.npz&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">recording</span><span class="p">:</span>
+        <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">200</span><span class="p">):</span>
+            <span class="n">delta</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">sin</span><span class="p">(</span><span class="n">i</span> <span class="o">/</span> <span class="mf">50.0</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">pi</span><span class="p">)</span> <span class="o">*</span> <span class="mf">0.1</span>
+            <span class="n">controller</span><span class="o">.</span><span class="n">set</span><span class="p">(</span><span class="s2">&quot;q_desired&quot;</span><span class="p">,</span> <span class="n">controller</span><span class="o">.</span><span class="n">initial_qpos</span> <span class="o">+</span> <span class="n">delta</span><span class="p">)</span>
 
-        <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Saved </span><span class="si">{</span><span class="n">recording</span><span class="o">.</span><span class="n">rows</span><span class="si">}</span><span class="s2"> cycles&quot;</span><span class="p">)</span>
-    <span class="k">finally</span><span class="p">:</span>
-        <span class="k">await</span> <span class="n">controller</span><span class="o">.</span><span class="n">stop</span><span class="p">()</span>
-
-<span class="n">asyncio</span><span class="o">.</span><span class="n">run</span><span class="p">(</span><span class="n">main</span><span class="p">())</span>
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Saved </span><span class="si">{</span><span class="n">recording</span><span class="o">.</span><span class="n">rows</span><span class="si">}</span><span class="s2"> cycles&quot;</span><span class="p">)</span>
 </pre></div>
 </div>
 </section>
 <section id="example-6-gain-tuning">
 <h2>Example 6: Gain Tuning<a class="headerlink" href="#example-6-gain-tuning" title="Link to this heading"></a></h2>
 <p>Systematically test different controller gains:</p>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span><span class="w"> </span><span class="nn">asyncio</span>
-<span class="kn">import</span><span class="w"> </span><span class="nn">os</span>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span><span class="w"> </span><span class="nn">os</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">time</span>
 <span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">aiofranka</span><span class="w"> </span><span class="kn">import</span> <span class="n">RobotInterface</span><span class="p">,</span> <span class="n">NativeFrankaController</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">aiofranka</span>
 
-<span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">main</span><span class="p">():</span>
-    <span class="n">controller</span> <span class="o">=</span> <span class="n">NativeFrankaController</span><span class="p">(</span><span class="n">RobotInterface</span><span class="p">(</span><span class="s2">&quot;172.16.0.2&quot;</span><span class="p">))</span>
-    <span class="k">await</span> <span class="n">controller</span><span class="o">.</span><span class="n">start</span><span class="p">()</span>
-    <span class="n">os</span><span class="o">.</span><span class="n">makedirs</span><span class="p">(</span><span class="s2">&quot;sysid_data&quot;</span><span class="p">,</span> <span class="n">exist_ok</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+<span class="n">os</span><span class="o">.</span><span class="n">makedirs</span><span class="p">(</span><span class="s2">&quot;sysid_data&quot;</span><span class="p">,</span> <span class="n">exist_ok</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+<span class="n">base</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mf">0.6</span><span class="p">,</span> <span class="mf">0.6</span><span class="p">,</span> <span class="mf">0.6</span><span class="p">])</span>
+<span class="n">kps</span> <span class="o">=</span> <span class="p">[</span><span class="mi">16</span><span class="p">,</span> <span class="mi">32</span><span class="p">,</span> <span class="mi">64</span><span class="p">,</span> <span class="mi">128</span><span class="p">,</span> <span class="mi">256</span><span class="p">]</span>
+<span class="n">kds</span> <span class="o">=</span> <span class="p">[</span><span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">4</span><span class="p">,</span> <span class="mi">8</span><span class="p">,</span> <span class="mi">16</span><span class="p">]</span>
 
-    <span class="n">base</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mf">0.6</span><span class="p">,</span> <span class="mf">0.6</span><span class="p">,</span> <span class="mf">0.6</span><span class="p">])</span>
-    <span class="n">kps</span> <span class="o">=</span> <span class="p">[</span><span class="mi">16</span><span class="p">,</span> <span class="mi">32</span><span class="p">,</span> <span class="mi">64</span><span class="p">,</span> <span class="mi">128</span><span class="p">,</span> <span class="mi">256</span><span class="p">]</span>
-    <span class="n">kds</span> <span class="o">=</span> <span class="p">[</span><span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">4</span><span class="p">,</span> <span class="mi">8</span><span class="p">,</span> <span class="mi">16</span><span class="p">]</span>
+<span class="n">robot</span> <span class="o">=</span> <span class="n">aiofranka</span><span class="o">.</span><span class="n">Robot</span><span class="p">(</span><span class="s2">&quot;172.16.0.2&quot;</span><span class="p">)</span>
+<span class="k">with</span> <span class="n">aiofranka</span><span class="o">.</span><span class="n">Controller</span><span class="p">(</span><span class="n">robot</span><span class="p">)</span> <span class="k">as</span> <span class="n">controller</span><span class="p">:</span>
+    <span class="k">for</span> <span class="n">kp</span> <span class="ow">in</span> <span class="n">kps</span><span class="p">:</span>
+        <span class="k">for</span> <span class="n">kd</span> <span class="ow">in</span> <span class="n">kds</span><span class="p">:</span>
+            <span class="c1"># Move to start</span>
+            <span class="n">controller</span><span class="o">.</span><span class="n">kp</span> <span class="o">=</span> <span class="n">base</span> <span class="o">*</span> <span class="mi">80</span>
+            <span class="n">controller</span><span class="o">.</span><span class="n">kd</span> <span class="o">=</span> <span class="n">base</span> <span class="o">*</span> <span class="mi">4</span>
+            <span class="n">controller</span><span class="o">.</span><span class="n">move</span><span class="p">()</span>
+            <span class="n">time</span><span class="o">.</span><span class="n">sleep</span><span class="p">(</span><span class="mf">1.0</span><span class="p">)</span>
 
-    <span class="k">try</span><span class="p">:</span>
-        <span class="k">for</span> <span class="n">kp</span> <span class="ow">in</span> <span class="n">kps</span><span class="p">:</span>
-            <span class="k">for</span> <span class="n">kd</span> <span class="ow">in</span> <span class="n">kds</span><span class="p">:</span>
-                <span class="c1"># Move to start</span>
-                <span class="n">controller</span><span class="o">.</span><span class="n">kp</span> <span class="o">=</span> <span class="n">base</span> <span class="o">*</span> <span class="mi">80</span>
-                <span class="n">controller</span><span class="o">.</span><span class="n">kd</span> <span class="o">=</span> <span class="n">base</span> <span class="o">*</span> <span class="mi">4</span>
-                <span class="k">await</span> <span class="n">controller</span><span class="o">.</span><span class="n">move</span><span class="p">()</span>
-                <span class="k">await</span> <span class="n">asyncio</span><span class="o">.</span><span class="n">sleep</span><span class="p">(</span><span class="mf">1.0</span><span class="p">)</span>
+            <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Testing kp=</span><span class="si">{</span><span class="n">kp</span><span class="si">}</span><span class="s2">, kd=</span><span class="si">{</span><span class="n">kd</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+            <span class="n">controller</span><span class="o">.</span><span class="n">switch</span><span class="p">(</span><span class="s2">&quot;impedance&quot;</span><span class="p">)</span>
+            <span class="n">controller</span><span class="o">.</span><span class="n">kp</span> <span class="o">=</span> <span class="n">base</span> <span class="o">*</span> <span class="n">kp</span>
+            <span class="n">controller</span><span class="o">.</span><span class="n">kd</span> <span class="o">=</span> <span class="n">base</span> <span class="o">*</span> <span class="n">kd</span>
+            <span class="n">controller</span><span class="o">.</span><span class="n">set_freq</span><span class="p">(</span><span class="mi">50</span><span class="p">)</span>
 
-                <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Testing kp=</span><span class="si">{</span><span class="n">kp</span><span class="si">}</span><span class="s2">, kd=</span><span class="si">{</span><span class="n">kd</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
-                <span class="n">controller</span><span class="o">.</span><span class="n">switch</span><span class="p">(</span><span class="s2">&quot;impedance&quot;</span><span class="p">)</span>
-                <span class="n">controller</span><span class="o">.</span><span class="n">kp</span> <span class="o">=</span> <span class="n">base</span> <span class="o">*</span> <span class="n">kp</span>
-                <span class="n">controller</span><span class="o">.</span><span class="n">kd</span> <span class="o">=</span> <span class="n">base</span> <span class="o">*</span> <span class="n">kd</span>
-                <span class="n">controller</span><span class="o">.</span><span class="n">set_freq</span><span class="p">(</span><span class="mi">50</span><span class="p">)</span>
-
-                <span class="k">with</span> <span class="n">controller</span><span class="o">.</span><span class="n">record</span><span class="p">([</span><span class="s2">&quot;time&quot;</span><span class="p">,</span> <span class="s2">&quot;q&quot;</span><span class="p">,</span> <span class="s2">&quot;q_desired&quot;</span><span class="p">],</span> <span class="n">path</span><span class="o">=</span><span class="sa">f</span><span class="s2">&quot;sysid_data/K</span><span class="si">{</span><span class="n">kp</span><span class="si">}</span><span class="s2">_D</span><span class="si">{</span><span class="n">kd</span><span class="si">}</span><span class="s2">.npz&quot;</span><span class="p">):</span>
-                    <span class="k">for</span> <span class="n">cnt</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">200</span><span class="p">):</span>
-                        <span class="n">delta</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">sin</span><span class="p">(</span><span class="n">cnt</span> <span class="o">/</span> <span class="mf">50.0</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">pi</span><span class="p">)</span> <span class="o">*</span> <span class="mf">0.1</span>
-                        <span class="k">await</span> <span class="n">controller</span><span class="o">.</span><span class="n">set</span><span class="p">(</span><span class="s2">&quot;q_desired&quot;</span><span class="p">,</span> <span class="n">delta</span> <span class="o">+</span> <span class="n">controller</span><span class="o">.</span><span class="n">initial_qpos</span><span class="p">)</span>
-    <span class="k">finally</span><span class="p">:</span>
-        <span class="k">await</span> <span class="n">controller</span><span class="o">.</span><span class="n">stop</span><span class="p">()</span>
-
-<span class="n">asyncio</span><span class="o">.</span><span class="n">run</span><span class="p">(</span><span class="n">main</span><span class="p">())</span>
+            <span class="k">with</span> <span class="n">controller</span><span class="o">.</span><span class="n">record</span><span class="p">([</span><span class="s2">&quot;time&quot;</span><span class="p">,</span> <span class="s2">&quot;q&quot;</span><span class="p">,</span> <span class="s2">&quot;q_desired&quot;</span><span class="p">],</span> <span class="n">path</span><span class="o">=</span><span class="sa">f</span><span class="s2">&quot;sysid_data/K</span><span class="si">{</span><span class="n">kp</span><span class="si">}</span><span class="s2">_D</span><span class="si">{</span><span class="n">kd</span><span class="si">}</span><span class="s2">.npz&quot;</span><span class="p">):</span>
+                <span class="k">for</span> <span class="n">cnt</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">200</span><span class="p">):</span>
+                    <span class="n">delta</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">sin</span><span class="p">(</span><span class="n">cnt</span> <span class="o">/</span> <span class="mf">50.0</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">pi</span><span class="p">)</span> <span class="o">*</span> <span class="mf">0.1</span>
+                    <span class="n">controller</span><span class="o">.</span><span class="n">set</span><span class="p">(</span><span class="s2">&quot;q_desired&quot;</span><span class="p">,</span> <span class="n">controller</span><span class="o">.</span><span class="n">initial_qpos</span> <span class="o">+</span> <span class="n">delta</span><span class="p">)</span>
 </pre></div>
 </div>
 </section>
@@ -370,22 +328,17 @@ saves it as an end-effector profile in Desk. Activate a saved profile whenever i
 </section>
 <section id="example-9-simulation-testing">
 <h2>Example 9: Simulation Testing<a class="headerlink" href="#example-9-simulation-testing" title="Link to this heading"></a></h2>
-<p>Test your controller in simulation before deploying to real robot (async mode only):</p>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span><span class="w"> </span><span class="nn">asyncio</span>
-<span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">aiofranka</span><span class="w"> </span><span class="kn">import</span> <span class="n">RobotInterface</span><span class="p">,</span> <span class="n">NativeFrankaController</span>
+<p>Test your controller in simulation before deploying to real robot:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">aiofranka</span>
 
-<span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">test_algorithm</span><span class="p">(</span><span class="n">robot_ip</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
-    <span class="n">robot</span> <span class="o">=</span> <span class="n">RobotInterface</span><span class="p">(</span><span class="n">robot_ip</span><span class="p">)</span>
-    <span class="n">controller</span> <span class="o">=</span> <span class="n">NativeFrankaController</span><span class="p">(</span><span class="n">robot</span><span class="p">)</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">test_algorithm</span><span class="p">(</span><span class="n">robot_ip</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+    <span class="n">mode</span> <span class="o">=</span> <span class="s2">&quot;SIMULATION&quot;</span> <span class="k">if</span> <span class="n">robot_ip</span> <span class="ow">is</span> <span class="kc">None</span> <span class="k">else</span> <span class="s2">&quot;REAL&quot;</span>
+    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Testing in </span><span class="si">{</span><span class="n">mode</span><span class="si">}</span><span class="s2"> mode&quot;</span><span class="p">)</span>
 
-    <span class="k">await</span> <span class="n">controller</span><span class="o">.</span><span class="n">start</span><span class="p">()</span>
-
-    <span class="k">try</span><span class="p">:</span>
-        <span class="n">mode</span> <span class="o">=</span> <span class="s2">&quot;SIMULATION&quot;</span> <span class="k">if</span> <span class="n">robot_ip</span> <span class="ow">is</span> <span class="kc">None</span> <span class="k">else</span> <span class="s2">&quot;REAL&quot;</span>
-        <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Testing in </span><span class="si">{</span><span class="n">mode</span><span class="si">}</span><span class="s2"> mode&quot;</span><span class="p">)</span>
-
-        <span class="k">await</span> <span class="n">controller</span><span class="o">.</span><span class="n">move</span><span class="p">()</span>
+    <span class="n">robot</span> <span class="o">=</span> <span class="n">aiofranka</span><span class="o">.</span><span class="n">Robot</span><span class="p">(</span><span class="n">robot_ip</span><span class="p">)</span>
+    <span class="k">with</span> <span class="n">aiofranka</span><span class="o">.</span><span class="n">Controller</span><span class="p">(</span><span class="n">robot</span><span class="p">)</span> <span class="k">as</span> <span class="n">controller</span><span class="p">:</span>
+        <span class="n">controller</span><span class="o">.</span><span class="n">move</span><span class="p">()</span>
 
         <span class="n">controller</span><span class="o">.</span><span class="n">switch</span><span class="p">(</span><span class="s2">&quot;impedance&quot;</span><span class="p">)</span>
         <span class="n">controller</span><span class="o">.</span><span class="n">kp</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">ones</span><span class="p">(</span><span class="mi">7</span><span class="p">)</span> <span class="o">*</span> <span class="mf">80.0</span>
@@ -394,27 +347,23 @@ saves it as an end-effector profile in Desk. Activate a saved profile whenever i
 
         <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">100</span><span class="p">):</span>
             <span class="n">delta</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">sin</span><span class="p">(</span><span class="n">i</span> <span class="o">/</span> <span class="mf">50.0</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">pi</span><span class="p">)</span> <span class="o">*</span> <span class="mf">0.1</span>
-            <span class="n">target</span> <span class="o">=</span> <span class="n">controller</span><span class="o">.</span><span class="n">initial_qpos</span> <span class="o">+</span> <span class="n">delta</span>
-            <span class="k">await</span> <span class="n">controller</span><span class="o">.</span><span class="n">set</span><span class="p">(</span><span class="s2">&quot;q_desired&quot;</span><span class="p">,</span> <span class="n">target</span><span class="p">)</span>
+            <span class="n">controller</span><span class="o">.</span><span class="n">set</span><span class="p">(</span><span class="s2">&quot;q_desired&quot;</span><span class="p">,</span> <span class="n">controller</span><span class="o">.</span><span class="n">initial_qpos</span> <span class="o">+</span> <span class="n">delta</span><span class="p">)</span>
 
-        <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;Test successful!&quot;</span><span class="p">)</span>
-
-    <span class="k">finally</span><span class="p">:</span>
-        <span class="k">await</span> <span class="n">controller</span><span class="o">.</span><span class="n">stop</span><span class="p">()</span>
+    <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;Test successful!&quot;</span><span class="p">)</span>
 
 <span class="k">if</span> <span class="vm">__name__</span> <span class="o">==</span> <span class="s2">&quot;__main__&quot;</span><span class="p">:</span>
-    <span class="c1"># First test in simulation</span>
-    <span class="n">asyncio</span><span class="o">.</span><span class="n">run</span><span class="p">(</span><span class="n">test_algorithm</span><span class="p">(</span><span class="kc">None</span><span class="p">))</span>
+    <span class="c1"># First test in simulation (on macOS, run with mjpython for MuJoCo&#39;s viewer)</span>
+    <span class="n">test_algorithm</span><span class="p">(</span><span class="kc">None</span><span class="p">)</span>
 
     <span class="c1"># Then deploy to real robot</span>
-    <span class="n">asyncio</span><span class="o">.</span><span class="n">run</span><span class="p">(</span><span class="n">test_algorithm</span><span class="p">(</span><span class="s2">&quot;172.16.0.2&quot;</span><span class="p">))</span>
+    <span class="n">test_algorithm</span><span class="p">(</span><span class="s2">&quot;172.16.0.2&quot;</span><span class="p">)</span>
 </pre></div>
 </div>
 </section>
 <section id="more-examples">
 <h2>More Examples<a class="headerlink" href="#more-examples" title="Link to this heading"></a></h2>
-<p>The <code class="docutils literal notranslate"><span class="pre">examples/</span></code> directory in the repository has minimal async mode scripts. Each takes the robot
-IP as an optional argument and runs in MuJoCo without it:</p>
+<p>The <code class="docutils literal notranslate"><span class="pre">examples/</span></code> directory in the repository has minimal scripts. Each takes the robot IP as an
+optional argument and runs in MuJoCo without it:</p>
 <ul class="simple">
 <li><p><code class="docutils literal notranslate"><span class="pre">00_move.py</span></code>: Move one joint (<code class="docutils literal notranslate"><span class="pre">--joint</span></code>, <code class="docutils literal notranslate"><span class="pre">--delta</span></code>)</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">01_joint_impedance.py</span></code>: Hold the current joint positions with joint impedance control</p></li>
@@ -425,7 +374,7 @@ on the flange, the arm should stay still; if it drifts, identify the tool with
 <li><p><code class="docutils literal notranslate"><span class="pre">04_collect_joint_sysid.py</span></code>: Play steps, multisines and slow ramps with joint impedance at three
 poses, about 1.5 minutes, with a controller configuration (<code class="docutils literal notranslate"><span class="pre">--activate</span> <span class="pre">configs/joint_impedance.yaml</span></code>,
 see <a class="reference internal" href="controllers.html#controller-configurations"><span class="std std-ref">Controller Configuration Files</span></a>). It sets the targets at the configuration’s policy rate, as a
-policy would, and records every 1 kHz cycle with <code class="docutils literal notranslate"><span class="pre">NativeFrankaController.record()</span></code>. What it
+policy would, and records every 1 kHz cycle with <code class="docutils literal notranslate"><span class="pre">Controller.record()</span></code>. What it
 shares with <code class="docutils literal notranslate"><span class="pre">06</span></code> is in <code class="docutils literal notranslate"><span class="pre">sysid.py</span></code>.</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">05_fit_joint_sysid.py</span></code>: Fit kp, kd, damping and friction loss of each joint to the
 configuration’s latest recording with CMA-ES, simulating at your physics step (<code class="docutils literal notranslate"><span class="pre">--activate</span></code>,
@@ -447,7 +396,7 @@ runs compiled with Numba (see <a class="reference internal" href="native.html"><
 <ul class="simple">
 <li><p>Review <a class="reference internal" href="controllers.html"><span class="doc">Controllers</span></a> for detailed controller documentation</p></li>
 <li><p>Check <a class="reference internal" href="cli.html"><span class="doc">CLI Reference</span></a> for robot setup commands</p></li>
-<li><p>Explore the <a class="reference internal" href="async_mode.html"><span class="doc">Async Mode Guide</span></a> guide if using async mode</p></li>
+<li><p>Explore the <a class="reference internal" href="async_mode.html"><span class="doc">Async Mode Guide</span></a> guide if using <code class="docutils literal notranslate"><span class="pre">NativeFrankaController</span></code> with asyncio</p></li>
 </ul>
 </section>
 </section>

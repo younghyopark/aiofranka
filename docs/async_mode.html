@@ -6,14 +6,14 @@
   <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Async Mode Guide &mdash; aiofranka 0.8.0 documentation</title>
+  <title>Async Mode Guide &mdash; aiofranka 0.9.0 documentation</title>
       <link rel="stylesheet" type="text/css" href="_static/pygments.css?v=b86133f3" />
       <link rel="stylesheet" type="text/css" href="_static/css/theme.css?v=9edc463e" />
 
   
       <script src="_static/jquery.js?v=5d32c60e"></script>
       <script src="_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
-      <script src="_static/documentation_options.js?v=486e5634"></script>
+      <script src="_static/documentation_options.js?v=39bb1c6d"></script>
       <script src="_static/doctools.js?v=fd6eb6e6"></script>
       <script src="_static/sphinx_highlight.js?v=6ffebe34"></script>
     <script src="_static/js/theme.js"></script>
@@ -72,6 +72,7 @@
 </ul>
 <p class="caption" role="heading"><span class="caption-text">API Reference</span></p>
 <ul>
+<li class="toctree-l1"><a class="reference internal" href="api/franka.html">Robot and Controller</a></li>
 <li class="toctree-l1"><a class="reference internal" href="api/native.html">NativeFrankaController</a></li>
 <li class="toctree-l1"><a class="reference internal" href="api/controller.html">FrankaController</a></li>
 <li class="toctree-l1"><a class="reference internal" href="api/remote.html">FrankaRemoteController (Server Mode)</a></li>
@@ -111,11 +112,11 @@
 <h1>Async Mode Guide<a class="headerlink" href="#async-mode-guide" title="Link to this heading"></a></h1>
 <div class="admonition note">
 <p class="admonition-title">Note</p>
-<p><strong>Using server mode</strong> (<code class="docutils literal notranslate"><span class="pre">FrankaRemoteController</span></code>)? You can skip this entire document.
-The 1kHz loop runs in a separate process, so your script can’t starve it.</p>
+<p><strong>Using</strong> <code class="docutils literal notranslate"><span class="pre">Controller</span></code> (the default)? You can skip this entire document. Its calls are
+plain, and its event loop runs in a thread of its own, where your code can’t block it.</p>
 </div>
-<p>In async mode, <code class="docutils literal notranslate"><span class="pre">controller.start()</span></code> starts the 1 kHz loop, and your script runs on the
-asyncio event loop next to it. <code class="docutils literal notranslate"><span class="pre">NativeFrankaController</span></code>’s loop runs in C++ and keeps sending
+<p>This guide is for asyncio code with <code class="docutils literal notranslate"><span class="pre">NativeFrankaController</span></code>. There, <code class="docutils literal notranslate"><span class="pre">controller.start()</span></code>
+starts the 1 kHz loop, and your script runs on the asyncio event loop next to it. <code class="docutils literal notranslate"><span class="pre">NativeFrankaController</span></code>’s loop runs in C++ and keeps sending
 torques whatever the event loop does, so blocking the event loop does not stop the robot. It
 delays what runs there: your next <code class="docutils literal notranslate"><span class="pre">set()</span></code>, a <code class="docutils literal notranslate"><span class="pre">move()</span></code> (which streams its trajectory from
 the event loop), and the copy of the loop’s state into <code class="docutils literal notranslate"><span class="pre">robot.data</span></code> and <code class="docutils literal notranslate"><span class="pre">robot.robot_state</span></code>.

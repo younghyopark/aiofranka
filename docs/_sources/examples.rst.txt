@@ -1,10 +1,8 @@
 Examples
 ========
 
-This page provides complete, working examples for common use cases. They use async mode,
-``NativeFrankaController``; Example 2 shows the same motion in server mode, with the sync API.
-In server mode, the others run without the ``await`` on ``FrankaRemoteController``, except for
-``record()``, which only async mode has.
+This page provides complete, working examples for common use cases, with ``Robot`` and
+``Controller``. Example 2 shows the same motion for asyncio code, with ``NativeFrankaController``.
 
 Example 1: Simple Motion
 ------------------------
@@ -13,15 +11,32 @@ Move the robot through positions:
 
 .. code-block:: python
 
+   import time
+   import aiofranka
+
+   robot = aiofranka.Robot("172.16.0.2")
+   with aiofranka.Controller(robot) as controller:  # start() here, stop() at the end
+       home = [0, 0, 0, -1.57079, 0, 1.57079, -0.7853]
+       pose1 = [0, -0.785, 0, -2.356, 0, 1.571, 0.785]
+
+       for pose in [home, pose1, home]:
+           print(f"Moving to: {pose}")
+           controller.move(pose)
+           time.sleep(1.0)
+
+Example 2: Simple Motion with asyncio
+-------------------------------------
+
+Same motion in an asyncio program:
+
+.. code-block:: python
+
    import asyncio
    from aiofranka import RobotInterface, NativeFrankaController
 
    async def simple_motion():
-       robot = RobotInterface("172.16.0.2")
-       controller = NativeFrankaController(robot)
-
+       controller = NativeFrankaController(RobotInterface("172.16.0.2"))
        await controller.start()
-
        try:
            home = [0, 0, 0, -1.57079, 0, 1.57079, -0.7853]
            pose1 = [0, -0.785, 0, -2.356, 0, 1.571, 0.785]
@@ -30,39 +45,10 @@ Move the robot through positions:
                print(f"Moving to: {pose}")
                await controller.move(pose)
                await asyncio.sleep(1.0)
-
        finally:
            await controller.stop()
 
-   if __name__ == "__main__":
-       asyncio.run(simple_motion())
-
-Example 2: Simple Motion (Server Mode)
----------------------------------------
-
-Same motion using the sync API:
-
-.. code-block:: python
-
-   import aiofranka
-   from aiofranka import FrankaRemoteController
-
-   aiofranka.unlock()
-
-   controller = FrankaRemoteController()
-   controller.start()
-
-   # Define waypoints
-   home = [0, 0, 0, -1.57079, 0, 1.57079, -0.7853]
-   pose1 = [0, -0.785, 0, -2.356, 0, 1.571, 0.785]
-
-   # Move through waypoints
-   for pose in [home, pose1, home]:
-       print(f"Moving to: {pose}")
-       controller.move(pose)
-
-   controller.stop()
-   aiofranka.lock()
+   asyncio.run(simple_motion())
 
 Example 3: Impedance Control
 ------------------------------
@@ -71,32 +57,24 @@ Compliant joint-space control with sinusoidal motion:
 
 .. code-block:: python
 
-   import asyncio
    import numpy as np
-   from aiofranka import RobotInterface, NativeFrankaController
+   import aiofranka
 
-   async def main():
-       controller = NativeFrankaController(RobotInterface("172.16.0.2"))
-       await controller.start()
-       try:
-           # Move to start position
-           await controller.move()
+   robot = aiofranka.Robot("172.16.0.2")
+   with aiofranka.Controller(robot) as controller:
+       # Move to start position
+       controller.move()
 
-           # Configure impedance control
-           controller.switch("impedance")
-           controller.kp = np.ones(7) * 80.0
-           controller.kd = np.ones(7) * 4.0
-           controller.set_freq(50)
+       # Configure impedance control
+       controller.switch("impedance")
+       controller.kp = np.ones(7) * 80.0
+       controller.kd = np.ones(7) * 4.0
+       controller.set_freq(50)
 
-           # Execute smooth sinusoidal motion
-           for i in range(200):  # 4 seconds at 50 Hz
-               delta = np.sin(i / 50.0 * np.pi) * 0.1
-               target = controller.initial_qpos + delta
-               await controller.set("q_desired", target)
-       finally:
-           await controller.stop()
-
-   asyncio.run(main())
+       # Execute smooth sinusoidal motion
+       for i in range(200):  # 4 seconds at 50 Hz
+           delta = np.sin(i / 50.0 * np.pi) * 0.1
+           controller.set("q_desired", controller.initial_qpos + delta)
 
 Example 4: Operational Space Control
 --------------------------------------
@@ -105,36 +83,29 @@ Control end-effector position in Cartesian space:
 
 .. code-block:: python
 
-   import asyncio
    import numpy as np
-   from aiofranka import RobotInterface, NativeFrankaController
+   import aiofranka
 
-   async def main():
-       controller = NativeFrankaController(RobotInterface("172.16.0.2"))
-       await controller.start()
-       try:
-           await controller.move()
+   robot = aiofranka.Robot("172.16.0.2")
+   with aiofranka.Controller(robot) as controller:
+       controller.move()
 
-           # Configure OSC
-           controller.switch("osc")
-           controller.ee_kp = np.array([300, 300, 300, 1000, 1000, 1000])
-           controller.ee_kd = np.ones(6) * 10.0
-           controller.set_freq(50)
+       # Configure OSC
+       controller.switch("osc")
+       controller.ee_kp = np.array([300, 300, 300, 1000, 1000, 1000])
+       controller.ee_kd = np.ones(6) * 10.0
+       controller.set_freq(50)
 
-           # Circular motion in XY plane
-           for i in range(200):
-               angle = i / 50.0 * np.pi
-               radius = 0.05
+       # Circular motion in XY plane
+       for i in range(200):
+           angle = i / 50.0 * np.pi
+           radius = 0.05
 
-               desired_ee = controller.initial_ee.copy()
-               desired_ee[0, 3] += radius * np.cos(angle)
-               desired_ee[1, 3] += radius * np.sin(angle)
+           desired_ee = controller.initial_ee.copy()
+           desired_ee[0, 3] += radius * np.cos(angle)
+           desired_ee[1, 3] += radius * np.sin(angle)
 
-               await controller.set("ee_desired", desired_ee)
-       finally:
-           await controller.stop()
-
-   asyncio.run(main())
+           controller.set("ee_desired", desired_ee)
 
 Example 5: Data Collection
 ----------------------------
@@ -143,33 +114,26 @@ Record every 1 kHz cycle during operation, with ``record()`` (see :doc:`native`)
 
 .. code-block:: python
 
-   import asyncio
    import numpy as np
-   from aiofranka import RobotInterface, NativeFrankaController
+   import aiofranka
 
-   async def main():
-       controller = NativeFrankaController(RobotInterface("172.16.0.2"))
-       await controller.start()
-       try:
-           await controller.move()
+   robot = aiofranka.Robot("172.16.0.2")
+   with aiofranka.Controller(robot) as controller:
+       controller.move()
 
-           controller.switch("impedance")
-           controller.kp = np.ones(7) * 80.0
-           controller.kd = np.ones(7) * 4.0
-           controller.set_freq(50)
+       controller.switch("impedance")
+       controller.kp = np.ones(7) * 80.0
+       controller.kd = np.ones(7) * 4.0
+       controller.set_freq(50)
 
-           # The state of each cycle, the target it used and the torque it sent
-           fields = ["time", "q", "dq", "ee", "q_desired", "tau"]
-           with controller.record(fields, path="robot_data.npz") as recording:
-               for i in range(200):
-                   delta = np.sin(i / 50.0 * np.pi) * 0.1
-                   await controller.set("q_desired", delta + controller.initial_qpos)
+       # The state of each cycle, the target it used and the torque it sent
+       fields = ["time", "q", "dq", "ee", "q_desired", "tau"]
+       with controller.record(fields, path="robot_data.npz") as recording:
+           for i in range(200):
+               delta = np.sin(i / 50.0 * np.pi) * 0.1
+               controller.set("q_desired", controller.initial_qpos + delta)
 
-           print(f"Saved {recording.rows} cycles")
-       finally:
-           await controller.stop()
-
-   asyncio.run(main())
+   print(f"Saved {recording.rows} cycles")
 
 Example 6: Gain Tuning
 ------------------------
@@ -178,43 +142,36 @@ Systematically test different controller gains:
 
 .. code-block:: python
 
-   import asyncio
    import os
+   import time
    import numpy as np
-   from aiofranka import RobotInterface, NativeFrankaController
+   import aiofranka
 
-   async def main():
-       controller = NativeFrankaController(RobotInterface("172.16.0.2"))
-       await controller.start()
-       os.makedirs("sysid_data", exist_ok=True)
+   os.makedirs("sysid_data", exist_ok=True)
+   base = np.array([1, 1, 1, 1, 0.6, 0.6, 0.6])
+   kps = [16, 32, 64, 128, 256]
+   kds = [1, 2, 4, 8, 16]
 
-       base = np.array([1, 1, 1, 1, 0.6, 0.6, 0.6])
-       kps = [16, 32, 64, 128, 256]
-       kds = [1, 2, 4, 8, 16]
+   robot = aiofranka.Robot("172.16.0.2")
+   with aiofranka.Controller(robot) as controller:
+       for kp in kps:
+           for kd in kds:
+               # Move to start
+               controller.kp = base * 80
+               controller.kd = base * 4
+               controller.move()
+               time.sleep(1.0)
 
-       try:
-           for kp in kps:
-               for kd in kds:
-                   # Move to start
-                   controller.kp = base * 80
-                   controller.kd = base * 4
-                   await controller.move()
-                   await asyncio.sleep(1.0)
+               print(f"Testing kp={kp}, kd={kd}")
+               controller.switch("impedance")
+               controller.kp = base * kp
+               controller.kd = base * kd
+               controller.set_freq(50)
 
-                   print(f"Testing kp={kp}, kd={kd}")
-                   controller.switch("impedance")
-                   controller.kp = base * kp
-                   controller.kd = base * kd
-                   controller.set_freq(50)
-
-                   with controller.record(["time", "q", "q_desired"], path=f"sysid_data/K{kp}_D{kd}.npz"):
-                       for cnt in range(200):
-                           delta = np.sin(cnt / 50.0 * np.pi) * 0.1
-                           await controller.set("q_desired", delta + controller.initial_qpos)
-       finally:
-           await controller.stop()
-
-   asyncio.run(main())
+               with controller.record(["time", "q", "q_desired"], path=f"sysid_data/K{kp}_D{kd}.npz"):
+                   for cnt in range(200):
+                       delta = np.sin(cnt / 50.0 * np.pi) * 0.1
+                       controller.set("q_desired", controller.initial_qpos + delta)
 
 Example 7: End-Effector Configuration
 ---------------------------------------
@@ -285,25 +242,20 @@ Control a Robotiq gripper alongside the robot arm:
 Example 9: Simulation Testing
 -------------------------------
 
-Test your controller in simulation before deploying to real robot (async mode only):
+Test your controller in simulation before deploying to real robot:
 
 .. code-block:: python
 
-   import asyncio
    import numpy as np
-   from aiofranka import RobotInterface, NativeFrankaController
+   import aiofranka
 
-   async def test_algorithm(robot_ip=None):
-       robot = RobotInterface(robot_ip)
-       controller = NativeFrankaController(robot)
+   def test_algorithm(robot_ip=None):
+       mode = "SIMULATION" if robot_ip is None else "REAL"
+       print(f"Testing in {mode} mode")
 
-       await controller.start()
-
-       try:
-           mode = "SIMULATION" if robot_ip is None else "REAL"
-           print(f"Testing in {mode} mode")
-
-           await controller.move()
+       robot = aiofranka.Robot(robot_ip)
+       with aiofranka.Controller(robot) as controller:
+           controller.move()
 
            controller.switch("impedance")
            controller.kp = np.ones(7) * 80.0
@@ -312,26 +264,22 @@ Test your controller in simulation before deploying to real robot (async mode on
 
            for i in range(100):
                delta = np.sin(i / 50.0 * np.pi) * 0.1
-               target = controller.initial_qpos + delta
-               await controller.set("q_desired", target)
+               controller.set("q_desired", controller.initial_qpos + delta)
 
-           print("Test successful!")
-
-       finally:
-           await controller.stop()
+       print("Test successful!")
 
    if __name__ == "__main__":
-       # First test in simulation
-       asyncio.run(test_algorithm(None))
+       # First test in simulation (on macOS, run with mjpython for MuJoCo's viewer)
+       test_algorithm(None)
 
        # Then deploy to real robot
-       asyncio.run(test_algorithm("172.16.0.2"))
+       test_algorithm("172.16.0.2")
 
 More Examples
 -------------
 
-The ``examples/`` directory in the repository has minimal async mode scripts. Each takes the robot
-IP as an optional argument and runs in MuJoCo without it:
+The ``examples/`` directory in the repository has minimal scripts. Each takes the robot IP as an
+optional argument and runs in MuJoCo without it:
 
 - ``00_move.py``: Move one joint (``--joint``, ``--delta``)
 - ``01_joint_impedance.py``: Hold the current joint positions with joint impedance control
@@ -342,7 +290,7 @@ IP as an optional argument and runs in MuJoCo without it:
 - ``04_collect_joint_sysid.py``: Play steps, multisines and slow ramps with joint impedance at three
   poses, about 1.5 minutes, with a controller configuration (``--activate configs/joint_impedance.yaml``,
   see :ref:`controller-configurations`). It sets the targets at the configuration's policy rate, as a
-  policy would, and records every 1 kHz cycle with ``NativeFrankaController.record()``. What it
+  policy would, and records every 1 kHz cycle with ``Controller.record()``. What it
   shares with ``06`` is in ``sysid.py``.
 - ``05_fit_joint_sysid.py``: Fit kp, kd, damping and friction loss of each joint to the
   configuration's latest recording with CMA-ES, simulating at your physics step (``--activate``,
@@ -364,4 +312,4 @@ Next Steps
 
 - Review :doc:`controllers` for detailed controller documentation
 - Check :doc:`cli` for robot setup commands
-- Explore the :doc:`async_mode` guide if using async mode
+- Explore the :doc:`async_mode` guide if using ``NativeFrankaController`` with asyncio

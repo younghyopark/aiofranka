@@ -6,20 +6,20 @@
   <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Troubleshooting &mdash; aiofranka 0.8.0 documentation</title>
+  <title>Troubleshooting &mdash; aiofranka 0.9.0 documentation</title>
       <link rel="stylesheet" type="text/css" href="_static/pygments.css?v=b86133f3" />
       <link rel="stylesheet" type="text/css" href="_static/css/theme.css?v=9edc463e" />
 
   
       <script src="_static/jquery.js?v=5d32c60e"></script>
       <script src="_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
-      <script src="_static/documentation_options.js?v=486e5634"></script>
+      <script src="_static/documentation_options.js?v=39bb1c6d"></script>
       <script src="_static/doctools.js?v=fd6eb6e6"></script>
       <script src="_static/sphinx_highlight.js?v=6ffebe34"></script>
     <script src="_static/js/theme.js"></script>
     <link rel="index" title="Index" href="genindex.html" />
     <link rel="search" title="Search" href="search.html" />
-    <link rel="next" title="NativeFrankaController" href="api/native.html" />
+    <link rel="next" title="Robot and Controller" href="api/franka.html" />
     <link rel="prev" title="Examples" href="examples.html" /> 
 </head>
 
@@ -85,6 +85,7 @@
 </ul>
 <p class="caption" role="heading"><span class="caption-text">API Reference</span></p>
 <ul>
+<li class="toctree-l1"><a class="reference internal" href="api/franka.html">Robot and Controller</a></li>
 <li class="toctree-l1"><a class="reference internal" href="api/native.html">NativeFrankaController</a></li>
 <li class="toctree-l1"><a class="reference internal" href="api/controller.html">FrankaController</a></li>
 <li class="toctree-l1"><a class="reference internal" href="api/remote.html">FrankaRemoteController (Server Mode)</a></li>
@@ -128,7 +129,8 @@
 <section id="error-robot-is-not-ready">
 <h3>Error: “Robot is not ready”<a class="headerlink" href="#error-robot-is-not-ready" title="Link to this heading"></a></h3>
 <p><strong>Symptoms:</strong></p>
-<p><code class="docutils literal notranslate"><span class="pre">controller.start()</span></code> prints a status summary and exits:</p>
+<p>Connecting with <code class="docutils literal notranslate"><span class="pre">aiofranka.Robot(ip)</span></code> fails, or, in the legacy server mode,
+<code class="docutils literal notranslate"><span class="pre">controller.start()</span></code> prints a status summary and exits:</p>
 <div class="highlight-text notranslate"><div class="highlight"><pre><span></span>Joints ........... locked
 FCI .............. inactive
 
@@ -136,11 +138,11 @@ Robot is not ready. Unlock first:
 </pre></div>
 </div>
 <p><strong>Solution:</strong></p>
-<p>Unlock the robot before starting the controller:</p>
+<p>Unlock the robot before connecting:</p>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span><span class="w"> </span><span class="nn">aiofranka</span>
 
-<span class="n">aiofranka</span><span class="o">.</span><span class="n">unlock</span><span class="p">()</span>        <span class="c1"># unlock joints + activate FCI</span>
-<span class="n">controller</span><span class="o">.</span><span class="n">start</span><span class="p">()</span>        <span class="c1"># now this works</span>
+<span class="n">aiofranka</span><span class="o">.</span><span class="n">unlock</span><span class="p">()</span>                       <span class="c1"># unlock joints + activate FCI</span>
+<span class="n">robot</span> <span class="o">=</span> <span class="n">aiofranka</span><span class="o">.</span><span class="n">Robot</span><span class="p">(</span><span class="s2">&quot;172.16.0.2&quot;</span><span class="p">)</span>    <span class="c1"># now this connects</span>
 </pre></div>
 </div>
 <p>Or from the CLI:</p>
@@ -289,8 +291,7 @@ starved it. The native loop does not wait for Python, so with it the cause is th
 saturated CPU, the network, or a loop thread without real-time priority.</p>
 <p><strong>Solutions:</strong></p>
 <ul class="simple">
-<li><p>Use the native loop: <code class="docutils literal notranslate"><span class="pre">NativeFrankaController</span></code> in your process, or server mode
-(<code class="docutils literal notranslate"><span class="pre">FrankaRemoteController</span></code>), whose server runs it by default</p></li>
+<li><p>Use the native loop: <code class="docutils literal notranslate"><span class="pre">Controller</span></code>, or <code class="docutils literal notranslate"><span class="pre">NativeFrankaController</span></code> in asyncio code</p></li>
 <li><p>With the legacy <code class="docutils literal notranslate"><span class="pre">FrankaController</span></code>, follow the <a class="reference internal" href="async_mode.html"><span class="doc">Async Mode Guide</span></a> guide to avoid blocking the
 event loop</p></li>
 <li><p>With the native loop, use wired Ethernet, keep a core free for the robot NIC’s interrupts, and
@@ -306,7 +307,7 @@ measures the loop (see <a class="reference internal" href="cli.html"><span class
 <li><p>Use a wired Ethernet connection (not WiFi)</p></li>
 <li><p>Reduce system load (close unnecessary programs)</p></li>
 <li><p>Consider a real-time Linux kernel</p></li>
-<li><p>Move heavy computation to a separate process (server mode handles this automatically)</p></li>
+<li><p>Run <code class="docutils literal notranslate"><span class="pre">aiofranka</span> <span class="pre">rt-benchmark</span></code> to measure the loop on this machine</p></li>
 </ul>
 </section>
 </section>
@@ -362,16 +363,16 @@ measures the loop (see <a class="reference internal" href="cli.html"><span class
 <section id="typeerror-coroutine-object-is-not-iterable">
 <h3>TypeError: ‘coroutine’ object is not iterable<a class="headerlink" href="#typeerror-coroutine-object-is-not-iterable" title="Link to this heading"></a></h3>
 <p><strong>Cause:</strong> Forgot to <code class="docutils literal notranslate"><span class="pre">await</span></code> an async function.</p>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="c1"># Wrong (async mode)</span>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="c1"># Wrong (NativeFrankaController)</span>
 <span class="n">controller</span><span class="o">.</span><span class="n">start</span><span class="p">()</span>
 
-<span class="c1"># Correct (async mode)</span>
+<span class="c1"># Correct (NativeFrankaController)</span>
 <span class="k">await</span> <span class="n">controller</span><span class="o">.</span><span class="n">start</span><span class="p">()</span>
 </pre></div>
 </div>
 <div class="admonition note">
 <p class="admonition-title">Note</p>
-<p>This only applies to async mode. In server mode, <code class="docutils literal notranslate"><span class="pre">controller.start()</span></code> is synchronous.</p>
+<p>This only applies to <code class="docutils literal notranslate"><span class="pre">NativeFrankaController</span></code>. <code class="docutils literal notranslate"><span class="pre">Controller</span></code>’s calls are plain.</p>
 </div>
 </section>
 <section id="runtimeerror-this-event-loop-is-already-running">
@@ -393,7 +394,7 @@ measures the loop (see <a class="reference internal" href="cli.html"><span class
 <p>Before asking for help:</p>
 <ol class="arabic simple">
 <li><p>Check this guide — is your issue covered?</p></li>
-<li><p>Test in simulation — does it work with <code class="docutils literal notranslate"><span class="pre">RobotInterface(None)</span></code>?</p></li>
+<li><p>Test in simulation — does it work with <code class="docutils literal notranslate"><span class="pre">aiofranka.Robot(None)</span></code>?</p></li>
 <li><p>Review the examples in <a class="reference internal" href="examples.html"><span class="doc">Examples</span></a></p></li>
 <li><p>Check server logs: <code class="docutils literal notranslate"><span class="pre">aiofranka</span> <span class="pre">log</span> <span class="pre">-n</span> <span class="pre">50</span></code></p></li>
 <li><p>Simplify — does a minimal example reproduce the issue?</p></li>
@@ -404,7 +405,7 @@ measures the loop (see <a class="reference internal" href="cli.html"><span class
 <li><p><strong>Operating system and Python version</strong></p></li>
 <li><p><strong>Minimal code</strong> that reproduces the issue</p></li>
 <li><p><strong>Full error message</strong> from terminal</p></li>
-<li><p><strong>Whether you’re using async mode or server mode</strong>, with the native or the legacy Python loop</p></li>
+<li><p><strong>Which controller you use</strong>: <code class="docutils literal notranslate"><span class="pre">Controller</span></code>, <code class="docutils literal notranslate"><span class="pre">NativeFrankaController</span></code>, or a legacy one</p></li>
 </ol>
 <p>Where to ask:</p>
 <ul class="simple">
@@ -418,7 +419,7 @@ measures the loop (see <a class="reference internal" href="cli.html"><span class
           </div>
           <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
         <a href="examples.html" class="btn btn-neutral float-left" title="Examples" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
-        <a href="api/native.html" class="btn btn-neutral float-right" title="NativeFrankaController" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+        <a href="api/franka.html" class="btn btn-neutral float-right" title="Robot and Controller" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
     </div>
 
   <hr/>

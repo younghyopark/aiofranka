@@ -1,0 +1,531 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="../">
+<head>
+  <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Robot and Controller &mdash; aiofranka 0.9.0 documentation</title>
+      <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=b86133f3" />
+      <link rel="stylesheet" type="text/css" href="../_static/css/theme.css?v=9edc463e" />
+
+  
+      <script src="../_static/jquery.js?v=5d32c60e"></script>
+      <script src="../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="../_static/documentation_options.js?v=39bb1c6d"></script>
+      <script src="../_static/doctools.js?v=fd6eb6e6"></script>
+      <script src="../_static/sphinx_highlight.js?v=6ffebe34"></script>
+    <script src="../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="next" title="NativeFrankaController" href="native.html" />
+    <link rel="prev" title="Troubleshooting" href="../troubleshooting.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../index.html" class="icon icon-home">
+            aiofranka
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">Getting Started</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../installation.html">Installation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../quickstart.html">Quick Start</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../controllers.html">Controllers</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../native.html">Native Control Loop</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../cli.html">CLI Reference</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../async_mode.html">Async Mode Guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../examples.html">Examples</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../troubleshooting.html">Troubleshooting</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">API Reference</span></p>
+<ul class="current">
+<li class="toctree-l1 current"><a class="current reference internal" href="#">Robot and Controller</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="#aiofranka.franka.Robot"><code class="docutils literal notranslate"><span class="pre">Robot</span></code></a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#aiofranka.franka.Robot.__init__"><code class="docutils literal notranslate"><span class="pre">Robot.__init__()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#aiofranka.franka.Robot.ip"><code class="docutils literal notranslate"><span class="pre">Robot.ip</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#aiofranka.franka.Robot.real"><code class="docutils literal notranslate"><span class="pre">Robot.real</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#aiofranka.franka.Robot.model"><code class="docutils literal notranslate"><span class="pre">Robot.model</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#aiofranka.franka.Robot.tool"><code class="docutils literal notranslate"><span class="pre">Robot.tool</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#aiofranka.franka.Robot.load"><code class="docutils literal notranslate"><span class="pre">Robot.load</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#aiofranka.franka.Robot.payload"><code class="docutils literal notranslate"><span class="pre">Robot.payload</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#aiofranka.franka.Robot.controller"><code class="docutils literal notranslate"><span class="pre">Robot.controller</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#aiofranka.franka.Robot.state"><code class="docutils literal notranslate"><span class="pre">Robot.state</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#aiofranka.franka.Robot.robot_state"><code class="docutils literal notranslate"><span class="pre">Robot.robot_state</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#aiofranka.franka.Robot.set_load"><code class="docutils literal notranslate"><span class="pre">Robot.set_load()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#aiofranka.franka.Robot.close"><code class="docutils literal notranslate"><span class="pre">Robot.close()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="#aiofranka.franka.Controller"><code class="docutils literal notranslate"><span class="pre">Controller</span></code></a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#aiofranka.franka.Controller.__init__"><code class="docutils literal notranslate"><span class="pre">Controller.__init__()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#aiofranka.franka.Controller.running"><code class="docutils literal notranslate"><span class="pre">Controller.running</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#aiofranka.franka.Controller.error"><code class="docutils literal notranslate"><span class="pre">Controller.error</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#aiofranka.franka.Controller.start"><code class="docutils literal notranslate"><span class="pre">Controller.start()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#aiofranka.franka.Controller.stop"><code class="docutils literal notranslate"><span class="pre">Controller.stop()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#aiofranka.franka.Controller.switch"><code class="docutils literal notranslate"><span class="pre">Controller.switch()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#aiofranka.franka.Controller.set_freq"><code class="docutils literal notranslate"><span class="pre">Controller.set_freq()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#aiofranka.franka.Controller.set"><code class="docutils literal notranslate"><span class="pre">Controller.set()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#aiofranka.franka.Controller.move"><code class="docutils literal notranslate"><span class="pre">Controller.move()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#aiofranka.franka.Controller.activate"><code class="docutils literal notranslate"><span class="pre">Controller.activate()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#aiofranka.franka.Controller.check_tool"><code class="docutils literal notranslate"><span class="pre">Controller.check_tool()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#aiofranka.franka.Controller.set_tcp"><code class="docutils literal notranslate"><span class="pre">Controller.set_tcp()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#aiofranka.franka.Controller.register_law"><code class="docutils literal notranslate"><span class="pre">Controller.register_law()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#aiofranka.franka.Controller.identify_payload"><code class="docutils literal notranslate"><span class="pre">Controller.identify_payload()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#aiofranka.franka.Controller.record"><code class="docutils literal notranslate"><span class="pre">Controller.record()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#aiofranka.franka.Controller.loop_stats"><code class="docutils literal notranslate"><span class="pre">Controller.loop_stats()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#aiofranka.franka.Controller.step"><code class="docutils literal notranslate"><span class="pre">Controller.step()</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="native.html">NativeFrankaController</a></li>
+<li class="toctree-l1"><a class="reference internal" href="controller.html">FrankaController</a></li>
+<li class="toctree-l1"><a class="reference internal" href="remote.html">FrankaRemoteController (Server Mode)</a></li>
+<li class="toctree-l1"><a class="reference internal" href="robot.html">Robot Interface</a></li>
+<li class="toctree-l1"><a class="reference internal" href="payload.html">Payload Identification and Tools</a></li>
+<li class="toctree-l1"><a class="reference internal" href="config.html">Controller Configurations</a></li>
+<li class="toctree-l1"><a class="reference internal" href="server.html">Server Functions</a></li>
+<li class="toctree-l1"><a class="reference internal" href="gripper.html">GripperController</a></li>
+<li class="toctree-l1"><a class="reference internal" href="utilities.html">Async Utilities</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../index.html">aiofranka</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../index.html" class="icon icon-home" aria-label="Home"></a></li>
+      <li class="breadcrumb-item active">Robot and Controller</li>
+      <li class="wy-breadcrumbs-aside">
+            <a href="../_sources/api/franka.rst.txt" rel="nofollow"> View page source</a>
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <section id="robot-and-controller">
+<h1>Robot and Controller<a class="headerlink" href="#robot-and-controller" title="Link to this heading"></a></h1>
+<p><code class="docutils literal notranslate"><span class="pre">Robot</span></code> is the arm, and <code class="docutils literal notranslate"><span class="pre">Controller</span></code> drives it with the native 1 kHz loop. The controller’s
+modes, gains, targets, control laws and recordings are those of <code class="docutils literal notranslate"><span class="pre">NativeFrankaController</span></code>
+(see <a class="reference internal" href="native.html"><span class="doc">NativeFrankaController</span></a> and <a class="reference internal" href="controller.html"><span class="doc">FrankaController</span></a>), with plain calls instead of awaitable ones.</p>
+<p id="module-aiofranka.franka">aiofranka’s API: a Robot, the arm, and a Controller that drives it.</p>
+<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="kn">import</span><span class="w"> </span><span class="nn">aiofranka</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">robot</span> <span class="o">=</span> <span class="n">aiofranka</span><span class="o">.</span><span class="n">Robot</span><span class="p">(</span><span class="s2">&quot;172.16.0.2&quot;</span><span class="p">)</span>      <span class="c1"># None: a simulated arm in MuJoCo</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">controller</span> <span class="o">=</span> <span class="n">aiofranka</span><span class="o">.</span><span class="n">Controller</span><span class="p">(</span><span class="n">robot</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">controller</span><span class="o">.</span><span class="n">start</span><span class="p">()</span>                          <span class="c1"># takes torque control, starts the 1 kHz loop</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">controller</span><span class="o">.</span><span class="n">move</span><span class="p">()</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">controller</span><span class="o">.</span><span class="n">switch</span><span class="p">(</span><span class="s2">&quot;osc&quot;</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">controller</span><span class="o">.</span><span class="n">set_freq</span><span class="p">(</span><span class="mi">50</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">controller</span><span class="o">.</span><span class="n">set</span><span class="p">(</span><span class="s2">&quot;ee_desired&quot;</span><span class="p">,</span> <span class="n">target</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">robot</span><span class="o">.</span><span class="n">state</span><span class="p">[</span><span class="s2">&quot;ee&quot;</span><span class="p">]</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">controller</span><span class="o">.</span><span class="n">stop</span><span class="p">()</span>
+</pre></div>
+</div>
+<p>Robot is what is true about the arm whoever drives it: its connection, its MuJoCo model with
+the tool, and its state. Controller is how it is driven: the 1 kHz loop, which runs in C++ and
+never waits for Python, and the modes, gains, targets, trajectories and recordings it runs.</p>
+<p>Controller’s methods are plain calls. It runs its event loop in a thread of its own, so your
+code can block, sleep or compute while the loop holds the arm and move() plays its trajectory.
+For asyncio code, NativeFrankaController is the same controller with awaitable methods, on a
+RobotInterface.</p>
+<dl class="py class">
+<dt class="sig sig-object py" id="aiofranka.franka.Robot">
+<span class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></span><span class="sig-prename descclassname"><span class="pre">aiofranka.franka.</span></span><span class="sig-name descname"><span class="pre">Robot</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">ip</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="keyword-only-separator o"><abbr title="Keyword-only parameters separator (PEP 3102)"><span class="pre">*</span></abbr></span></em>, <em class="sig-param"><span class="n"><span class="pre">read_tool</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/aiofranka/franka.html#Robot"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#aiofranka.franka.Robot" title="Link to this definition"></a></dt>
+<dd><p>A Franka arm: its connection, its MuJoCo model with the tool, and its state.</p>
+<p>Connecting reads the arm, which needs FCI active (aiofranka.unlock()), and Desk’s active
+end-effector profile, which is merged into the model. Nothing moves until a Controller
+starts; one Controller at a time drives the arm.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>ip</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a><em> | </em><em>None</em>) – The robot’s IP address, or None for a simulated arm in MuJoCo,
+shown in a viewer</p></li>
+<li><p><strong>read_tool</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/functions.html#bool" title="(in Python v3.14)"><em>bool</em></a>) – Read Desk’s active end-effector profile (robot.tool), which
+Controller.activate() checks configurations against</p></li>
+</ul>
+</dd>
+</dl>
+<p class="rubric">Example</p>
+<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">robot</span> <span class="o">=</span> <span class="n">aiofranka</span><span class="o">.</span><span class="n">Robot</span><span class="p">(</span><span class="s2">&quot;172.16.0.2&quot;</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">robot</span><span class="o">.</span><span class="n">state</span><span class="p">[</span><span class="s2">&quot;qpos&quot;</span><span class="p">]</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">robot</span><span class="o">.</span><span class="n">tool</span>
+</pre></div>
+</div>
+<dl class="py method">
+<dt class="sig sig-object py" id="aiofranka.franka.Robot.__init__">
+<span class="sig-name descname"><span class="pre">__init__</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">ip</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="keyword-only-separator o"><abbr title="Keyword-only parameters separator (PEP 3102)"><span class="pre">*</span></abbr></span></em>, <em class="sig-param"><span class="n"><span class="pre">read_tool</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/aiofranka/franka.html#Robot.__init__"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#aiofranka.franka.Robot.__init__" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="aiofranka.franka.Robot.ip">
+<span class="property"><span class="k"><span class="pre">property</span></span><span class="w"> </span></span><span class="sig-name descname"><span class="pre">ip</span></span><a class="headerlink" href="#aiofranka.franka.Robot.ip" title="Link to this definition"></a></dt>
+<dd><p>The robot’s IP address, or None in simulation.</p>
+</dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="aiofranka.franka.Robot.real">
+<span class="property"><span class="k"><span class="pre">property</span></span><span class="w"> </span></span><span class="sig-name descname"><span class="pre">real</span></span><a class="headerlink" href="#aiofranka.franka.Robot.real" title="Link to this definition"></a></dt>
+<dd><p>Whether the arm is real; False in simulation.</p>
+</dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="aiofranka.franka.Robot.model">
+<span class="property"><span class="k"><span class="pre">property</span></span><span class="w"> </span></span><span class="sig-name descname"><span class="pre">model</span></span><a class="headerlink" href="#aiofranka.franka.Robot.model" title="Link to this definition"></a></dt>
+<dd><p>The arm’s MuJoCo model, with the tool merged into its last link.</p>
+</dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="aiofranka.franka.Robot.tool">
+<span class="property"><span class="k"><span class="pre">property</span></span><span class="w"> </span></span><span class="sig-name descname"><span class="pre">tool</span></span><a class="headerlink" href="#aiofranka.franka.Robot.tool" title="Link to this definition"></a></dt>
+<dd><p>Desk’s active end-effector profile when connecting (an aiofranka.Tool), or None.</p>
+</dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="aiofranka.franka.Robot.load">
+<span class="property"><span class="k"><span class="pre">property</span></span><span class="w"> </span></span><span class="sig-name descname"><span class="pre">load</span></span><a class="headerlink" href="#aiofranka.franka.Robot.load" title="Link to this definition"></a></dt>
+<dd><p>mass [kg], com [m] and inertia [kg m^2].</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>The load set with set_load()</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="aiofranka.franka.Robot.payload">
+<span class="property"><span class="k"><span class="pre">property</span></span><span class="w"> </span></span><span class="sig-name descname"><span class="pre">payload</span></span><a class="headerlink" href="#aiofranka.franka.Robot.payload" title="Link to this definition"></a></dt>
+<dd><p>Desk’s end-effector
+profile and the load of set_load() (in simulation, the load). Its mass [kg], com in the
+flange frame [m] and inertia about the com [kg m^2].</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>The payload the robot compensates, which the model includes</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="aiofranka.franka.Robot.controller">
+<span class="property"><span class="k"><span class="pre">property</span></span><span class="w"> </span></span><span class="sig-name descname"><span class="pre">controller</span></span><a class="headerlink" href="#aiofranka.franka.Robot.controller" title="Link to this definition"></a></dt>
+<dd><p>The Controller that drives the arm, or None.</p>
+</dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="aiofranka.franka.Robot.state">
+<span class="property"><span class="k"><span class="pre">property</span></span><span class="w"> </span></span><span class="sig-name descname"><span class="pre">state</span></span><a class="headerlink" href="#aiofranka.franka.Robot.state" title="Link to this definition"></a></dt>
+<dd><p>The arm’s latest state, a dict of numpy arrays:</p>
+<ul class="simple">
+<li><p>qpos, qvel: joint positions [rad] and velocities [rad/s] (7,)</p></li>
+<li><p>ee: the flange pose in the base frame (4, 4)</p></li>
+<li><p>jac: the flange’s Jacobian, linear rows first (6, 7)</p></li>
+<li><p>mm: the joint-space mass matrix (7, 7)</p></li>
+<li><p>last_torque: the torque the robot was last commanded [Nm] (7,)</p></li>
+</ul>
+<p>While a controller drives the arm, it is what the 1 kHz loop read at its last cycle;
+otherwise the arm is read now.</p>
+</dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="aiofranka.franka.Robot.robot_state">
+<span class="property"><span class="k"><span class="pre">property</span></span><span class="w"> </span></span><span class="sig-name descname"><span class="pre">robot_state</span></span><a class="headerlink" href="#aiofranka.franka.Robot.robot_state" title="Link to this definition"></a></dt>
+<dd><p>The libfranka state the arm sent last (pylibfranka.RobotState), with every number it
+reports: tau_J, O_F_ext_hat_K, control_command_success_rate, … None in simulation.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="aiofranka.franka.Robot.set_load">
+<span class="sig-name descname"><span class="pre">set_load</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">mass</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">com</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">(0.0,</span> <span class="pre">0.0,</span> <span class="pre">0.0)</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">inertia</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">(0.0,</span> <span class="pre">0.0,</span> <span class="pre">0.0)</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/aiofranka/franka.html#Robot.set_load"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#aiofranka.franka.Robot.set_load" title="Link to this definition"></a></dt>
+<dd><p>Set a load on the flange for this connection, e.g. a tool without a Desk profile: the
+robot compensates its gravity, and the model includes it. To keep a tool across
+connections, save it as a profile with aiofranka.save_tool() instead.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>mass</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/functions.html#float" title="(in Python v3.14)"><em>float</em></a>) – Load mass [kg]; 0 removes the load</p></li>
+<li><p><strong>com</strong> (<em>array-like</em>) – Center of mass in the flange frame [m] (3,)</p></li>
+<li><p><strong>inertia</strong> (<em>array-like</em>) – Inertia about the center of mass in the flange frame
+[kg m^2], (3, 3) or its diagonal (3,)</p></li>
+</ul>
+</dd>
+<dt class="field-even">Raises<span class="colon">:</span></dt>
+<dd class="field-even"><p><a class="reference external" href="https://docs.python.org/3/builtins/exceptions.html#RuntimeError" title="(in Python v3.14)"><strong>RuntimeError</strong></a> – If a controller drives the arm, as the robot rejects a load then</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="aiofranka.franka.Robot.close">
+<span class="sig-name descname"><span class="pre">close</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../_modules/aiofranka/franka.html#Robot.close"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#aiofranka.franka.Robot.close" title="Link to this definition"></a></dt>
+<dd><p>Stop the controller that drives the arm, if any, and disconnect.</p>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="aiofranka.franka.Controller">
+<span class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></span><span class="sig-prename descclassname"><span class="pre">aiofranka.franka.</span></span><span class="sig-name descname"><span class="pre">Controller</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">robot</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/aiofranka/franka.html#Controller"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#aiofranka.franka.Controller" title="Link to this definition"></a></dt>
+<dd><p>Drives a Robot with the native 1 kHz control loop.</p>
+<p>The loop runs in C++, in a thread that never waits for Python. The control modes
+(impedance, pid, osc, torque and control laws), gains, targets and recordings are those
+of NativeFrankaController, whose documentation has the details; here they are plain
+calls. The controller runs its event loop in a thread of its own, so your code can block,
+sleep or compute while the loop holds the arm. A loop error, e.g. a reflex, stops the loop
+and is raised by the next call that commands the arm.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>robot</strong> (<a class="reference internal" href="#aiofranka.franka.Robot" title="aiofranka.franka.Robot"><em>Robot</em></a>) – The arm to drive</p>
+</dd>
+</dl>
+<dl class="py attribute">
+<dt class="sig sig-object py">
+<span class="sig-name descname"><span class="pre">kp,</span> <span class="pre">kd,</span> <span class="pre">ki,</span> <span class="pre">ee_kp,</span> <span class="pre">ee_kd,</span> <span class="pre">null_kp,</span> <span class="pre">null_kd</span></span></dt>
+<dd><p>Gains, as in NativeFrankaController</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py">
+<span class="sig-name descname"><span class="pre">q_desired,</span> <span class="pre">ee_desired,</span> <span class="pre">torque</span></span></dt>
+<dd><p>Targets of the modes; set them with set() to hold a rate</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py">
+<span class="sig-name descname"><span class="pre">initial_qpos,</span> <span class="pre">initial_ee</span></span></dt>
+<dd><p>The arm’s pose at the last switch()</p>
+</dd></dl>
+
+<p class="rubric">Example</p>
+<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">robot</span> <span class="o">=</span> <span class="n">aiofranka</span><span class="o">.</span><span class="n">Robot</span><span class="p">(</span><span class="s2">&quot;172.16.0.2&quot;</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">controller</span> <span class="o">=</span> <span class="n">aiofranka</span><span class="o">.</span><span class="n">Controller</span><span class="p">(</span><span class="n">robot</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">controller</span><span class="o">.</span><span class="n">start</span><span class="p">()</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">controller</span><span class="o">.</span><span class="n">move</span><span class="p">()</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">controller</span><span class="o">.</span><span class="n">switch</span><span class="p">(</span><span class="s2">&quot;impedance&quot;</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">controller</span><span class="o">.</span><span class="n">set_freq</span><span class="p">(</span><span class="mi">50</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="k">for</span> <span class="n">target</span> <span class="ow">in</span> <span class="n">targets</span><span class="p">:</span>
+<span class="gp">... </span>    <span class="n">controller</span><span class="o">.</span><span class="n">set</span><span class="p">(</span><span class="s2">&quot;q_desired&quot;</span><span class="p">,</span> <span class="n">target</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">controller</span><span class="o">.</span><span class="n">stop</span><span class="p">()</span>
+</pre></div>
+</div>
+<dl class="py method">
+<dt class="sig sig-object py" id="aiofranka.franka.Controller.__init__">
+<span class="sig-name descname"><span class="pre">__init__</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">robot</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/aiofranka/franka.html#Controller.__init__"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#aiofranka.franka.Controller.__init__" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="aiofranka.franka.Controller.running">
+<span class="property"><span class="k"><span class="pre">property</span></span><span class="w"> </span></span><span class="sig-name descname"><span class="pre">running</span></span><a class="headerlink" href="#aiofranka.franka.Controller.running" title="Link to this definition"></a></dt>
+<dd><p>Whether the 1 kHz loop runs.</p>
+</dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="aiofranka.franka.Controller.error">
+<span class="property"><span class="k"><span class="pre">property</span></span><span class="w"> </span></span><span class="sig-name descname"><span class="pre">error</span></span><a class="headerlink" href="#aiofranka.franka.Controller.error" title="Link to this definition"></a></dt>
+<dd><p>The error that stopped the loop, e.g. a reflex, or None; start() clears it.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="aiofranka.franka.Controller.start">
+<span class="sig-name descname"><span class="pre">start</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../_modules/aiofranka/franka.html#Controller.start"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#aiofranka.franka.Controller.start" title="Link to this definition"></a></dt>
+<dd><p>Take the arm’s torque control and start the 1 kHz loop, holding the arm where it is.
+Returns once the loop runs.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Raises<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/builtins/exceptions.html#RuntimeError" title="(in Python v3.14)"><strong>RuntimeError</strong></a> – If another controller drives the robot</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="aiofranka.franka.Controller.stop">
+<span class="sig-name descname"><span class="pre">stop</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../_modules/aiofranka/franka.html#Controller.stop"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#aiofranka.franka.Controller.stop" title="Link to this definition"></a></dt>
+<dd><p>Stop the 1 kHz loop and give the arm’s torque control back. Does nothing if stopped.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="aiofranka.franka.Controller.switch">
+<span class="sig-name descname"><span class="pre">switch</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">controller_type</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/aiofranka/franka.html#Controller.switch"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#aiofranka.franka.Controller.switch" title="Link to this definition"></a></dt>
+<dd><p>Switch the control mode: “impedance”, “pid”, “osc”, “torque”, or a control law (see
+aiofranka.control_law). The targets move to the arm’s current pose.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="aiofranka.franka.Controller.set_freq">
+<span class="sig-name descname"><span class="pre">set_freq</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">freq</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/aiofranka/franka.html#Controller.set_freq"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#aiofranka.franka.Controller.set_freq" title="Link to this definition"></a></dt>
+<dd><p>Set the rate that set() holds [Hz], e.g. a policy’s.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="aiofranka.franka.Controller.set">
+<span class="sig-name descname"><span class="pre">set</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">attr</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">value</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/aiofranka/franka.html#Controller.set"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#aiofranka.franka.Controller.set" title="Link to this definition"></a></dt>
+<dd><p>Set a target (“q_desired”, “ee_desired” or “torque”) or another attribute, then sleep
+to hold the rate of set_freq(), as a policy sends its actions: each call returns one
+period after the last one’s target time, whatever the caller did in between.</p>
+<p>The controller’s event loop sets it, as NativeFrankaController.set() does: it wakes up
+every millisecond, which keeps the period to about a cycle, where a sleep of the
+caller’s could wake up milliseconds late.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>attr</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a>) – Attribute to set</p></li>
+<li><p><strong>value</strong> – Its value, e.g. joint positions [rad] (7,) or a pose (4, 4)</p></li>
+</ul>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="aiofranka.franka.Controller.move">
+<span class="sig-name descname"><span class="pre">move</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">qpos</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">[0.0,</span> <span class="pre">0.0,</span> <span class="pre">0.0,</span> <span class="pre">-1.57079,</span> <span class="pre">0.0,</span> <span class="pre">1.57079,</span> <span class="pre">-0.7853]</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/aiofranka/franka.html#Controller.move"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#aiofranka.franka.Controller.move" title="Link to this definition"></a></dt>
+<dd><p>Move to joint positions on a smooth, time-optimal trajectory, and hold them. Returns
+once every joint is within arrival_tolerance of them. Ctrl+C stops the motion, with
+the arm holding its last target.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>qpos</strong> (<em>array-like</em>) – Joint positions [rad] (7,), by default the home pose</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="aiofranka.franka.Controller.activate">
+<span class="sig-name descname"><span class="pre">activate</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">config</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">check_tool</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">check_null_target</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/aiofranka/franka.html#Controller.activate"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#aiofranka.franka.Controller.activate" title="Link to this definition"></a></dt>
+<dd><p>Apply a controller configuration, a YAML file or a dict: its mode, gains, TCP and
+policy rate (see NativeFrankaController.activate()).</p>
+<dl class="field-list simple">
+<dt class="field-odd">Returns<span class="colon">:</span></dt>
+<dd class="field-odd"><p>The configuration</p>
+</dd>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p><a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#dict" title="(in Python v3.14)">dict</a></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="aiofranka.franka.Controller.check_tool">
+<span class="sig-name descname"><span class="pre">check_tool</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">config</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/aiofranka/franka.html#Controller.check_tool"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#aiofranka.franka.Controller.check_tool" title="Link to this definition"></a></dt>
+<dd><p>Check that the tool a configuration needs is Desk’s active end-effector profile, as
+activate() does.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Raises<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/builtins/exceptions.html#RuntimeError" title="(in Python v3.14)"><strong>RuntimeError</strong></a> – If another tool is active, or Desk could not be read</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="aiofranka.franka.Controller.set_tcp">
+<span class="sig-name descname"><span class="pre">set_tcp</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">transform</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/aiofranka/franka.html#Controller.set_tcp"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#aiofranka.franka.Controller.set_tcp" title="Link to this definition"></a></dt>
+<dd><p>Set the point the OSC controls: a translation [m] (3,) or a pose (4, 4) in the flange frame.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="aiofranka.franka.Controller.register_law">
+<span class="sig-name descname"><span class="pre">register_law</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">law</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/aiofranka/franka.html#Controller.register_law"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#aiofranka.franka.Controller.register_law" title="Link to this definition"></a></dt>
+<dd><p>Compile a control law (aiofranka.control_law) and make it a controller type; returns its name.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="aiofranka.franka.Controller.identify_payload">
+<span class="sig-name descname"><span class="pre">identify_payload</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">tool_length</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0.2</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">tool_radius</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0.1</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">floor</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0.0</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/aiofranka/franka.html#Controller.identify_payload"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#aiofranka.franka.Controller.identify_payload" title="Link to this definition"></a></dt>
+<dd><p>Identify the mass and center of mass of the tool on the flange: moves the arm through
+poses around the current one, about 3 minutes (see aiofranka.payload.identify_payload()).
+A controller that is not running is started for it and stopped after. It only
+measures: save the result with aiofranka.save_tool().</p>
+<dl class="field-list simple">
+<dt class="field-odd">Returns<span class="colon">:</span></dt>
+<dd class="field-odd"><p>The estimated tool, with standard errors</p>
+</dd>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p><a class="reference internal" href="payload.html#aiofranka.payload.PayloadEstimate" title="aiofranka.payload.PayloadEstimate">PayloadEstimate</a></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="aiofranka.franka.Controller.record">
+<span class="sig-name descname"><span class="pre">record</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">fields</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">seconds</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">60.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">path</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/aiofranka/franka.html#Controller.record"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#aiofranka.franka.Controller.record" title="Link to this definition"></a></dt>
+<dd><p>Record every cycle of the loop, from its next one on (see NativeFrankaController.record()).</p>
+<dl class="field-list simple">
+<dt class="field-odd">Returns<span class="colon">:</span></dt>
+<dd class="field-odd"><p>The rows; stop() it, or use it in a with block</p>
+</dd>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p><a class="reference internal" href="native.html#aiofranka.native.Recording" title="aiofranka.native.Recording">Recording</a></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="aiofranka.franka.Controller.loop_stats">
+<span class="sig-name descname"><span class="pre">loop_stats</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">reset</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/aiofranka/franka.html#Controller.loop_stats"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#aiofranka.franka.Controller.loop_stats" title="Link to this definition"></a></dt>
+<dd><p>Timing of the loop since start, or since the last call with reset (NativeFrankaController.loop_stats()).</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="aiofranka.franka.Controller.step">
+<span class="sig-name descname"><span class="pre">step</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../_modules/aiofranka/franka.html#Controller.step"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#aiofranka.franka.Controller.step" title="Link to this definition"></a></dt>
+<dd><p>Run one cycle by hand while the loop is not running, e.g. to try a law in simulation.</p>
+</dd></dl>
+
+</dd></dl>
+
+</section>
+
+
+           </div>
+          </div>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="../troubleshooting.html" class="btn btn-neutral float-left" title="Troubleshooting" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="native.html" class="btn btn-neutral float-right" title="NativeFrankaController" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2025, MIT Improbable AI Lab.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

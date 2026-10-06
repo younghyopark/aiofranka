@@ -6,14 +6,14 @@
   <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>CLI Reference &mdash; aiofranka 0.8.0 documentation</title>
+  <title>CLI Reference &mdash; aiofranka 0.9.0 documentation</title>
       <link rel="stylesheet" type="text/css" href="_static/pygments.css?v=b86133f3" />
       <link rel="stylesheet" type="text/css" href="_static/css/theme.css?v=9edc463e" />
 
   
       <script src="_static/jquery.js?v=5d32c60e"></script>
       <script src="_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
-      <script src="_static/documentation_options.js?v=486e5634"></script>
+      <script src="_static/documentation_options.js?v=39bb1c6d"></script>
       <script src="_static/doctools.js?v=fd6eb6e6"></script>
       <script src="_static/sphinx_highlight.js?v=6ffebe34"></script>
     <script src="_static/js/theme.js"></script>
@@ -70,6 +70,7 @@
 </ul>
 <p class="caption" role="heading"><span class="caption-text">API Reference</span></p>
 <ul>
+<li class="toctree-l1"><a class="reference internal" href="api/franka.html">Robot and Controller</a></li>
 <li class="toctree-l1"><a class="reference internal" href="api/native.html">NativeFrankaController</a></li>
 <li class="toctree-l1"><a class="reference internal" href="api/controller.html">FrankaController</a></li>
 <li class="toctree-l1"><a class="reference internal" href="api/remote.html">FrankaRemoteController (Server Mode)</a></li>
@@ -169,8 +170,8 @@ self-test status, end-effector configuration) and server status if running.</p>
 </section>
 <section id="start-server">
 <h2>start-server<a class="headerlink" href="#start-server" title="Link to this heading"></a></h2>
-<p>Runs the control server in the background for clients such as <code class="docutils literal notranslate"><span class="pre">FrankaRemoteController</span></code>
-(<code class="docutils literal notranslate"><span class="pre">--foreground</span></code> keeps it in the terminal). It unlocks the robot (<code class="docutils literal notranslate"><span class="pre">--no-unlock</span></code> skips that),
+<p>Runs the control server of the legacy server mode in the background (<code class="docutils literal notranslate"><span class="pre">--foreground</span></code> keeps
+it in the terminal). It unlocks the robot (<code class="docutils literal notranslate"><span class="pre">--no-unlock</span></code> skips that),
 moves it home (<code class="docutils literal notranslate"><span class="pre">--no-home</span></code> skips that) and runs the 1 kHz loop in C++
 (<code class="docutils literal notranslate"><span class="pre">NativeServerController</span></code>). <code class="docutils literal notranslate"><span class="pre">--python</span></code> runs the legacy Python loop instead.</p>
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>aiofranka<span class="w"> </span>start-server<span class="w">              </span><span class="c1"># the native loop</span>
