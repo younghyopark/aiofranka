@@ -1,0 +1,320 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="../">
+<head>
+  <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Async Utilities &mdash; aiofranka 0.9.0 documentation</title>
+      <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=b86133f3" />
+      <link rel="stylesheet" type="text/css" href="../_static/css/theme.css?v=9edc463e" />
+
+  
+      <script src="../_static/jquery.js?v=5d32c60e"></script>
+      <script src="../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="../_static/documentation_options.js?v=39bb1c6d"></script>
+      <script src="../_static/doctools.js?v=fd6eb6e6"></script>
+      <script src="../_static/sphinx_highlight.js?v=6ffebe34"></script>
+    <script src="../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="prev" title="GripperController" href="gripper.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../index.html" class="icon icon-home">
+            aiofranka
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">Getting Started</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../installation.html">Installation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../quickstart.html">Quick Start</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../controllers.html">Controllers</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../native.html">Native Control Loop</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../cli.html">CLI Reference</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../async_mode.html">Async Mode Guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../examples.html">Examples</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../troubleshooting.html">Troubleshooting</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">API Reference</span></p>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="franka.html">Robot and Controller</a></li>
+<li class="toctree-l1"><a class="reference internal" href="native.html">NativeFrankaController</a></li>
+<li class="toctree-l1"><a class="reference internal" href="controller.html">FrankaController</a></li>
+<li class="toctree-l1"><a class="reference internal" href="remote.html">FrankaRemoteController (Server Mode)</a></li>
+<li class="toctree-l1"><a class="reference internal" href="robot.html">Robot Interface</a></li>
+<li class="toctree-l1"><a class="reference internal" href="payload.html">Payload Identification and Tools</a></li>
+<li class="toctree-l1"><a class="reference internal" href="config.html">Controller Configurations</a></li>
+<li class="toctree-l1"><a class="reference internal" href="server.html">Server Functions</a></li>
+<li class="toctree-l1"><a class="reference internal" href="gripper.html">GripperController</a></li>
+<li class="toctree-l1 current"><a class="current reference internal" href="#">Async Utilities</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="#aiofranka.async_utils.asyncify"><code class="docutils literal notranslate"><span class="pre">asyncify()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="#aiofranka.async_utils.CudaInferenceThread"><code class="docutils literal notranslate"><span class="pre">CudaInferenceThread</span></code></a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#aiofranka.async_utils.CudaInferenceThread.__init__"><code class="docutils literal notranslate"><span class="pre">CudaInferenceThread.__init__()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#aiofranka.async_utils.CudaInferenceThread.start"><code class="docutils literal notranslate"><span class="pre">CudaInferenceThread.start()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#aiofranka.async_utils.CudaInferenceThread.stop"><code class="docutils literal notranslate"><span class="pre">CudaInferenceThread.stop()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#aiofranka.async_utils.CudaInferenceThread.run"><code class="docutils literal notranslate"><span class="pre">CudaInferenceThread.run()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#aiofranka.async_utils.CudaInferenceThread.wrap"><code class="docutils literal notranslate"><span class="pre">CudaInferenceThread.wrap()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="#aiofranka.async_utils.ProcessProxy"><code class="docutils literal notranslate"><span class="pre">ProcessProxy</span></code></a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#aiofranka.async_utils.ProcessProxy.__init__"><code class="docutils literal notranslate"><span class="pre">ProcessProxy.__init__()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#aiofranka.async_utils.ProcessProxy.stop"><code class="docutils literal notranslate"><span class="pre">ProcessProxy.stop()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="#aiofranka.async_utils.mpify"><code class="docutils literal notranslate"><span class="pre">mpify()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="#aiofranka.async_utils.async_input"><code class="docutils literal notranslate"><span class="pre">async_input()</span></code></a></li>
+</ul>
+</li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../index.html">aiofranka</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../index.html" class="icon icon-home" aria-label="Home"></a></li>
+      <li class="breadcrumb-item active">Async Utilities</li>
+      <li class="wy-breadcrumbs-aside">
+            <a href="../_sources/api/utilities.rst.txt" rel="nofollow"> View page source</a>
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <section id="async-utilities">
+<h1>Async Utilities<a class="headerlink" href="#async-utilities" title="Link to this heading"></a></h1>
+<p>Utilities for running blocking functions without starving the 1kHz control loop.
+See <a class="reference internal" href="../async_mode.html"><span class="doc">Async Mode Guide</span></a> for usage guidance.</p>
+<p id="module-aiofranka.async_utils">Utilities for running blocking functions without starving the 1kHz control loop.</p>
+<p>After controller.start(), the asyncio event loop must not be blocked for more
+than ~1ms.  These helpers offload synchronous work to a thread executor so the
+real-time loop keeps running.</p>
+<p>Usage:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">aiofranka</span><span class="w"> </span><span class="kn">import</span> <span class="n">asyncify</span>
+
+<span class="c1"># Decorator</span>
+<span class="k">class</span><span class="w"> </span><span class="nc">MyPolicy</span><span class="p">:</span>
+    <span class="nd">@asyncify</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">get_action</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">obs</span><span class="p">):</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">model</span><span class="p">(</span><span class="n">obs</span><span class="p">)</span>
+
+<span class="n">action</span> <span class="o">=</span> <span class="k">await</span> <span class="n">policy</span><span class="o">.</span><span class="n">get_action</span><span class="p">(</span><span class="n">obs</span><span class="p">)</span>
+
+<span class="c1"># Wrap an existing function</span>
+<span class="n">model_async</span> <span class="o">=</span> <span class="n">asyncify</span><span class="p">(</span><span class="n">model</span><span class="p">)</span>
+<span class="n">result</span> <span class="o">=</span> <span class="k">await</span> <span class="n">model_async</span><span class="p">(</span><span class="n">input_tensor</span><span class="p">)</span>
+
+<span class="c1"># Original sync function is accessible via .sync</span>
+<span class="n">result</span> <span class="o">=</span> <span class="n">policy</span><span class="o">.</span><span class="n">get_action</span><span class="o">.</span><span class="n">sync</span><span class="p">(</span><span class="n">obs</span><span class="p">)</span>
+</pre></div>
+</div>
+<dl class="py function">
+<dt class="sig sig-object py" id="aiofranka.async_utils.asyncify">
+<span class="sig-prename descclassname"><span class="pre">aiofranka.async_utils.</span></span><span class="sig-name descname"><span class="pre">asyncify</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">fn</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/aiofranka/async_utils.html#asyncify"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#aiofranka.async_utils.asyncify" title="Link to this definition"></a></dt>
+<dd><p>Wrap a blocking function so it runs in a thread executor when awaited.</p>
+<p>Works as a decorator or as a wrapper for existing functions:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="nd">@asyncify</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">heavy_compute</span><span class="p">(</span><span class="n">x</span><span class="p">):</span>
+    <span class="k">return</span> <span class="n">x</span> <span class="o">**</span> <span class="mi">2</span>
+
+<span class="n">result</span> <span class="o">=</span> <span class="k">await</span> <span class="n">heavy_compute</span><span class="p">(</span><span class="mi">42</span><span class="p">)</span>
+<span class="n">result</span> <span class="o">=</span> <span class="n">heavy_compute</span><span class="o">.</span><span class="n">sync</span><span class="p">(</span><span class="mi">42</span><span class="p">)</span>  <span class="c1"># original sync version</span>
+</pre></div>
+</div>
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="aiofranka.async_utils.CudaInferenceThread">
+<span class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></span><span class="sig-prename descclassname"><span class="pre">aiofranka.async_utils.</span></span><span class="sig-name descname"><span class="pre">CudaInferenceThread</span></span><a class="reference internal" href="../_modules/aiofranka/async_utils.html#CudaInferenceThread"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#aiofranka.async_utils.CudaInferenceThread" title="Link to this definition"></a></dt>
+<dd><p>Bases: <a class="reference external" href="https://docs.python.org/3/builtins/functions.html#object" title="(in Python v3.14)"><code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></a></p>
+<p>A persistent thread for CUDA inference that avoids run_in_executor overhead.</p>
+<p>run_in_executor dispatches to a thread pool, which causes ~40x slowdown for
+CUDA ops due to thread-pool dispatch and CUDA cross-thread synchronization.
+This class keeps a single dedicated thread alive with an initialized CUDA
+context, so the per-call cost is just a queue round-trip (~microseconds).</p>
+<p>Usage:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">infer</span> <span class="o">=</span> <span class="n">CudaInferenceThread</span><span class="p">()</span>
+<span class="n">infer</span><span class="o">.</span><span class="n">start</span><span class="p">()</span>
+
+<span class="c1"># wrap any callable</span>
+<span class="n">action</span> <span class="o">=</span> <span class="k">await</span> <span class="n">infer</span><span class="o">.</span><span class="n">run</span><span class="p">(</span><span class="n">policy</span><span class="o">.</span><span class="n">get_action</span><span class="p">,</span> <span class="n">obs</span><span class="p">)</span>
+
+<span class="c1"># or use as a decorator</span>
+<span class="nd">@infer</span><span class="o">.</span><span class="n">wrap</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">get_action</span><span class="p">(</span><span class="n">obs</span><span class="p">):</span>
+    <span class="k">return</span> <span class="n">model</span><span class="p">(</span><span class="n">obs</span><span class="p">)</span>
+
+<span class="n">action</span> <span class="o">=</span> <span class="k">await</span> <span class="n">get_action</span><span class="p">(</span><span class="n">obs</span><span class="p">)</span>
+<span class="n">action</span> <span class="o">=</span> <span class="n">get_action</span><span class="o">.</span><span class="n">sync</span><span class="p">(</span><span class="n">obs</span><span class="p">)</span>  <span class="c1"># original sync version</span>
+
+<span class="n">infer</span><span class="o">.</span><span class="n">stop</span><span class="p">()</span>
+</pre></div>
+</div>
+<dl class="py method">
+<dt class="sig sig-object py" id="aiofranka.async_utils.CudaInferenceThread.__init__">
+<span class="sig-name descname"><span class="pre">__init__</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../_modules/aiofranka/async_utils.html#CudaInferenceThread.__init__"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#aiofranka.async_utils.CudaInferenceThread.__init__" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="aiofranka.async_utils.CudaInferenceThread.start">
+<span class="sig-name descname"><span class="pre">start</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../_modules/aiofranka/async_utils.html#CudaInferenceThread.start"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#aiofranka.async_utils.CudaInferenceThread.start" title="Link to this definition"></a></dt>
+<dd><p>Start the inference thread.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="aiofranka.async_utils.CudaInferenceThread.stop">
+<span class="sig-name descname"><span class="pre">stop</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../_modules/aiofranka/async_utils.html#CudaInferenceThread.stop"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#aiofranka.async_utils.CudaInferenceThread.stop" title="Link to this definition"></a></dt>
+<dd><p>Signal the thread to exit.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="aiofranka.async_utils.CudaInferenceThread.run">
+<span class="property"><span class="k"><span class="pre">async</span></span><span class="w"> </span></span><span class="sig-name descname"><span class="pre">run</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">fn</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">*</span></span><span class="n"><span class="pre">args</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/aiofranka/async_utils.html#CudaInferenceThread.run"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#aiofranka.async_utils.CudaInferenceThread.run" title="Link to this definition"></a></dt>
+<dd><p>Submit a callable and await the result.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="aiofranka.async_utils.CudaInferenceThread.wrap">
+<span class="sig-name descname"><span class="pre">wrap</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">fn</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/aiofranka/async_utils.html#CudaInferenceThread.wrap"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#aiofranka.async_utils.CudaInferenceThread.wrap" title="Link to this definition"></a></dt>
+<dd><p>Decorator: like asyncify but runs on the persistent CUDA thread.</p>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="aiofranka.async_utils.ProcessProxy">
+<span class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></span><span class="sig-prename descclassname"><span class="pre">aiofranka.async_utils.</span></span><span class="sig-name descname"><span class="pre">ProcessProxy</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">conn</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">process</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/aiofranka/async_utils.html#ProcessProxy"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#aiofranka.async_utils.ProcessProxy" title="Link to this definition"></a></dt>
+<dd><p>Bases: <a class="reference external" href="https://docs.python.org/3/builtins/functions.html#object" title="(in Python v3.14)"><code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></a></p>
+<p>Transparent proxy to an object living in a separate process.</p>
+<p>All attribute access and method calls are forwarded to the child process
+via a pipe. This completely avoids GIL contention — the child has its own
+GIL, so a 1kHz control loop on the main process cannot interfere.</p>
+<p>Created via <code class="docutils literal notranslate"><span class="pre">mpify()</span></code>, not directly.</p>
+<dl class="py method">
+<dt class="sig sig-object py" id="aiofranka.async_utils.ProcessProxy.__init__">
+<span class="sig-name descname"><span class="pre">__init__</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">conn</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">process</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/aiofranka/async_utils.html#ProcessProxy.__init__"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#aiofranka.async_utils.ProcessProxy.__init__" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="aiofranka.async_utils.ProcessProxy.stop">
+<span class="sig-name descname"><span class="pre">stop</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../_modules/aiofranka/async_utils.html#ProcessProxy.stop"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#aiofranka.async_utils.ProcessProxy.stop" title="Link to this definition"></a></dt>
+<dd><p>Signal the child process to exit.</p>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="aiofranka.async_utils.mpify">
+<span class="sig-prename descclassname"><span class="pre">aiofranka.async_utils.</span></span><span class="sig-name descname"><span class="pre">mpify</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">factory_fn</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">*</span></span><span class="n"><span class="pre">args</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/aiofranka/async_utils.html#mpify"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#aiofranka.async_utils.mpify" title="Link to this definition"></a></dt>
+<dd><p>Spawn a child process, run <code class="docutils literal notranslate"><span class="pre">factory_fn(*args,</span> <span class="pre">**kwargs)</span></code> in it, and
+return a transparent async proxy to the created object.</p>
+<p>The proxy forwards all method calls and attribute access to the child
+process. Use <code class="docutils literal notranslate"><span class="pre">await</span></code> on every access since it crosses a process boundary.</p>
+<p>Usage:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="k">def</span><span class="w"> </span><span class="nf">make_policy</span><span class="p">(</span><span class="n">checkpoint</span><span class="p">,</span> <span class="n">device</span><span class="p">):</span>
+    <span class="n">model</span><span class="p">,</span> <span class="n">config</span> <span class="o">=</span> <span class="n">load_model</span><span class="p">(</span><span class="n">checkpoint</span><span class="p">,</span> <span class="n">device</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">ACTInferencePolicy</span><span class="p">(</span><span class="n">model</span><span class="p">,</span> <span class="n">config</span><span class="p">,</span> <span class="n">device</span><span class="p">)</span>
+
+<span class="n">policy</span> <span class="o">=</span> <span class="n">mpify</span><span class="p">(</span><span class="n">make_policy</span><span class="p">,</span> <span class="n">checkpoint</span><span class="p">,</span> <span class="s2">&quot;cuda:0&quot;</span><span class="p">)</span>
+
+<span class="k">await</span> <span class="n">policy</span><span class="o">.</span><span class="n">reset</span><span class="p">(</span><span class="n">initial_ee</span><span class="p">)</span>
+<span class="n">ee</span> <span class="o">=</span> <span class="k">await</span> <span class="n">policy</span><span class="o">.</span><span class="n">get_action</span><span class="p">(</span><span class="n">ee</span><span class="p">,</span> <span class="n">qpos</span><span class="p">,</span> <span class="n">task_type</span><span class="p">)</span>
+<span class="n">timing</span> <span class="o">=</span> <span class="k">await</span> <span class="n">policy</span><span class="o">.</span><span class="n">_last_timing</span>
+
+<span class="n">policy</span><span class="o">.</span><span class="n">stop</span><span class="p">()</span>  <span class="c1"># clean shutdown (synchronous)</span>
+</pre></div>
+</div>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>factory_fn</strong> – Callable that creates the object. Must be picklable
+(module-level function). Runs in the child process.</p></li>
+<li><p><strong>*args</strong> – Passed to factory_fn.</p></li>
+<li><p><strong>**kwargs</strong> – Passed to factory_fn.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>ProcessProxy that forwards attribute/method access to the child.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="aiofranka.async_utils.async_input">
+<span class="property"><span class="k"><span class="pre">async</span></span><span class="w"> </span></span><span class="sig-prename descclassname"><span class="pre">aiofranka.async_utils.</span></span><span class="sig-name descname"><span class="pre">async_input</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">prompt</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">''</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/aiofranka/async_utils.html#async_input"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#aiofranka.async_utils.async_input" title="Link to this definition"></a></dt>
+<dd><p>Async-safe replacement for built-in <code class="docutils literal notranslate"><span class="pre">input()</span></code>.</p>
+<p>Runs <code class="docutils literal notranslate"><span class="pre">input()</span></code> in a thread executor so the event loop (and the 1kHz
+control loop) keeps running while waiting for user input:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="k">await</span> <span class="n">async_input</span><span class="p">(</span><span class="s2">&quot;Press Enter to start...&quot;</span><span class="p">)</span>
+</pre></div>
+</div>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>prompt</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a>)</p>
+</dd>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p><a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#str" title="(in Python v3.14)">str</a></p>
+</dd>
+</dl>
+</dd></dl>
+
+</section>
+
+
+           </div>
+          </div>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="gripper.html" class="btn btn-neutral float-left" title="GripperController" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2025, MIT Improbable AI Lab.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

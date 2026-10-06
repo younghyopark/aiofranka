@@ -1,0 +1,539 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="../../">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>aiofranka.config &mdash; aiofranka 0.6.0 documentation</title>
+      <link rel="stylesheet" type="text/css" href="../../_static/pygments.css?v=b86133f3" />
+      <link rel="stylesheet" type="text/css" href="../../_static/css/theme.css?v=9edc463e" />
+
+  
+      <script src="../../_static/jquery.js?v=5d32c60e"></script>
+      <script src="../../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="../../_static/documentation_options.js?v=8fa8b3e9"></script>
+      <script src="../../_static/doctools.js?v=fd6eb6e6"></script>
+      <script src="../../_static/sphinx_highlight.js?v=6ffebe34"></script>
+    <script src="../../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../../genindex.html" />
+    <link rel="search" title="Search" href="../../search.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../../index.html" class="icon icon-home">
+            aiofranka
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">Getting Started</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../installation.html">Installation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../quickstart.html">Quick Start</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../controllers.html">Controllers</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../cli.html">CLI Reference</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../async_mode.html">Async Mode Guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../examples.html">Examples</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../troubleshooting.html">Troubleshooting</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">API Reference</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../api/remote.html">FrankaRemoteController (Server Mode)</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../api/controller.html">Franka Controller</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../api/robot.html">Robot Interface</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../api/payload.html">Payload Identification and Tools</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../api/config.html">Controller Configurations</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../api/server.html">Server Functions</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../api/gripper.html">GripperController</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../api/utilities.html">Async Utilities</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../../index.html">aiofranka</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../../index.html" class="icon icon-home" aria-label="Home"></a></li>
+          <li class="breadcrumb-item"><a href="../index.html">Module code</a></li>
+      <li class="breadcrumb-item active">aiofranka.config</li>
+      <li class="wy-breadcrumbs-aside">
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <h1>Source code for aiofranka.config</h1><div class="highlight"><pre>
+<span></span><span class="sd">"""</span>
+<span class="sd">Controller configurations: how a policy drives the robot, in one YAML file.</span>
+
+<span class="sd">A file names the controller mode, its gains, the policy rate and the tool it is for:</span>
+
+<span class="sd">    mode: osc</span>
+<span class="sd">    tool: test panda hand               # Desk end-effector profile, or none (optional)</span>
+<span class="sd">    ee_kp: [100, 100, 100, 30, 30, 30]  # x, y, z, then rotation [1/s^2], or one value for all</span>
+<span class="sd">    ee_kd: 20                           # [1/s]; the OSC multiplies both by the task-space</span>
+<span class="sd">                                        # inertia, so ee_kp = w^2, ee_kd = 2 zeta w</span>
+<span class="sd">    null_kp: 9                          # null space [Nm/rad], one value or one per joint (default 1)</span>
+<span class="sd">    null_kd: 6                          # [Nm s/rad] (default 1)</span>
+<span class="sd">    null_target: home                   # 7 joint positions [rad], home, or current (the default): the</span>
+<span class="sd">                                        # joint positions when activated, as switch("osc") keeps</span>
+<span class="sd">    tcp: [0, 0, 0.1034]                 # TCP in the flange frame: a translation [m] or a 4x4 pose</span>
+<span class="sd">                                        # (default: the flange)</span>
+<span class="sd">    frequency: 50                       # policy rate [Hz], the rate of controller.set()</span>
+
+<span class="sd">or</span>
+
+<span class="sd">    mode: impedance</span>
+<span class="sd">    tool: none</span>
+<span class="sd">    kp: [64, 64, 64, 64, 32, 32, 32]    # [Nm/rad], one value or one per joint</span>
+<span class="sd">    kd: [16, 16, 16, 16, 8, 8, 8]       # [Nm s/rad]</span>
+<span class="sd">    frequency: 50</span>
+
+<span class="sd">controller.activate("osc.yaml") applies it, and refuses if the tool is not the end</span>
+<span class="sd">effector active in Desk (none is Desk's "No End Effector"; leave tool out to skip the</span>
+<span class="sd">check), or if the arm is not at the null_target of an OSC configuration that sets one</span>
+<span class="sd">(await controller.move(config["null_target"]) first). The system identification examples collect with it (--activate) and add what they</span>
+<span class="sd">fit to its sim section, one entry per physics step: the gains and joint parameters with</span>
+<span class="sd">which a simulation that runs the controller every physics step on fr3.xml's motors, with</span>
+<span class="sd">the payload the fit assumed, responds as the robot did. The collectors also list the</span>
+<span class="sd">recordings they made on the robot, newest last, which is what the fitters fit by default.</span>
+
+<span class="sd">    recordings:</span>
+<span class="sd">    - {path: ../examples/sysid_data/osc_sysid_&lt;date&gt;.npz, date: ..., tool: ...}</span>
+
+<span class="sd">    sim:</span>
+<span class="sd">    - physics_dt: 0.005</span>
+<span class="sd">      ee_kp: [...]</span>
+<span class="sd">      ...</span>
+<span class="sd">      armature: [...]</span>
+<span class="sd">      damping: [...]</span>
+<span class="sd">      frictionloss: [...]</span>
+<span class="sd">      payload: {mass: ..., com: [...], inertia: [...]}</span>
+<span class="sd">"""</span>
+
+<span class="kn">import</span><span class="w"> </span><span class="nn">math</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">os</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">pathlib</span><span class="w"> </span><span class="kn">import</span> <span class="n">Path</span>
+
+<span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">yaml</span>
+
+<span class="c1"># The home pose of controller.move() and of the system identification examples.</span>
+<span class="n">HOME</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="mf">0.0</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">,</span> <span class="o">-</span><span class="mf">1.5708</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">,</span> <span class="mf">1.5708</span><span class="p">,</span> <span class="o">-</span><span class="mf">0.7854</span><span class="p">])</span>
+
+<span class="n">MODES</span> <span class="o">=</span> <span class="p">{</span>
+    <span class="s2">"impedance"</span><span class="p">:</span> <span class="p">(</span><span class="s2">"kp"</span><span class="p">,</span> <span class="s2">"kd"</span><span class="p">),</span>
+    <span class="s2">"osc"</span><span class="p">:</span> <span class="p">(</span><span class="s2">"ee_kp"</span><span class="p">,</span> <span class="s2">"ee_kd"</span><span class="p">,</span> <span class="s2">"null_kp"</span><span class="p">,</span> <span class="s2">"null_kd"</span><span class="p">,</span> <span class="s2">"null_target"</span><span class="p">,</span> <span class="s2">"tcp"</span><span class="p">),</span>
+<span class="p">}</span>
+<span class="n">COMMON</span> <span class="o">=</span> <span class="p">(</span><span class="s2">"mode"</span><span class="p">,</span> <span class="s2">"frequency"</span><span class="p">,</span> <span class="s2">"tool"</span><span class="p">,</span> <span class="s2">"name"</span><span class="p">,</span> <span class="s2">"recordings"</span><span class="p">,</span> <span class="s2">"sim"</span><span class="p">)</span>
+<span class="c1"># Sections the sysid examples write, kept at the end of the file in this order.</span>
+<span class="n">WRITTEN</span> <span class="o">=</span> <span class="p">(</span><span class="s2">"recordings"</span><span class="p">,</span> <span class="s2">"sim"</span><span class="p">)</span>
+
+
+<div class="viewcode-block" id="load_config">
+<a class="viewcode-back" href="../../api/config.html#aiofranka.config.load_config">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">load_config</span><span class="p">(</span><span class="n">source</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">"""</span>
+<span class="sd">    Read and check a controller configuration.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        source (str | Path | dict): YAML file, or its contents</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        dict: mode, frequency [Hz], recordings and sim (the lists the sysid examples write),</span>
+<span class="sd">        plus kp and kd (7,)</span>
+<span class="sd">        for impedance, or ee_kp and ee_kd (6,), null_kp and null_kd (7,), null_target (7,)</span>
+<span class="sd">        or None for the joint positions at activation, and tcp (4, 4) for osc, and tool and</span>
+<span class="sd">        name if given</span>
+
+<span class="sd">    Raises:</span>
+<span class="sd">        ValueError: If the file is not valid YAML, or the configuration is incomplete, has</span>
+<span class="sd">            unknown keys or wrong values</span>
+<span class="sd">    """</span>
+    <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">source</span><span class="p">,</span> <span class="p">(</span><span class="nb">str</span><span class="p">,</span> <span class="n">Path</span><span class="p">)):</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="n">raw</span> <span class="o">=</span> <span class="n">yaml</span><span class="o">.</span><span class="n">safe_load</span><span class="p">(</span><span class="n">Path</span><span class="p">(</span><span class="n">source</span><span class="p">)</span><span class="o">.</span><span class="n">read_text</span><span class="p">())</span>
+        <span class="k">except</span> <span class="n">yaml</span><span class="o">.</span><span class="n">YAMLError</span> <span class="k">as</span> <span class="n">error</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">source</span><span class="si">}</span><span class="s2"> is not valid YAML: </span><span class="si">{</span><span class="n">error</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span> <span class="kn">from</span><span class="w"> </span><span class="kc">None</span>
+        <span class="n">raw</span> <span class="o">=</span> <span class="p">{}</span> <span class="k">if</span> <span class="n">raw</span> <span class="ow">is</span> <span class="kc">None</span> <span class="k">else</span> <span class="n">raw</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">raw</span> <span class="o">=</span> <span class="n">source</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">raw</span><span class="p">,</span> <span class="nb">dict</span><span class="p">):</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">"A configuration maps keys such as mode and frequency to values"</span><span class="p">)</span>
+    <span class="n">mode</span> <span class="o">=</span> <span class="n">raw</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"mode"</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">mode</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">MODES</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">"mode must be one of </span><span class="si">{</span><span class="nb">sorted</span><span class="p">(</span><span class="n">MODES</span><span class="p">)</span><span class="si">}</span><span class="s2">, not </span><span class="si">{</span><span class="n">mode</span><span class="si">!r}</span><span class="s2">"</span><span class="p">)</span>
+    <span class="n">unknown</span> <span class="o">=</span> <span class="nb">set</span><span class="p">(</span><span class="n">raw</span><span class="p">)</span> <span class="o">-</span> <span class="nb">set</span><span class="p">(</span><span class="n">MODES</span><span class="p">[</span><span class="n">mode</span><span class="p">])</span> <span class="o">-</span> <span class="nb">set</span><span class="p">(</span><span class="n">COMMON</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">unknown</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Unknown keys for mode </span><span class="si">{</span><span class="n">mode</span><span class="si">}</span><span class="s2">: </span><span class="si">{</span><span class="nb">sorted</span><span class="p">(</span><span class="n">unknown</span><span class="p">)</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">vector</span><span class="p">(</span><span class="n">key</span><span class="p">,</span> <span class="n">size</span><span class="p">,</span> <span class="n">default</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+        <span class="k">if</span> <span class="n">key</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">raw</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">default</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">key</span><span class="si">}</span><span class="s2"> is missing"</span><span class="p">)</span>
+            <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">full</span><span class="p">(</span><span class="n">size</span><span class="p">,</span> <span class="nb">float</span><span class="p">(</span><span class="n">default</span><span class="p">))</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="n">value</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">raw</span><span class="p">[</span><span class="n">key</span><span class="p">],</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">)</span>
+        <span class="k">except</span> <span class="p">(</span><span class="ne">TypeError</span><span class="p">,</span> <span class="ne">ValueError</span><span class="p">):</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">key</span><span class="si">}</span><span class="s2"> takes numbers, not </span><span class="si">{</span><span class="n">raw</span><span class="p">[</span><span class="n">key</span><span class="p">]</span><span class="si">!r}</span><span class="s2">"</span><span class="p">)</span> <span class="kn">from</span><span class="w"> </span><span class="kc">None</span>
+        <span class="k">if</span> <span class="n">value</span><span class="o">.</span><span class="n">ndim</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="n">value</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">full</span><span class="p">(</span><span class="n">size</span><span class="p">,</span> <span class="nb">float</span><span class="p">(</span><span class="n">value</span><span class="p">))</span>
+        <span class="k">if</span> <span class="n">value</span><span class="o">.</span><span class="n">shape</span> <span class="o">!=</span> <span class="p">(</span><span class="n">size</span><span class="p">,):</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">key</span><span class="si">}</span><span class="s2"> takes one value or </span><span class="si">{</span><span class="n">size</span><span class="si">}</span><span class="s2">, not </span><span class="si">{</span><span class="n">raw</span><span class="p">[</span><span class="n">key</span><span class="p">]</span><span class="si">!r}</span><span class="s2">"</span><span class="p">)</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">np</span><span class="o">.</span><span class="n">all</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">isfinite</span><span class="p">(</span><span class="n">value</span><span class="p">)):</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">key</span><span class="si">}</span><span class="s2"> has no value or one that is not finite: </span><span class="si">{</span><span class="n">raw</span><span class="p">[</span><span class="n">key</span><span class="p">]</span><span class="si">!r}</span><span class="s2">"</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">value</span>
+
+    <span class="k">try</span><span class="p">:</span>
+        <span class="n">frequency</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">raw</span><span class="p">[</span><span class="s2">"frequency"</span><span class="p">])</span>
+    <span class="k">except</span> <span class="ne">KeyError</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">"frequency (the policy rate in Hz) is missing"</span><span class="p">)</span> <span class="kn">from</span><span class="w"> </span><span class="kc">None</span>
+    <span class="k">except</span> <span class="p">(</span><span class="ne">TypeError</span><span class="p">,</span> <span class="ne">ValueError</span><span class="p">):</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">"frequency takes a number, not </span><span class="si">{</span><span class="n">raw</span><span class="p">[</span><span class="s1">'frequency'</span><span class="p">]</span><span class="si">!r}</span><span class="s2">"</span><span class="p">)</span> <span class="kn">from</span><span class="w"> </span><span class="kc">None</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="p">(</span><span class="n">math</span><span class="o">.</span><span class="n">isfinite</span><span class="p">(</span><span class="n">frequency</span><span class="p">)</span> <span class="ow">and</span> <span class="n">frequency</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">):</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">"frequency must be positive and finite, not </span><span class="si">{</span><span class="n">raw</span><span class="p">[</span><span class="s1">'frequency'</span><span class="p">]</span><span class="si">!r}</span><span class="s2">"</span><span class="p">)</span>
+    <span class="n">config</span> <span class="o">=</span> <span class="p">{</span><span class="s2">"mode"</span><span class="p">:</span> <span class="n">mode</span><span class="p">,</span> <span class="s2">"frequency"</span><span class="p">:</span> <span class="n">frequency</span><span class="p">}</span>
+    <span class="k">if</span> <span class="n">mode</span> <span class="o">==</span> <span class="s2">"impedance"</span><span class="p">:</span>
+        <span class="n">gains</span> <span class="o">=</span> <span class="p">{</span><span class="s2">"kp"</span><span class="p">:</span> <span class="n">vector</span><span class="p">(</span><span class="s2">"kp"</span><span class="p">,</span> <span class="mi">7</span><span class="p">),</span> <span class="s2">"kd"</span><span class="p">:</span> <span class="n">vector</span><span class="p">(</span><span class="s2">"kd"</span><span class="p">,</span> <span class="mi">7</span><span class="p">)}</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">gains</span> <span class="o">=</span> <span class="p">{</span><span class="s2">"ee_kp"</span><span class="p">:</span> <span class="n">vector</span><span class="p">(</span><span class="s2">"ee_kp"</span><span class="p">,</span> <span class="mi">6</span><span class="p">),</span> <span class="s2">"ee_kd"</span><span class="p">:</span> <span class="n">vector</span><span class="p">(</span><span class="s2">"ee_kd"</span><span class="p">,</span> <span class="mi">6</span><span class="p">),</span>
+                 <span class="s2">"null_kp"</span><span class="p">:</span> <span class="n">vector</span><span class="p">(</span><span class="s2">"null_kp"</span><span class="p">,</span> <span class="mi">7</span><span class="p">,</span> <span class="mf">1.0</span><span class="p">),</span> <span class="s2">"null_kd"</span><span class="p">:</span> <span class="n">vector</span><span class="p">(</span><span class="s2">"null_kd"</span><span class="p">,</span> <span class="mi">7</span><span class="p">,</span> <span class="mf">1.0</span><span class="p">)}</span>
+        <span class="n">target</span> <span class="o">=</span> <span class="n">raw</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"null_target"</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">target</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">or</span> <span class="p">(</span><span class="nb">isinstance</span><span class="p">(</span><span class="n">target</span><span class="p">,</span> <span class="nb">str</span><span class="p">)</span> <span class="ow">and</span> <span class="n">target</span> <span class="o">==</span> <span class="s2">"current"</span><span class="p">):</span>
+            <span class="n">config</span><span class="p">[</span><span class="s2">"null_target"</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>  <span class="c1"># the joint positions when activated</span>
+        <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">target</span><span class="p">,</span> <span class="nb">str</span><span class="p">)</span> <span class="ow">and</span> <span class="n">target</span> <span class="o">==</span> <span class="s2">"home"</span><span class="p">:</span>
+            <span class="n">config</span><span class="p">[</span><span class="s2">"null_target"</span><span class="p">]</span> <span class="o">=</span> <span class="n">HOME</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">config</span><span class="p">[</span><span class="s2">"null_target"</span><span class="p">]</span> <span class="o">=</span> <span class="n">vector</span><span class="p">(</span><span class="s2">"null_target"</span><span class="p">,</span> <span class="mi">7</span><span class="p">)</span>
+        <span class="n">config</span><span class="p">[</span><span class="s2">"tcp"</span><span class="p">]</span> <span class="o">=</span> <span class="n">tcp_transform</span><span class="p">(</span><span class="n">raw</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"tcp"</span><span class="p">,</span> <span class="p">[</span><span class="mf">0.0</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">]))</span>
+    <span class="k">for</span> <span class="n">key</span><span class="p">,</span> <span class="n">value</span> <span class="ow">in</span> <span class="n">gains</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+        <span class="k">if</span> <span class="n">np</span><span class="o">.</span><span class="n">any</span><span class="p">(</span><span class="n">value</span> <span class="o">&lt;</span> <span class="mi">0</span><span class="p">):</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">key</span><span class="si">}</span><span class="s2"> must not be negative, not </span><span class="si">{</span><span class="n">value</span><span class="o">.</span><span class="n">tolist</span><span class="p">()</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
+    <span class="n">config</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="n">gains</span><span class="p">)</span>
+
+    <span class="k">if</span> <span class="s2">"tool"</span> <span class="ow">in</span> <span class="n">raw</span><span class="p">:</span>
+        <span class="n">tool</span> <span class="o">=</span> <span class="n">raw</span><span class="p">[</span><span class="s2">"tool"</span><span class="p">]</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">tool</span><span class="p">,</span> <span class="nb">str</span><span class="p">)</span> <span class="ow">or</span> <span class="ow">not</span> <span class="n">tool</span><span class="o">.</span><span class="n">strip</span><span class="p">():</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">"tool takes the name of a Desk end-effector profile, or none; not </span><span class="si">{</span><span class="n">tool</span><span class="si">!r}</span><span class="s2">. "</span>
+                             <span class="s2">"Leave it out to skip the check."</span><span class="p">)</span>
+        <span class="n">config</span><span class="p">[</span><span class="s2">"tool"</span><span class="p">]</span> <span class="o">=</span> <span class="s2">"none"</span> <span class="k">if</span> <span class="n">tool</span><span class="o">.</span><span class="n">strip</span><span class="p">()</span><span class="o">.</span><span class="n">lower</span><span class="p">()</span> <span class="o">==</span> <span class="s2">"none"</span> <span class="k">else</span> <span class="n">tool</span>
+    <span class="k">if</span> <span class="n">raw</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"name"</span><span class="p">)</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">config</span><span class="p">[</span><span class="s2">"name"</span><span class="p">]</span> <span class="o">=</span> <span class="nb">str</span><span class="p">(</span><span class="n">raw</span><span class="p">[</span><span class="s2">"name"</span><span class="p">])</span>
+    <span class="n">config</span><span class="p">[</span><span class="s2">"recordings"</span><span class="p">]</span> <span class="o">=</span> <span class="n">_recordings</span><span class="p">(</span><span class="n">raw</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"recordings"</span><span class="p">))</span>
+    <span class="n">config</span><span class="p">[</span><span class="s2">"sim"</span><span class="p">]</span> <span class="o">=</span> <span class="n">_sim_entries</span><span class="p">(</span><span class="n">raw</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"sim"</span><span class="p">))</span>
+    <span class="k">return</span> <span class="n">config</span></div>
+
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_recordings</span><span class="p">(</span><span class="n">recordings</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">"""The recordings section as a list of entries, each with a path."""</span>
+    <span class="k">if</span> <span class="n">recordings</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="k">return</span> <span class="p">[]</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">recordings</span><span class="p">,</span> <span class="nb">list</span><span class="p">)</span> <span class="ow">or</span> <span class="ow">not</span> <span class="nb">all</span><span class="p">(</span>
+            <span class="nb">isinstance</span><span class="p">(</span><span class="n">entry</span><span class="p">,</span> <span class="nb">dict</span><span class="p">)</span> <span class="ow">and</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">entry</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"path"</span><span class="p">),</span> <span class="nb">str</span><span class="p">)</span> <span class="k">for</span> <span class="n">entry</span> <span class="ow">in</span> <span class="n">recordings</span><span class="p">):</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">"recordings takes a list of entries, each with a path"</span><span class="p">)</span>
+    <span class="k">return</span> <span class="p">[</span><span class="nb">dict</span><span class="p">(</span><span class="n">entry</span><span class="p">)</span> <span class="k">for</span> <span class="n">entry</span> <span class="ow">in</span> <span class="n">recordings</span><span class="p">]</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_sim_entries</span><span class="p">(</span><span class="n">sims</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">"""The sim section as a list of entries, each with a numeric physics_dt."""</span>
+    <span class="k">if</span> <span class="n">sims</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="k">return</span> <span class="p">[]</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">sims</span><span class="p">,</span> <span class="nb">list</span><span class="p">)</span> <span class="ow">or</span> <span class="ow">not</span> <span class="nb">all</span><span class="p">(</span><span class="nb">isinstance</span><span class="p">(</span><span class="n">entry</span><span class="p">,</span> <span class="nb">dict</span><span class="p">)</span> <span class="k">for</span> <span class="n">entry</span> <span class="ow">in</span> <span class="n">sims</span><span class="p">):</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">"sim takes a list of entries, each with a physics_dt"</span><span class="p">)</span>
+    <span class="n">out</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="k">for</span> <span class="n">entry</span> <span class="ow">in</span> <span class="n">sims</span><span class="p">:</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="n">physics_dt</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">entry</span><span class="p">[</span><span class="s2">"physics_dt"</span><span class="p">])</span>
+        <span class="k">except</span> <span class="p">(</span><span class="ne">KeyError</span><span class="p">,</span> <span class="ne">TypeError</span><span class="p">,</span> <span class="ne">ValueError</span><span class="p">):</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">"A sim entry needs a numeric physics_dt, not </span><span class="si">{</span><span class="n">entry</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">'physics_dt'</span><span class="p">)</span><span class="si">!r}</span><span class="s2">"</span><span class="p">)</span> <span class="kn">from</span><span class="w"> </span><span class="kc">None</span>
+        <span class="n">out</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="nb">dict</span><span class="p">(</span><span class="n">entry</span><span class="p">,</span> <span class="n">physics_dt</span><span class="o">=</span><span class="n">physics_dt</span><span class="p">))</span>
+    <span class="k">return</span> <span class="n">out</span>
+
+
+<div class="viewcode-block" id="tcp_transform">
+<a class="viewcode-back" href="../../api/config.html#aiofranka.config.tcp_transform">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">tcp_transform</span><span class="p">(</span><span class="n">value</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">"""</span>
+<span class="sd">    A TCP pose in the flange frame, from a translation (3,), 16 values row by row, or a 4x4 pose.</span>
+
+<span class="sd">    Raises:</span>
+<span class="sd">        ValueError: If it is none of these, or its rotation is not a rotation</span>
+<span class="sd">    """</span>
+    <span class="k">try</span><span class="p">:</span>
+        <span class="n">transform</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">value</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">)</span>
+    <span class="k">except</span> <span class="p">(</span><span class="ne">TypeError</span><span class="p">,</span> <span class="ne">ValueError</span><span class="p">):</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">"transform must be a translation (3,) or a 4x4 pose with a rotation"</span><span class="p">)</span> <span class="kn">from</span><span class="w"> </span><span class="kc">None</span>
+    <span class="k">if</span> <span class="n">transform</span><span class="o">.</span><span class="n">shape</span> <span class="o">==</span> <span class="p">(</span><span class="mi">3</span><span class="p">,):</span>
+        <span class="n">transform</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">block</span><span class="p">([[</span><span class="n">np</span><span class="o">.</span><span class="n">eye</span><span class="p">(</span><span class="mi">3</span><span class="p">),</span> <span class="n">transform</span><span class="p">[:,</span> <span class="kc">None</span><span class="p">]],</span> <span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="mi">3</span><span class="p">),</span> <span class="mf">1.0</span><span class="p">]])</span>
+    <span class="k">elif</span> <span class="n">transform</span><span class="o">.</span><span class="n">shape</span> <span class="o">==</span> <span class="p">(</span><span class="mi">16</span><span class="p">,):</span>
+        <span class="n">transform</span> <span class="o">=</span> <span class="n">transform</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="mi">4</span><span class="p">,</span> <span class="mi">4</span><span class="p">)</span>
+    <span class="n">rotation</span> <span class="o">=</span> <span class="n">transform</span><span class="p">[:</span><span class="mi">3</span><span class="p">,</span> <span class="p">:</span><span class="mi">3</span><span class="p">]</span> <span class="k">if</span> <span class="n">transform</span><span class="o">.</span><span class="n">shape</span> <span class="o">==</span> <span class="p">(</span><span class="mi">4</span><span class="p">,</span> <span class="mi">4</span><span class="p">)</span> <span class="k">else</span> <span class="kc">None</span>
+    <span class="k">if</span> <span class="p">(</span><span class="n">rotation</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">or</span> <span class="ow">not</span> <span class="n">np</span><span class="o">.</span><span class="n">all</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">isfinite</span><span class="p">(</span><span class="n">transform</span><span class="p">))</span> <span class="ow">or</span> <span class="ow">not</span> <span class="n">np</span><span class="o">.</span><span class="n">allclose</span><span class="p">(</span><span class="n">transform</span><span class="p">[</span><span class="mi">3</span><span class="p">],</span> <span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">])</span>
+            <span class="ow">or</span> <span class="ow">not</span> <span class="n">np</span><span class="o">.</span><span class="n">allclose</span><span class="p">(</span><span class="n">rotation</span> <span class="o">@</span> <span class="n">rotation</span><span class="o">.</span><span class="n">T</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">eye</span><span class="p">(</span><span class="mi">3</span><span class="p">),</span> <span class="n">atol</span><span class="o">=</span><span class="mf">1e-6</span><span class="p">)</span>
+            <span class="ow">or</span> <span class="n">np</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">det</span><span class="p">(</span><span class="n">rotation</span><span class="p">)</span> <span class="o">&lt;</span> <span class="mi">0</span><span class="p">):</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">"transform must be a translation (3,) or a 4x4 pose with a rotation"</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">transform</span></div>
+
+
+
+<div class="viewcode-block" id="to_yaml">
+<a class="viewcode-back" href="../../api/config.html#aiofranka.config.to_yaml">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">to_yaml</span><span class="p">(</span><span class="n">config</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">"""The configuration as plain values, as written in a file (without recordings and sim)."""</span>
+    <span class="n">out</span> <span class="o">=</span> <span class="p">{}</span>
+    <span class="k">for</span> <span class="n">key</span><span class="p">,</span> <span class="n">value</span> <span class="ow">in</span> <span class="n">config</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+        <span class="k">if</span> <span class="n">key</span> <span class="ow">in</span> <span class="n">WRITTEN</span><span class="p">:</span>
+            <span class="k">continue</span>
+        <span class="n">out</span><span class="p">[</span><span class="n">key</span><span class="p">]</span> <span class="o">=</span> <span class="n">value</span><span class="o">.</span><span class="n">tolist</span><span class="p">()</span> <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">value</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">)</span> <span class="k">else</span> <span class="n">value</span>
+    <span class="k">if</span> <span class="n">out</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"mode"</span><span class="p">)</span> <span class="o">==</span> <span class="s2">"osc"</span> <span class="ow">and</span> <span class="n">out</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"null_target"</span><span class="p">)</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">out</span><span class="p">[</span><span class="s2">"null_target"</span><span class="p">]</span> <span class="o">=</span> <span class="s2">"current"</span>
+    <span class="k">return</span> <span class="n">out</span></div>
+
+
+
+<div class="viewcode-block" id="same_controller">
+<a class="viewcode-back" href="../../api/config.html#aiofranka.config.same_controller">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">same_controller</span><span class="p">(</span><span class="n">a</span><span class="p">,</span> <span class="n">b</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">"""Whether two configurations drive the robot the same way, with the same tool (sim and name aside)."""</span>
+    <span class="n">a</span><span class="p">,</span> <span class="n">b</span> <span class="o">=</span> <span class="n">load_config</span><span class="p">(</span><span class="n">a</span><span class="p">),</span> <span class="n">load_config</span><span class="p">(</span><span class="n">b</span><span class="p">)</span>
+    <span class="k">if</span> <span class="p">(</span><span class="n">a</span><span class="p">[</span><span class="s2">"mode"</span><span class="p">]</span> <span class="o">!=</span> <span class="n">b</span><span class="p">[</span><span class="s2">"mode"</span><span class="p">]</span> <span class="ow">or</span> <span class="ow">not</span> <span class="n">math</span><span class="o">.</span><span class="n">isclose</span><span class="p">(</span><span class="n">a</span><span class="p">[</span><span class="s2">"frequency"</span><span class="p">],</span> <span class="n">b</span><span class="p">[</span><span class="s2">"frequency"</span><span class="p">])</span>
+            <span class="ow">or</span> <span class="n">a</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"tool"</span><span class="p">)</span> <span class="o">!=</span> <span class="n">b</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"tool"</span><span class="p">)):</span>
+        <span class="k">return</span> <span class="kc">False</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">same</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">y</span><span class="p">):</span>
+        <span class="k">if</span> <span class="n">x</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">or</span> <span class="n">y</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">x</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">y</span> <span class="ow">is</span> <span class="kc">None</span>
+        <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">allclose</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">y</span><span class="p">)</span>
+
+    <span class="k">return</span> <span class="nb">all</span><span class="p">(</span><span class="n">same</span><span class="p">(</span><span class="n">a</span><span class="p">[</span><span class="n">key</span><span class="p">],</span> <span class="n">b</span><span class="p">[</span><span class="n">key</span><span class="p">])</span> <span class="k">for</span> <span class="n">key</span> <span class="ow">in</span> <span class="n">MODES</span><span class="p">[</span><span class="n">a</span><span class="p">[</span><span class="s2">"mode"</span><span class="p">]])</span></div>
+
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_same_dt</span><span class="p">(</span><span class="n">a</span><span class="p">,</span> <span class="n">b</span><span class="p">):</span>
+    <span class="c1"># Physics steps are whole milliseconds; a float32 timestep is off by ~1e-10 s.</span>
+    <span class="k">return</span> <span class="n">math</span><span class="o">.</span><span class="n">isclose</span><span class="p">(</span><span class="nb">float</span><span class="p">(</span><span class="n">a</span><span class="p">),</span> <span class="nb">float</span><span class="p">(</span><span class="n">b</span><span class="p">),</span> <span class="n">rel_tol</span><span class="o">=</span><span class="mf">1e-6</span><span class="p">,</span> <span class="n">abs_tol</span><span class="o">=</span><span class="mf">1e-9</span><span class="p">)</span>
+
+
+<div class="viewcode-block" id="sim_entry">
+<a class="viewcode-back" href="../../api/config.html#aiofranka.config.sim_entry">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">sim_entry</span><span class="p">(</span><span class="n">config</span><span class="p">,</span> <span class="n">physics_dt</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">"""</span>
+<span class="sd">    The fitted simulation parameters for a physics step, as arrays.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        config (str | Path | dict): Configuration, or its file</span>
+<span class="sd">        physics_dt (float): Physics step of the simulation [s]</span>
+
+<span class="sd">    Raises:</span>
+<span class="sd">        KeyError: If the configuration has no entry for that physics step</span>
+<span class="sd">    """</span>
+    <span class="n">sims</span> <span class="o">=</span> <span class="n">_sim_entries</span><span class="p">(</span><span class="n">config</span><span class="p">[</span><span class="s2">"sim"</span><span class="p">])</span> <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">config</span><span class="p">,</span> <span class="nb">dict</span><span class="p">)</span> <span class="ow">and</span> <span class="s2">"sim"</span> <span class="ow">in</span> <span class="n">config</span> <span class="k">else</span> <span class="n">load_config</span><span class="p">(</span><span class="n">config</span><span class="p">)[</span><span class="s2">"sim"</span><span class="p">]</span>
+    <span class="k">for</span> <span class="n">entry</span> <span class="ow">in</span> <span class="n">sims</span><span class="p">:</span>
+        <span class="k">if</span> <span class="n">_same_dt</span><span class="p">(</span><span class="n">entry</span><span class="p">[</span><span class="s2">"physics_dt"</span><span class="p">],</span> <span class="n">physics_dt</span><span class="p">):</span>
+            <span class="k">return</span> <span class="p">{</span><span class="n">key</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">value</span><span class="p">)</span> <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">value</span><span class="p">,</span> <span class="nb">list</span><span class="p">)</span> <span class="k">else</span> <span class="n">value</span> <span class="k">for</span> <span class="n">key</span><span class="p">,</span> <span class="n">value</span> <span class="ow">in</span> <span class="n">entry</span><span class="o">.</span><span class="n">items</span><span class="p">()}</span>
+    <span class="n">known</span> <span class="o">=</span> <span class="p">[</span><span class="n">entry</span><span class="p">[</span><span class="s2">"physics_dt"</span><span class="p">]</span> <span class="k">for</span> <span class="n">entry</span> <span class="ow">in</span> <span class="n">sims</span><span class="p">]</span>
+    <span class="k">raise</span> <span class="ne">KeyError</span><span class="p">(</span><span class="sa">f</span><span class="s2">"No sim entry for physics_dt </span><span class="si">{</span><span class="n">physics_dt</span><span class="si">}</span><span class="s2">; the file has </span><span class="si">{</span><span class="n">known</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span></div>
+
+
+
+<div class="viewcode-block" id="save_sim">
+<a class="viewcode-back" href="../../api/config.html#aiofranka.config.save_sim">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">save_sim</span><span class="p">(</span><span class="n">path</span><span class="p">,</span> <span class="n">entry</span><span class="p">,</span> <span class="n">controller</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">"""</span>
+<span class="sd">    Add a fitted entry to the sim section of a configuration file, replacing one with</span>
+<span class="sd">    the same physics_dt.</span>
+
+<span class="sd">    The rest of the file stays as written, comments included; the recordings and sim</span>
+<span class="sd">    sections move to its end. The new file is checked before it replaces the old one, so</span>
+<span class="sd">    a failure leaves the file as it was.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        path (str | Path): Configuration file</span>
+<span class="sd">        entry (dict): physics_dt [s] and the fitted values (arrays or lists)</span>
+<span class="sd">        controller (str | Path | dict | None): If given, the configuration the fit is for;</span>
+<span class="sd">            the file must still describe the same controller</span>
+
+<span class="sd">    Raises:</span>
+<span class="sd">        ValueError: If the file is not a valid configuration, or no longer describes controller</span>
+<span class="sd">        RuntimeError: If the sim section could not be rewritten without changing the rest</span>
+<span class="sd">    """</span>
+    <span class="n">entry</span> <span class="o">=</span> <span class="n">_plain</span><span class="p">(</span><span class="n">entry</span><span class="p">)</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">update</span><span class="p">(</span><span class="n">config</span><span class="p">):</span>
+        <span class="n">sims</span> <span class="o">=</span> <span class="p">[</span><span class="n">s</span> <span class="k">for</span> <span class="n">s</span> <span class="ow">in</span> <span class="n">config</span><span class="p">[</span><span class="s2">"sim"</span><span class="p">]</span> <span class="k">if</span> <span class="ow">not</span> <span class="n">_same_dt</span><span class="p">(</span><span class="n">s</span><span class="p">[</span><span class="s2">"physics_dt"</span><span class="p">],</span> <span class="n">entry</span><span class="p">[</span><span class="s2">"physics_dt"</span><span class="p">])]</span>
+        <span class="k">return</span> <span class="p">{</span><span class="s2">"sim"</span><span class="p">:</span> <span class="nb">sorted</span><span class="p">(</span><span class="n">sims</span> <span class="o">+</span> <span class="p">[</span><span class="n">entry</span><span class="p">],</span> <span class="n">key</span><span class="o">=</span><span class="k">lambda</span> <span class="n">s</span><span class="p">:</span> <span class="n">s</span><span class="p">[</span><span class="s2">"physics_dt"</span><span class="p">])}</span>
+
+    <span class="n">_write_sections</span><span class="p">(</span><span class="n">path</span><span class="p">,</span> <span class="n">update</span><span class="p">,</span> <span class="n">controller</span><span class="p">,</span> <span class="s2">"add the fit"</span><span class="p">)</span></div>
+
+
+
+<div class="viewcode-block" id="add_recording">
+<a class="viewcode-back" href="../../api/config.html#aiofranka.config.add_recording">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">add_recording</span><span class="p">(</span><span class="n">path</span><span class="p">,</span> <span class="n">recording</span><span class="p">,</span> <span class="n">controller</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">"""</span>
+<span class="sd">    Add a recording collected with a configuration to its recordings section, newest last.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        path (str | Path): Configuration file</span>
+<span class="sd">        recording (dict): path of the recording (kept relative to the file's folder when</span>
+<span class="sd">            it is under the same root) and what else to note, e.g. date and tool</span>
+<span class="sd">        controller (str | Path | dict | None): If given, the configuration the recording</span>
+<span class="sd">            was collected with; the file must still describe the same controller</span>
+
+<span class="sd">    Raises:</span>
+<span class="sd">        ValueError, RuntimeError: As save_sim()</span>
+<span class="sd">    """</span>
+    <span class="n">path</span> <span class="o">=</span> <span class="n">Path</span><span class="p">(</span><span class="n">path</span><span class="p">)</span>
+    <span class="n">entry</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">(</span><span class="n">_plain</span><span class="p">(</span><span class="n">recording</span><span class="p">),</span> <span class="n">path</span><span class="o">=</span><span class="n">_relative</span><span class="p">(</span><span class="n">Path</span><span class="p">(</span><span class="n">recording</span><span class="p">[</span><span class="s2">"path"</span><span class="p">]),</span> <span class="n">path</span><span class="o">.</span><span class="n">parent</span><span class="p">))</span>
+    <span class="n">_write_sections</span><span class="p">(</span><span class="n">path</span><span class="p">,</span> <span class="k">lambda</span> <span class="n">config</span><span class="p">:</span> <span class="p">{</span><span class="s2">"recordings"</span><span class="p">:</span> <span class="n">config</span><span class="p">[</span><span class="s2">"recordings"</span><span class="p">]</span> <span class="o">+</span> <span class="p">[</span><span class="n">entry</span><span class="p">]},</span> <span class="n">controller</span><span class="p">,</span>
+                    <span class="s2">"add the recording"</span><span class="p">)</span></div>
+
+
+
+<div class="viewcode-block" id="latest_recording">
+<a class="viewcode-back" href="../../api/config.html#aiofranka.config.latest_recording">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">latest_recording</span><span class="p">(</span><span class="n">path</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">"""</span>
+<span class="sd">    The newest recording in a configuration file's recordings section, or None.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        path (str | Path): Configuration file</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        Path | None: The recording, with a relative path resolved against the file's folder</span>
+<span class="sd">    """</span>
+    <span class="n">recordings</span> <span class="o">=</span> <span class="n">load_config</span><span class="p">(</span><span class="n">path</span><span class="p">)[</span><span class="s2">"recordings"</span><span class="p">]</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="n">recordings</span><span class="p">:</span>
+        <span class="k">return</span> <span class="kc">None</span>
+    <span class="n">recording</span> <span class="o">=</span> <span class="n">Path</span><span class="p">(</span><span class="n">recordings</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">][</span><span class="s2">"path"</span><span class="p">])</span><span class="o">.</span><span class="n">expanduser</span><span class="p">()</span>
+    <span class="k">return</span> <span class="n">recording</span> <span class="k">if</span> <span class="n">recording</span><span class="o">.</span><span class="n">is_absolute</span><span class="p">()</span> <span class="k">else</span> <span class="p">(</span><span class="n">Path</span><span class="p">(</span><span class="n">path</span><span class="p">)</span><span class="o">.</span><span class="n">parent</span> <span class="o">/</span> <span class="n">recording</span><span class="p">)</span><span class="o">.</span><span class="n">resolve</span><span class="p">()</span></div>
+
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_relative</span><span class="p">(</span><span class="n">target</span><span class="p">,</span> <span class="n">folder</span><span class="p">):</span>
+    <span class="k">try</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">relpath</span><span class="p">(</span><span class="n">target</span><span class="o">.</span><span class="n">resolve</span><span class="p">(),</span> <span class="n">folder</span><span class="o">.</span><span class="n">resolve</span><span class="p">())</span>
+    <span class="k">except</span> <span class="ne">ValueError</span><span class="p">:</span>  <span class="c1"># e.g. another drive</span>
+        <span class="k">return</span> <span class="nb">str</span><span class="p">(</span><span class="n">target</span><span class="o">.</span><span class="n">resolve</span><span class="p">())</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_write_sections</span><span class="p">(</span><span class="n">path</span><span class="p">,</span> <span class="n">update</span><span class="p">,</span> <span class="n">controller</span><span class="p">,</span> <span class="n">action</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">"""</span>
+<span class="sd">    Rewrite the recordings and sim sections of a configuration file, as update(config)</span>
+<span class="sd">    returns them, at the end of the file; keep the rest as written, check the result, and</span>
+<span class="sd">    replace the file only then.</span>
+<span class="sd">    """</span>
+    <span class="n">path</span> <span class="o">=</span> <span class="n">Path</span><span class="p">(</span><span class="n">path</span><span class="p">)</span>
+    <span class="n">text</span> <span class="o">=</span> <span class="n">path</span><span class="o">.</span><span class="n">read_text</span><span class="p">()</span>
+    <span class="n">config</span> <span class="o">=</span> <span class="n">load_config</span><span class="p">(</span><span class="n">path</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">controller</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="ow">not</span> <span class="n">same_controller</span><span class="p">(</span><span class="n">config</span><span class="p">,</span> <span class="n">controller</span><span class="p">):</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">path</span><span class="si">}</span><span class="s2"> no longer describes the controller to </span><span class="si">{</span><span class="n">action</span><span class="si">}</span><span class="s2"> for"</span><span class="p">)</span>
+    <span class="n">sections</span> <span class="o">=</span> <span class="p">{</span><span class="n">key</span><span class="p">:</span> <span class="n">config</span><span class="p">[</span><span class="n">key</span><span class="p">]</span> <span class="k">for</span> <span class="n">key</span> <span class="ow">in</span> <span class="n">WRITTEN</span><span class="p">}</span>
+    <span class="n">sections</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="n">update</span><span class="p">(</span><span class="n">config</span><span class="p">))</span>
+    <span class="n">sections</span> <span class="o">=</span> <span class="p">{</span><span class="n">key</span><span class="p">:</span> <span class="n">_plain</span><span class="p">(</span><span class="n">value</span><span class="p">)</span> <span class="k">for</span> <span class="n">key</span><span class="p">,</span> <span class="n">value</span> <span class="ow">in</span> <span class="n">sections</span><span class="o">.</span><span class="n">items</span><span class="p">()</span> <span class="k">if</span> <span class="n">value</span><span class="p">}</span>
+
+    <span class="c1"># Cut the old sections out, located by the YAML parser: from their key to the end of</span>
+    <span class="c1"># their last value (comments after them stay).</span>
+    <span class="n">lines</span> <span class="o">=</span> <span class="n">text</span><span class="o">.</span><span class="n">splitlines</span><span class="p">(</span><span class="n">keepends</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+    <span class="n">cuts</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="k">for</span> <span class="n">key</span><span class="p">,</span> <span class="n">value</span> <span class="ow">in</span> <span class="n">yaml</span><span class="o">.</span><span class="n">compose</span><span class="p">(</span><span class="n">text</span><span class="p">)</span><span class="o">.</span><span class="n">value</span><span class="p">:</span>
+        <span class="k">if</span> <span class="n">key</span><span class="o">.</span><span class="n">value</span> <span class="ow">in</span> <span class="n">WRITTEN</span><span class="p">:</span>
+            <span class="n">end</span> <span class="o">=</span> <span class="n">_content_end</span><span class="p">(</span><span class="n">value</span><span class="p">)</span>
+            <span class="n">cuts</span><span class="o">.</span><span class="n">append</span><span class="p">((</span><span class="n">key</span><span class="o">.</span><span class="n">start_mark</span><span class="o">.</span><span class="n">line</span><span class="p">,</span> <span class="n">end</span><span class="o">.</span><span class="n">line</span> <span class="o">+</span> <span class="p">(</span><span class="n">end</span><span class="o">.</span><span class="n">column</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">)))</span>
+    <span class="k">for</span> <span class="n">start</span><span class="p">,</span> <span class="n">stop</span> <span class="ow">in</span> <span class="nb">sorted</span><span class="p">(</span><span class="n">cuts</span><span class="p">,</span> <span class="n">reverse</span><span class="o">=</span><span class="kc">True</span><span class="p">):</span>
+        <span class="n">lines</span> <span class="o">=</span> <span class="n">lines</span><span class="p">[:</span><span class="n">start</span><span class="p">]</span> <span class="o">+</span> <span class="n">lines</span><span class="p">[</span><span class="n">stop</span><span class="p">:]</span>
+    <span class="n">head</span> <span class="o">=</span> <span class="s2">""</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">lines</span><span class="p">)</span><span class="o">.</span><span class="n">rstrip</span><span class="p">()</span>
+    <span class="n">body</span> <span class="o">=</span> <span class="s2">"</span><span class="se">\n</span><span class="s2">"</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">yaml</span><span class="o">.</span><span class="n">safe_dump</span><span class="p">({</span><span class="n">key</span><span class="p">:</span> <span class="n">value</span><span class="p">},</span> <span class="n">sort_keys</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">default_flow_style</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">width</span><span class="o">=</span><span class="mi">120</span><span class="p">)</span>
+                     <span class="k">for</span> <span class="n">key</span><span class="p">,</span> <span class="n">value</span> <span class="ow">in</span> <span class="n">sections</span><span class="o">.</span><span class="n">items</span><span class="p">())</span>
+    <span class="n">new</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">head</span><span class="si">}</span><span class="se">\n\n</span><span class="si">{</span><span class="n">body</span><span class="si">}</span><span class="s2">"</span> <span class="k">if</span> <span class="n">head</span> <span class="k">else</span> <span class="n">body</span>
+
+    <span class="k">try</span><span class="p">:</span>
+        <span class="n">written</span> <span class="o">=</span> <span class="n">load_config</span><span class="p">(</span><span class="n">yaml</span><span class="o">.</span><span class="n">safe_load</span><span class="p">(</span><span class="n">new</span><span class="p">))</span>
+    <span class="k">except</span> <span class="p">(</span><span class="n">yaml</span><span class="o">.</span><span class="n">YAMLError</span><span class="p">,</span> <span class="ne">ValueError</span><span class="p">)</span> <span class="k">as</span> <span class="n">error</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">RuntimeError</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Could not </span><span class="si">{</span><span class="n">action</span><span class="si">}</span><span class="s2"> to </span><span class="si">{</span><span class="n">path</span><span class="si">}</span><span class="s2"> (</span><span class="si">{</span><span class="n">error</span><span class="si">}</span><span class="s2">); the file was not changed"</span><span class="p">)</span> <span class="kn">from</span><span class="w"> </span><span class="kc">None</span>
+    <span class="k">if</span> <span class="p">(</span><span class="ow">not</span> <span class="n">same_controller</span><span class="p">(</span><span class="n">written</span><span class="p">,</span> <span class="n">config</span><span class="p">)</span>
+            <span class="ow">or</span> <span class="p">[</span><span class="n">r</span><span class="p">[</span><span class="s2">"path"</span><span class="p">]</span> <span class="k">for</span> <span class="n">r</span> <span class="ow">in</span> <span class="n">written</span><span class="p">[</span><span class="s2">"recordings"</span><span class="p">]]</span> <span class="o">!=</span> <span class="p">[</span><span class="n">r</span><span class="p">[</span><span class="s2">"path"</span><span class="p">]</span> <span class="k">for</span> <span class="n">r</span> <span class="ow">in</span> <span class="n">sections</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"recordings"</span><span class="p">,</span> <span class="p">[])]</span>
+            <span class="ow">or</span> <span class="p">[</span><span class="n">s</span><span class="p">[</span><span class="s2">"physics_dt"</span><span class="p">]</span> <span class="k">for</span> <span class="n">s</span> <span class="ow">in</span> <span class="n">written</span><span class="p">[</span><span class="s2">"sim"</span><span class="p">]]</span> <span class="o">!=</span> <span class="p">[</span><span class="n">s</span><span class="p">[</span><span class="s2">"physics_dt"</span><span class="p">]</span> <span class="k">for</span> <span class="n">s</span> <span class="ow">in</span> <span class="n">sections</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"sim"</span><span class="p">,</span> <span class="p">[])]):</span>
+        <span class="k">raise</span> <span class="ne">RuntimeError</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Could not </span><span class="si">{</span><span class="n">action</span><span class="si">}</span><span class="s2"> to </span><span class="si">{</span><span class="n">path</span><span class="si">}</span><span class="s2"> without changing the rest; the file was not changed"</span><span class="p">)</span>
+    <span class="n">partial</span> <span class="o">=</span> <span class="n">path</span><span class="o">.</span><span class="n">with_name</span><span class="p">(</span><span class="sa">f</span><span class="s2">".</span><span class="si">{</span><span class="n">path</span><span class="o">.</span><span class="n">name</span><span class="si">}</span><span class="s2">.partial"</span><span class="p">)</span>
+    <span class="n">partial</span><span class="o">.</span><span class="n">write_text</span><span class="p">(</span><span class="n">new</span><span class="p">)</span>
+    <span class="n">os</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="n">partial</span><span class="p">,</span> <span class="n">path</span><span class="p">)</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_content_end</span><span class="p">(</span><span class="n">node</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">"""Where the content of a YAML node ends: block collections end only at the next token."""</span>
+    <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">node</span><span class="p">,</span> <span class="n">yaml</span><span class="o">.</span><span class="n">ScalarNode</span><span class="p">)</span> <span class="ow">or</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">node</span><span class="p">,</span> <span class="s2">"flow_style"</span><span class="p">,</span> <span class="kc">False</span><span class="p">)</span> <span class="ow">or</span> <span class="ow">not</span> <span class="n">node</span><span class="o">.</span><span class="n">value</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">node</span><span class="o">.</span><span class="n">end_mark</span>
+    <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">node</span><span class="p">,</span> <span class="n">yaml</span><span class="o">.</span><span class="n">MappingNode</span><span class="p">):</span>
+        <span class="k">return</span> <span class="nb">max</span><span class="p">((</span><span class="n">_content_end</span><span class="p">(</span><span class="n">n</span><span class="p">)</span> <span class="k">for</span> <span class="n">pair</span> <span class="ow">in</span> <span class="n">node</span><span class="o">.</span><span class="n">value</span> <span class="k">for</span> <span class="n">n</span> <span class="ow">in</span> <span class="n">pair</span><span class="p">),</span> <span class="n">key</span><span class="o">=</span><span class="k">lambda</span> <span class="n">m</span><span class="p">:</span> <span class="n">m</span><span class="o">.</span><span class="n">index</span><span class="p">)</span>
+    <span class="k">return</span> <span class="nb">max</span><span class="p">((</span><span class="n">_content_end</span><span class="p">(</span><span class="n">n</span><span class="p">)</span> <span class="k">for</span> <span class="n">n</span> <span class="ow">in</span> <span class="n">node</span><span class="o">.</span><span class="n">value</span><span class="p">),</span> <span class="n">key</span><span class="o">=</span><span class="k">lambda</span> <span class="n">m</span><span class="p">:</span> <span class="n">m</span><span class="o">.</span><span class="n">index</span><span class="p">)</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_plain</span><span class="p">(</span><span class="n">value</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">"""Lists and Python numbers, rounded to 6 significant digits, for YAML."""</span>
+    <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">value</span><span class="p">,</span> <span class="nb">dict</span><span class="p">):</span>
+        <span class="k">return</span> <span class="p">{</span><span class="n">key</span><span class="p">:</span> <span class="n">_plain</span><span class="p">(</span><span class="n">item</span><span class="p">)</span> <span class="k">for</span> <span class="n">key</span><span class="p">,</span> <span class="n">item</span> <span class="ow">in</span> <span class="n">value</span><span class="o">.</span><span class="n">items</span><span class="p">()}</span>
+    <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">value</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">):</span>
+        <span class="n">value</span> <span class="o">=</span> <span class="n">value</span><span class="o">.</span><span class="n">tolist</span><span class="p">()</span>
+    <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">value</span><span class="p">,</span> <span class="p">(</span><span class="nb">list</span><span class="p">,</span> <span class="nb">tuple</span><span class="p">)):</span>
+        <span class="k">return</span> <span class="p">[</span><span class="n">_plain</span><span class="p">(</span><span class="n">item</span><span class="p">)</span> <span class="k">for</span> <span class="n">item</span> <span class="ow">in</span> <span class="n">value</span><span class="p">]</span>
+    <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">value</span><span class="p">,</span> <span class="p">(</span><span class="nb">bool</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">bool_</span><span class="p">)):</span>
+        <span class="k">return</span> <span class="nb">bool</span><span class="p">(</span><span class="n">value</span><span class="p">)</span>
+    <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">value</span><span class="p">,</span> <span class="p">(</span><span class="nb">int</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">integer</span><span class="p">)):</span>
+        <span class="k">return</span> <span class="nb">int</span><span class="p">(</span><span class="n">value</span><span class="p">)</span>
+    <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">value</span><span class="p">,</span> <span class="p">(</span><span class="nb">float</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">floating</span><span class="p">)):</span>
+        <span class="k">return</span> <span class="nb">float</span><span class="p">(</span><span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="nb">float</span><span class="p">(</span><span class="n">value</span><span class="p">)</span><span class="si">:</span><span class="s2">.6g</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">value</span>
+</pre></div>
+
+           </div>
+          </div>
+          <footer>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2025, MIT Improbable AI Lab.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

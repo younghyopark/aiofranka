@@ -1,0 +1,552 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="./">
+<head>
+  <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Controllers &mdash; aiofranka 0.9.0 documentation</title>
+      <link rel="stylesheet" type="text/css" href="_static/pygments.css?v=b86133f3" />
+      <link rel="stylesheet" type="text/css" href="_static/css/theme.css?v=9edc463e" />
+
+  
+      <script src="_static/jquery.js?v=5d32c60e"></script>
+      <script src="_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="_static/documentation_options.js?v=39bb1c6d"></script>
+      <script src="_static/doctools.js?v=fd6eb6e6"></script>
+      <script src="_static/sphinx_highlight.js?v=6ffebe34"></script>
+      <script defer="defer" src="https://cdn.jsdelivr.net/npm/mathjax@4/tex-mml-chtml.js"></script>
+    <script src="_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Search" href="search.html" />
+    <link rel="next" title="Native Control Loop" href="native.html" />
+    <link rel="prev" title="Quick Start" href="quickstart.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="index.html" class="icon icon-home">
+            aiofranka
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">Getting Started</span></p>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="installation.html">Installation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="quickstart.html">Quick Start</a></li>
+<li class="toctree-l1 current"><a class="current reference internal" href="#">Controllers</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="#impedance-control">Impedance Control</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#usage">Usage</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="#pid-control">PID Control</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#id1">Usage</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="#operational-space-control-osc">Operational Space Control (OSC)</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#id2">Usage</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#end-effector-pose-format">End-Effector Pose Format</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#tool-center-point">Tool Center Point</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="#direct-torque-control">Direct Torque Control</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#id3">Usage</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="#switching-controllers">Switching Controllers</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#controller-configuration-files">Controller Configuration Files</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#trajectory-motion">Trajectory Motion</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#payload-identification">Payload Identification</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#safety-features">Safety Features</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#torque-rate-limiting">Torque Rate Limiting</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#gain-tuning-tips">Gain Tuning Tips</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="native.html">Native Control Loop</a></li>
+<li class="toctree-l1"><a class="reference internal" href="cli.html">CLI Reference</a></li>
+<li class="toctree-l1"><a class="reference internal" href="async_mode.html">Async Mode Guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="examples.html">Examples</a></li>
+<li class="toctree-l1"><a class="reference internal" href="troubleshooting.html">Troubleshooting</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">API Reference</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="api/franka.html">Robot and Controller</a></li>
+<li class="toctree-l1"><a class="reference internal" href="api/native.html">NativeFrankaController</a></li>
+<li class="toctree-l1"><a class="reference internal" href="api/controller.html">FrankaController</a></li>
+<li class="toctree-l1"><a class="reference internal" href="api/remote.html">FrankaRemoteController (Server Mode)</a></li>
+<li class="toctree-l1"><a class="reference internal" href="api/robot.html">Robot Interface</a></li>
+<li class="toctree-l1"><a class="reference internal" href="api/payload.html">Payload Identification and Tools</a></li>
+<li class="toctree-l1"><a class="reference internal" href="api/config.html">Controller Configurations</a></li>
+<li class="toctree-l1"><a class="reference internal" href="api/server.html">Server Functions</a></li>
+<li class="toctree-l1"><a class="reference internal" href="api/gripper.html">GripperController</a></li>
+<li class="toctree-l1"><a class="reference internal" href="api/utilities.html">Async Utilities</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="index.html">aiofranka</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="index.html" class="icon icon-home" aria-label="Home"></a></li>
+      <li class="breadcrumb-item active">Controllers</li>
+      <li class="wy-breadcrumbs-aside">
+            <a href="_sources/controllers.rst.txt" rel="nofollow"> View page source</a>
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <section id="controllers">
+<h1>Controllers<a class="headerlink" href="#controllers" title="Link to this heading"></a></h1>
+<p>aiofranka supports four control modes, each suited for different applications.
+All modes work with <code class="docutils literal notranslate"><span class="pre">Controller</span></code>, and with <code class="docutils literal notranslate"><span class="pre">NativeFrankaController</span></code>, the same controller
+for asyncio code, whose calls take an <code class="docutils literal notranslate"><span class="pre">await</span></code>. The legacy <code class="docutils literal notranslate"><span class="pre">FrankaController</span></code> and server
+mode have them too.</p>
+<nav class="contents local" id="table-of-contents">
+<p class="topic-title">Table of Contents</p>
+<ul class="simple">
+<li><p><a class="reference internal" href="#impedance-control" id="id5">Impedance Control</a></p>
+<ul>
+<li><p><a class="reference internal" href="#usage" id="id6">Usage</a></p></li>
+</ul>
+</li>
+<li><p><a class="reference internal" href="#pid-control" id="id7">PID Control</a></p>
+<ul>
+<li><p><a class="reference internal" href="#id1" id="id8">Usage</a></p></li>
+</ul>
+</li>
+<li><p><a class="reference internal" href="#operational-space-control-osc" id="id9">Operational Space Control (OSC)</a></p>
+<ul>
+<li><p><a class="reference internal" href="#id2" id="id10">Usage</a></p></li>
+<li><p><a class="reference internal" href="#end-effector-pose-format" id="id11">End-Effector Pose Format</a></p></li>
+<li><p><a class="reference internal" href="#tool-center-point" id="id12">Tool Center Point</a></p></li>
+</ul>
+</li>
+<li><p><a class="reference internal" href="#direct-torque-control" id="id13">Direct Torque Control</a></p>
+<ul>
+<li><p><a class="reference internal" href="#id3" id="id14">Usage</a></p></li>
+</ul>
+</li>
+<li><p><a class="reference internal" href="#switching-controllers" id="id15">Switching Controllers</a></p></li>
+<li><p><a class="reference internal" href="#controller-configuration-files" id="id16">Controller Configuration Files</a></p></li>
+<li><p><a class="reference internal" href="#trajectory-motion" id="id17">Trajectory Motion</a></p></li>
+<li><p><a class="reference internal" href="#payload-identification" id="id18">Payload Identification</a></p></li>
+<li><p><a class="reference internal" href="#safety-features" id="id19">Safety Features</a></p>
+<ul>
+<li><p><a class="reference internal" href="#torque-rate-limiting" id="id20">Torque Rate Limiting</a></p></li>
+<li><p><a class="reference internal" href="#gain-tuning-tips" id="id21">Gain Tuning Tips</a></p></li>
+</ul>
+</li>
+</ul>
+</nav>
+<section id="impedance-control">
+<h2><a class="toc-backref" href="#id5" role="doc-backlink">Impedance Control</a><a class="headerlink" href="#impedance-control" title="Link to this heading"></a></h2>
+<p>Joint-space impedance control implements a spring-damper system:</p>
+<div class="math notranslate nohighlight">
+\[\tau = K_{\text{p}} (\mathbf{q}_{\text{desired}} - \mathbf{q}) - K_{\text{d}} \dot{\mathbf{q}}\]</div>
+<p>where:</p>
+<ul class="simple">
+<li><p><span class="math notranslate nohighlight">\(\tau\)</span>: Joint torques [Nm]</p></li>
+<li><p><span class="math notranslate nohighlight">\(K_{\text{p}}\)</span>: Position stiffness gains [Nm/rad] — <code class="docutils literal notranslate"><span class="pre">controller.kp</span></code></p></li>
+<li><p><span class="math notranslate nohighlight">\(K_{\text{d}}\)</span>: Damping gains [Nm·s/rad] — <code class="docutils literal notranslate"><span class="pre">controller.kd</span></code></p></li>
+<li><p><span class="math notranslate nohighlight">\(\mathbf{q}_{\text{desired}}\)</span>: Desired joint positions [rad] — <code class="docutils literal notranslate"><span class="pre">controller.q_desired</span></code></p></li>
+<li><p><span class="math notranslate nohighlight">\(\mathbf{q}\)</span>: Current joint positions [rad]</p></li>
+<li><p><span class="math notranslate nohighlight">\(\dot{\mathbf{q}}\)</span>: Joint velocities [rad/s]</p></li>
+</ul>
+<p>Torque rate limiting is applied when <code class="docutils literal notranslate"><span class="pre">controller.clip</span> <span class="pre">=</span> <span class="pre">True</span></code> (default).</p>
+<section id="usage">
+<h3><a class="toc-backref" href="#id6" role="doc-backlink">Usage</a><a class="headerlink" href="#usage" title="Link to this heading"></a></h3>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">controller</span><span class="o">.</span><span class="n">switch</span><span class="p">(</span><span class="s2">&quot;impedance&quot;</span><span class="p">)</span>
+<span class="n">controller</span><span class="o">.</span><span class="n">kp</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">ones</span><span class="p">(</span><span class="mi">7</span><span class="p">)</span> <span class="o">*</span> <span class="mf">80.0</span>  <span class="c1"># Stiffness</span>
+<span class="n">controller</span><span class="o">.</span><span class="n">kd</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">ones</span><span class="p">(</span><span class="mi">7</span><span class="p">)</span> <span class="o">*</span> <span class="mf">4.0</span>   <span class="c1"># Damping</span>
+<span class="n">controller</span><span class="o">.</span><span class="n">set_freq</span><span class="p">(</span><span class="mi">50</span><span class="p">)</span>
+
+<span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">200</span><span class="p">):</span>
+    <span class="n">target</span> <span class="o">=</span> <span class="n">compute_target</span><span class="p">(</span><span class="n">i</span><span class="p">)</span>
+    <span class="n">controller</span><span class="o">.</span><span class="n">set</span><span class="p">(</span><span class="s2">&quot;q_desired&quot;</span><span class="p">,</span> <span class="n">target</span><span class="p">)</span>  <span class="c1"># await it with NativeFrankaController</span>
+</pre></div>
+</div>
+<p><strong>Best for</strong>: Joint-space trajectories, compliant behavior, system identification.</p>
+<p><strong>Default gains</strong>: <code class="docutils literal notranslate"><span class="pre">kp</span> <span class="pre">=</span> <span class="pre">80</span></code>, <code class="docutils literal notranslate"><span class="pre">kd</span> <span class="pre">=</span> <span class="pre">4</span></code> (per joint).</p>
+</section>
+</section>
+<section id="pid-control">
+<h2><a class="toc-backref" href="#id7" role="doc-backlink">PID Control</a><a class="headerlink" href="#pid-control" title="Link to this heading"></a></h2>
+<p>Joint-space PID control with integral term for reducing steady-state error:</p>
+<div class="math notranslate nohighlight">
+\[\tau = K_{\text{p}} \mathbf{e} + K_{\text{i}} \int \mathbf{e} \, dt - K_{\text{d}} \dot{\mathbf{q}}\]</div>
+<p>where <span class="math notranslate nohighlight">\(\mathbf{e} = \mathbf{q}_{\text{desired}} - \mathbf{q}\)</span>.</p>
+<p>The integral term is clamped (anti-windup) to prevent unbounded growth.
+Integral state is reset when switching controllers via <code class="docutils literal notranslate"><span class="pre">switch()</span></code>.</p>
+<section id="id1">
+<h3><a class="toc-backref" href="#id8" role="doc-backlink">Usage</a><a class="headerlink" href="#id1" title="Link to this heading"></a></h3>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">controller</span><span class="o">.</span><span class="n">switch</span><span class="p">(</span><span class="s2">&quot;pid&quot;</span><span class="p">)</span>
+<span class="n">controller</span><span class="o">.</span><span class="n">kp</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">ones</span><span class="p">(</span><span class="mi">7</span><span class="p">)</span> <span class="o">*</span> <span class="mf">80.0</span>   <span class="c1"># Proportional</span>
+<span class="n">controller</span><span class="o">.</span><span class="n">ki</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">ones</span><span class="p">(</span><span class="mi">7</span><span class="p">)</span> <span class="o">*</span> <span class="mf">0.1</span>    <span class="c1"># Integral</span>
+<span class="n">controller</span><span class="o">.</span><span class="n">kd</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">ones</span><span class="p">(</span><span class="mi">7</span><span class="p">)</span> <span class="o">*</span> <span class="mf">4.0</span>    <span class="c1"># Derivative (damping)</span>
+<span class="n">controller</span><span class="o">.</span><span class="n">set_freq</span><span class="p">(</span><span class="mi">50</span><span class="p">)</span>
+
+<span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">200</span><span class="p">):</span>
+    <span class="n">target</span> <span class="o">=</span> <span class="n">compute_target</span><span class="p">(</span><span class="n">i</span><span class="p">)</span>
+    <span class="n">controller</span><span class="o">.</span><span class="n">set</span><span class="p">(</span><span class="s2">&quot;q_desired&quot;</span><span class="p">,</span> <span class="n">target</span><span class="p">)</span>
+</pre></div>
+</div>
+<p><strong>Best for</strong>: Tasks requiring zero steady-state error, precise positioning.</p>
+<p><strong>Default gains</strong>: <code class="docutils literal notranslate"><span class="pre">kp</span> <span class="pre">=</span> <span class="pre">80</span></code>, <code class="docutils literal notranslate"><span class="pre">ki</span> <span class="pre">=</span> <span class="pre">0.1</span></code>, <code class="docutils literal notranslate"><span class="pre">kd</span> <span class="pre">=</span> <span class="pre">4</span></code> (per joint).</p>
+</section>
+</section>
+<section id="operational-space-control-osc">
+<h2><a class="toc-backref" href="#id9" role="doc-backlink">Operational Space Control (OSC)</a><a class="headerlink" href="#operational-space-control-osc" title="Link to this heading"></a></h2>
+<p>OSC controls the end-effector in Cartesian space while managing null-space behavior:</p>
+<div class="math notranslate nohighlight">
+\[\tau = \mathbf{J}^T \mathbf{M}_{\mathbf{x}} (K_{\text{p}}^{\text{ee}} \mathbf{e} - K_{\text{d}}^{\text{ee}} \dot{\mathbf{x}}) + (\mathbf{I} - \mathbf{J}^T \bar{\mathbf{J}}^T) (K_{\text{p}}^{\text{null}} (\mathbf{q}_0 - \mathbf{q}) - K_{\text{d}}^{\text{null}} \dot{\mathbf{q}})\]</div>
+<p>where:</p>
+<ul class="simple">
+<li><p><span class="math notranslate nohighlight">\(\mathbf{J}\)</span>: End-effector Jacobian (6x7) — <code class="docutils literal notranslate"><span class="pre">state['jac']</span></code></p></li>
+<li><p><span class="math notranslate nohighlight">\(\mathbf{M}_{\mathbf{x}} = (\mathbf{J} \mathbf{M}^{-1} \mathbf{J}^T)^{-1}\)</span>: Operational space inertia matrix</p></li>
+<li><p><span class="math notranslate nohighlight">\(\mathbf{M}\)</span>: Joint-space mass matrix (7x7) — <code class="docutils literal notranslate"><span class="pre">state['mm']</span></code></p></li>
+<li><p><span class="math notranslate nohighlight">\(\mathbf{e} = [\mathbf{p}_{\text{goal}} - \mathbf{p}; \text{Log}(\mathbf{R}_{\text{goal}} \mathbf{R}^{-1})]\)</span>: Pose error (position + rotation as axis-angle)</p></li>
+<li><p><span class="math notranslate nohighlight">\(\dot{\mathbf{x}} = \mathbf{J} \dot{\mathbf{q}}\)</span>: End-effector velocity</p></li>
+<li><p><span class="math notranslate nohighlight">\(\bar{\mathbf{J}} = \mathbf{M}^{-1} \mathbf{J}^T \mathbf{M}_{\mathbf{x}}\)</span>: Dynamically consistent pseudoinverse</p></li>
+<li><p><span class="math notranslate nohighlight">\((\mathbf{I} - \mathbf{J}^T \bar{\mathbf{J}}^T)\)</span>: Null-space projection matrix</p></li>
+<li><p><span class="math notranslate nohighlight">\(\mathbf{q}_0\)</span>: Null-space reference configuration (<code class="docutils literal notranslate"><span class="pre">controller.initial_qpos</span></code>)</p></li>
+</ul>
+<section id="id2">
+<h3><a class="toc-backref" href="#id10" role="doc-backlink">Usage</a><a class="headerlink" href="#id2" title="Link to this heading"></a></h3>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">controller</span><span class="o">.</span><span class="n">switch</span><span class="p">(</span><span class="s2">&quot;osc&quot;</span><span class="p">)</span>
+
+<span class="c1"># Task-space gains [x, y, z, roll, pitch, yaw]</span>
+<span class="n">controller</span><span class="o">.</span><span class="n">ee_kp</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="mi">300</span><span class="p">,</span> <span class="mi">300</span><span class="p">,</span> <span class="mi">300</span><span class="p">,</span> <span class="mi">1000</span><span class="p">,</span> <span class="mi">1000</span><span class="p">,</span> <span class="mi">1000</span><span class="p">])</span>
+<span class="n">controller</span><span class="o">.</span><span class="n">ee_kd</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">ones</span><span class="p">(</span><span class="mi">6</span><span class="p">)</span> <span class="o">*</span> <span class="mf">10.0</span>
+
+<span class="c1"># Null-space gains (keeps robot away from joint limits)</span>
+<span class="n">controller</span><span class="o">.</span><span class="n">null_kp</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">ones</span><span class="p">(</span><span class="mi">7</span><span class="p">)</span> <span class="o">*</span> <span class="mf">10.0</span>
+<span class="n">controller</span><span class="o">.</span><span class="n">null_kd</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">ones</span><span class="p">(</span><span class="mi">7</span><span class="p">)</span> <span class="o">*</span> <span class="mf">1.0</span>
+
+<span class="n">controller</span><span class="o">.</span><span class="n">set_freq</span><span class="p">(</span><span class="mi">50</span><span class="p">)</span>
+
+<span class="c1"># Create desired pose (4x4 homogeneous transform)</span>
+<span class="n">desired_ee</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">eye</span><span class="p">(</span><span class="mi">4</span><span class="p">)</span>
+<span class="n">desired_ee</span><span class="p">[:</span><span class="mi">3</span><span class="p">,</span> <span class="p">:</span><span class="mi">3</span><span class="p">]</span> <span class="o">=</span> <span class="n">rotation_matrix</span>  <span class="c1"># 3x3 rotation</span>
+<span class="n">desired_ee</span><span class="p">[:</span><span class="mi">3</span><span class="p">,</span> <span class="mi">3</span><span class="p">]</span> <span class="o">=</span> <span class="p">[</span><span class="n">x</span><span class="p">,</span> <span class="n">y</span><span class="p">,</span> <span class="n">z</span><span class="p">]</span>         <span class="c1"># position</span>
+
+<span class="n">controller</span><span class="o">.</span><span class="n">set</span><span class="p">(</span><span class="s2">&quot;ee_desired&quot;</span><span class="p">,</span> <span class="n">desired_ee</span><span class="p">)</span>
+</pre></div>
+</div>
+</section>
+<section id="end-effector-pose-format">
+<h3><a class="toc-backref" href="#id11" role="doc-backlink">End-Effector Pose Format</a><a class="headerlink" href="#end-effector-pose-format" title="Link to this heading"></a></h3>
+<p>The end-effector pose is a 4x4 homogeneous transformation matrix:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">ee</span> <span class="o">=</span> <span class="p">[[</span><span class="n">R</span> <span class="o">|</span> <span class="n">p</span><span class="p">],</span>
+      <span class="p">[</span><span class="mi">0</span> <span class="o">|</span> <span class="mi">1</span><span class="p">]]</span>
+
+<span class="c1"># R: 3x3 rotation matrix (SO(3))</span>
+<span class="c1"># p: 3x1 position vector [x, y, z] in meters</span>
+</pre></div>
+</div>
+<p>Example with scipy:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">scipy.spatial.transform</span><span class="w"> </span><span class="kn">import</span> <span class="n">Rotation</span> <span class="k">as</span> <span class="n">R</span>
+
+<span class="n">ee</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">eye</span><span class="p">(</span><span class="mi">4</span><span class="p">)</span>
+<span class="n">ee</span><span class="p">[:</span><span class="mi">3</span><span class="p">,</span> <span class="p">:</span><span class="mi">3</span><span class="p">]</span> <span class="o">=</span> <span class="n">R</span><span class="o">.</span><span class="n">from_euler</span><span class="p">(</span><span class="s1">&#39;xyz&#39;</span><span class="p">,</span> <span class="p">[</span><span class="mi">180</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">],</span> <span class="n">degrees</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span><span class="o">.</span><span class="n">as_matrix</span><span class="p">()</span>
+<span class="n">ee</span><span class="p">[:</span><span class="mi">3</span><span class="p">,</span> <span class="mi">3</span><span class="p">]</span> <span class="o">=</span> <span class="p">[</span><span class="mf">0.5</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">,</span> <span class="mf">0.4</span><span class="p">]</span>  <span class="c1"># meters</span>
+</pre></div>
+</div>
+</section>
+<section id="tool-center-point">
+<h3><a class="toc-backref" href="#id12" role="doc-backlink">Tool Center Point</a><a class="headerlink" href="#tool-center-point" title="Link to this heading"></a></h3>
+<p>By default, the OSC controls the flange. To control a point on the tool instead, e.g. the
+fingertips, set the tool center point (TCP) as a pose in the flange frame:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">controller</span><span class="o">.</span><span class="n">switch</span><span class="p">(</span><span class="s2">&quot;osc&quot;</span><span class="p">)</span>
+<span class="n">controller</span><span class="o">.</span><span class="n">set_tcp</span><span class="p">([</span><span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mf">0.1034</span><span class="p">])</span>     <span class="c1"># a translation, here the Franka Hand fingertips</span>
+
+<span class="n">tcp</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">eye</span><span class="p">(</span><span class="mi">4</span><span class="p">)</span>                        <span class="c1"># or a 4x4 pose, also rotating the controlled frame</span>
+<span class="n">tcp</span><span class="p">[:</span><span class="mi">3</span><span class="p">,</span> <span class="p">:</span><span class="mi">3</span><span class="p">]</span> <span class="o">=</span> <span class="n">R</span><span class="o">.</span><span class="n">from_euler</span><span class="p">(</span><span class="s1">&#39;z&#39;</span><span class="p">,</span> <span class="o">-</span><span class="mi">45</span><span class="p">,</span> <span class="n">degrees</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span><span class="o">.</span><span class="n">as_matrix</span><span class="p">()</span>
+<span class="n">tcp</span><span class="p">[:</span><span class="mi">3</span><span class="p">,</span> <span class="mi">3</span><span class="p">]</span> <span class="o">=</span> <span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mf">0.1034</span><span class="p">]</span>
+<span class="n">controller</span><span class="o">.</span><span class="n">set_tcp</span><span class="p">(</span><span class="n">tcp</span><span class="p">)</span>
+</pre></div>
+</div>
+<p>From then on, <code class="docutils literal notranslate"><span class="pre">ee_desired</span></code> is the pose of the TCP in the base frame. <code class="docutils literal notranslate"><span class="pre">set_tcp()</span></code> sets it to the
+TCP’s current pose, so the arm holds still, and the TCP stays in effect when you switch controllers.
+The TCP of the end-effector profile in Desk is not used.</p>
+<p>The flange frame has its origin at the center of the flange face and its z-axis pointing out of the
+flange; the box on the side of link 7 points between +x and +y. Here it is at the home pose, with x
+red, y green and z blue, and on the right a TCP 10 cm along z:</p>
+<img alt="The flange frame of the FR3: z points out of the flange, x and y lie in the flange face." src="_images/flange_frame.png" />
+<p>The frame is the <code class="docutils literal notranslate"><span class="pre">attachment_site</span></code> of the MuJoCo model, which <code class="docutils literal notranslate"><span class="pre">robot.state[&quot;ee&quot;]</span></code> reports.</p>
+<p><strong>Best for</strong>: Cartesian motions, end-effector tracking, teleoperation.</p>
+<p><strong>Default gains</strong>: <code class="docutils literal notranslate"><span class="pre">ee_kp</span> <span class="pre">=</span> <span class="pre">100</span></code>, <code class="docutils literal notranslate"><span class="pre">ee_kd</span> <span class="pre">=</span> <span class="pre">4</span></code> (all 6 axes); <code class="docutils literal notranslate"><span class="pre">null_kp</span> <span class="pre">=</span> <span class="pre">1</span></code>, <code class="docutils literal notranslate"><span class="pre">null_kd</span> <span class="pre">=</span> <span class="pre">1</span></code> (per joint).</p>
+</section>
+</section>
+<section id="direct-torque-control">
+<h2><a class="toc-backref" href="#id13" role="doc-backlink">Direct Torque Control</a><a class="headerlink" href="#direct-torque-control" title="Link to this heading"></a></h2>
+<p>Send raw torque commands directly. You are responsible for computing the full torque vector.</p>
+<section id="id3">
+<h3><a class="toc-backref" href="#id14" role="doc-backlink">Usage</a><a class="headerlink" href="#id3" title="Link to this heading"></a></h3>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">controller</span><span class="o">.</span><span class="n">switch</span><span class="p">(</span><span class="s2">&quot;torque&quot;</span><span class="p">)</span>
+
+<span class="c1"># Your custom control law</span>
+<span class="n">state</span> <span class="o">=</span> <span class="n">controller</span><span class="o">.</span><span class="n">state</span>
+<span class="n">q</span> <span class="o">=</span> <span class="n">state</span><span class="p">[</span><span class="s1">&#39;qpos&#39;</span><span class="p">]</span>
+<span class="n">dq</span> <span class="o">=</span> <span class="n">state</span><span class="p">[</span><span class="s1">&#39;qvel&#39;</span><span class="p">]</span>
+
+<span class="n">kp</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">ones</span><span class="p">(</span><span class="mi">7</span><span class="p">)</span> <span class="o">*</span> <span class="mf">60.0</span>
+<span class="n">kd</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">ones</span><span class="p">(</span><span class="mi">7</span><span class="p">)</span> <span class="o">*</span> <span class="mf">3.0</span>
+<span class="n">target</span> <span class="o">=</span> <span class="n">controller</span><span class="o">.</span><span class="n">initial_qpos</span>
+
+<span class="n">tau</span> <span class="o">=</span> <span class="n">kp</span> <span class="o">*</span> <span class="p">(</span><span class="n">target</span> <span class="o">-</span> <span class="n">q</span><span class="p">)</span> <span class="o">-</span> <span class="n">kd</span> <span class="o">*</span> <span class="n">dq</span>
+<span class="n">controller</span><span class="o">.</span><span class="n">torque</span> <span class="o">=</span> <span class="n">tau</span>
+</pre></div>
+</div>
+<div class="admonition warning">
+<p class="admonition-title">Warning</p>
+<p>Direct torque control bypasses all built-in safety checks except torque rate limiting.
+Test in simulation first!</p>
+</div>
+<p><strong>Best for</strong>: Custom control laws, gravity compensation, research.</p>
+</section>
+</section>
+<section id="switching-controllers">
+<h2><a class="toc-backref" href="#id15" role="doc-backlink">Switching Controllers</a><a class="headerlink" href="#switching-controllers" title="Link to this heading"></a></h2>
+<p>You can switch between controllers at runtime:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="c1"># Start with impedance</span>
+<span class="n">controller</span><span class="o">.</span><span class="n">switch</span><span class="p">(</span><span class="s2">&quot;impedance&quot;</span><span class="p">)</span>
+<span class="n">controller</span><span class="o">.</span><span class="n">kp</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">ones</span><span class="p">(</span><span class="mi">7</span><span class="p">)</span> <span class="o">*</span> <span class="mf">80.0</span>
+<span class="n">controller</span><span class="o">.</span><span class="n">set</span><span class="p">(</span><span class="s2">&quot;q_desired&quot;</span><span class="p">,</span> <span class="n">target1</span><span class="p">)</span>
+
+<span class="c1"># Switch to OSC</span>
+<span class="n">controller</span><span class="o">.</span><span class="n">switch</span><span class="p">(</span><span class="s2">&quot;osc&quot;</span><span class="p">)</span>
+<span class="n">controller</span><span class="o">.</span><span class="n">ee_kp</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="mi">300</span><span class="p">,</span> <span class="mi">300</span><span class="p">,</span> <span class="mi">300</span><span class="p">,</span> <span class="mi">1000</span><span class="p">,</span> <span class="mi">1000</span><span class="p">,</span> <span class="mi">1000</span><span class="p">])</span>
+<span class="n">controller</span><span class="o">.</span><span class="n">set</span><span class="p">(</span><span class="s2">&quot;ee_desired&quot;</span><span class="p">,</span> <span class="n">target2</span><span class="p">)</span>
+
+<span class="c1"># Switch to PID</span>
+<span class="n">controller</span><span class="o">.</span><span class="n">switch</span><span class="p">(</span><span class="s2">&quot;pid&quot;</span><span class="p">)</span>
+<span class="n">controller</span><span class="o">.</span><span class="n">ki</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">ones</span><span class="p">(</span><span class="mi">7</span><span class="p">)</span> <span class="o">*</span> <span class="mf">0.5</span>
+
+<span class="c1"># Switch to direct torque</span>
+<span class="n">controller</span><span class="o">.</span><span class="n">switch</span><span class="p">(</span><span class="s2">&quot;torque&quot;</span><span class="p">)</span>
+<span class="n">controller</span><span class="o">.</span><span class="n">torque</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="mi">7</span><span class="p">)</span>
+</pre></div>
+</div>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>Switching resets initial states (<code class="docutils literal notranslate"><span class="pre">initial_qpos</span></code>, <code class="docutils literal notranslate"><span class="pre">initial_ee</span></code>), clears rate-limiting timing, and resets the PID integral term.</p>
+</div>
+</section>
+<section id="controller-configuration-files">
+<span id="controller-configurations"></span><h2><a class="toc-backref" href="#id16" role="doc-backlink">Controller Configuration Files</a><a class="headerlink" href="#controller-configuration-files" title="Link to this heading"></a></h2>
+<p>A YAML file can hold everything about how a policy drives the robot: the mode, its gains, the
+policy rate and the tool it is for. <code class="docutils literal notranslate"><span class="pre">activate()</span></code> applies it in place of <code class="docutils literal notranslate"><span class="pre">switch()</span></code>, the gains
+and <code class="docutils literal notranslate"><span class="pre">set_freq()</span></code>:</p>
+<div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><span class="c1"># configs/osc.yaml</span>
+<span class="nt">mode</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">osc</span>
+<span class="nt">tool</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">none</span><span class="w">                 </span><span class="c1"># Desk end-effector profile it needs; none is &quot;No End Effector&quot;</span>
+<span class="nt">ee_kp</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">100</span><span class="w">                 </span><span class="c1"># x, y, z, then rotation [1/s^2]: one value, or 6</span>
+<span class="nt">ee_kd</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">20</span>
+<span class="nt">null_kp</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">9</span><span class="w">                 </span><span class="c1"># one value, or one per joint (default 1)</span>
+<span class="nt">null_kd</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">6</span><span class="w">                 </span><span class="c1"># (default 1)</span>
+<span class="nt">tcp</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="nv">0</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="nv">0</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="nv">0</span><span class="p p-Indicator">]</span><span class="w">             </span><span class="c1"># TCP in the flange frame: a translation [m] or a 4x4 pose</span>
+<span class="nt">frequency</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">50</span><span class="w">              </span><span class="c1"># policy rate [Hz]</span>
+</pre></div>
+</div>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">controller</span><span class="o">.</span><span class="n">activate</span><span class="p">(</span><span class="s2">&quot;configs/osc.yaml&quot;</span><span class="p">)</span>
+<span class="c1"># the same as</span>
+<span class="n">controller</span><span class="o">.</span><span class="n">set_tcp</span><span class="p">([</span><span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">])</span>
+<span class="n">controller</span><span class="o">.</span><span class="n">switch</span><span class="p">(</span><span class="s2">&quot;osc&quot;</span><span class="p">)</span>
+<span class="n">controller</span><span class="o">.</span><span class="n">ee_kp</span><span class="p">,</span> <span class="n">controller</span><span class="o">.</span><span class="n">ee_kd</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">ones</span><span class="p">(</span><span class="mi">6</span><span class="p">)</span> <span class="o">*</span> <span class="mf">100.0</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">ones</span><span class="p">(</span><span class="mi">6</span><span class="p">)</span> <span class="o">*</span> <span class="mf">20.0</span>
+<span class="n">controller</span><span class="o">.</span><span class="n">null_kp</span><span class="p">,</span> <span class="n">controller</span><span class="o">.</span><span class="n">null_kd</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">ones</span><span class="p">(</span><span class="mi">7</span><span class="p">)</span> <span class="o">*</span> <span class="mf">9.0</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">ones</span><span class="p">(</span><span class="mi">7</span><span class="p">)</span> <span class="o">*</span> <span class="mf">6.0</span>
+<span class="n">controller</span><span class="o">.</span><span class="n">set_freq</span><span class="p">(</span><span class="mi">50</span><span class="p">)</span>
+</pre></div>
+</div>
+<p>Without a <code class="docutils literal notranslate"><span class="pre">null_target</span></code>, the null space keeps the joint positions at activation, as <code class="docutils literal notranslate"><span class="pre">switch()</span></code>
+does, so activating moves nothing. A policy trained with a fixed posture names it, as 7 joint
+positions or <code class="docutils literal notranslate"><span class="pre">home</span></code>. Then <code class="docutils literal notranslate"><span class="pre">activate()</span></code> only applies the configuration with the arm already
+there, every joint within <code class="docutils literal notranslate"><span class="pre">controller.arrival_tolerance</span></code> (0.03 rad), the same criterion
+<code class="docutils literal notranslate"><span class="pre">move()</span></code> stops at; otherwise the null space would swing the arm toward the target at once (in
+MuJoCo, a configuration whose target was 1.6 rad away swung joint 1 at 4.6 rad/s). Move there
+first:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">config</span> <span class="o">=</span> <span class="n">aiofranka</span><span class="o">.</span><span class="n">load_config</span><span class="p">(</span><span class="s2">&quot;configs/pocky/lv1_osc.yaml&quot;</span><span class="p">)</span>
+<span class="n">controller</span><span class="o">.</span><span class="n">move</span><span class="p">(</span><span class="n">config</span><span class="p">[</span><span class="s2">&quot;null_target&quot;</span><span class="p">])</span>  <span class="c1"># also puts the TCP where the policy starts</span>
+<span class="n">controller</span><span class="o">.</span><span class="n">activate</span><span class="p">(</span><span class="n">config</span><span class="p">)</span>
+</pre></div>
+</div>
+<p>A joint impedance file has <code class="docutils literal notranslate"><span class="pre">mode:</span> <span class="pre">impedance</span></code>, <code class="docutils literal notranslate"><span class="pre">kp</span></code> and <code class="docutils literal notranslate"><span class="pre">kd</span></code>. The <code class="docutils literal notranslate"><span class="pre">configs/</span></code> folder of the
+repository has examples. <code class="docutils literal notranslate"><span class="pre">aiofranka.load_config()</span></code> reads and checks a file; unknown keys are an
+error, so a typo cannot pass silently.</p>
+<p><code class="docutils literal notranslate"><span class="pre">activate()</span></code> refuses a configuration whose <code class="docutils literal notranslate"><span class="pre">tool</span></code> is not the end-effector profile active in
+Desk. <code class="docutils literal notranslate"><span class="pre">RobotInterface</span></code> reads the active profile when it connects, with the Desk credentials saved by
+<code class="docutils literal notranslate"><span class="pre">aiofranka</span></code>, because a request to Desk during control would stall the 1 kHz loop; after changing
+the profile, reconnect. If Desk cannot be read, <code class="docutils literal notranslate"><span class="pre">activate()</span></code> refuses too; pass
+<code class="docutils literal notranslate"><span class="pre">check_tool=False</span></code> to skip the check (the system identification collectors: <code class="docutils literal notranslate"><span class="pre">--no-check-tool</span></code>). In
+MuJoCo there is no Desk and nothing is checked. <code class="docutils literal notranslate"><span class="pre">RobotInterface(ip,</span> <span class="pre">read_tool=False)</span></code> does not read
+Desk; the server does not.</p>
+<p>The system identification examples collect with a configuration (<code class="docutils literal notranslate"><span class="pre">--activate</span></code>), list each
+complete recording from the robot in its <code class="docutils literal notranslate"><span class="pre">recordings</span></code> section, fit the latest by default, and add
+what they fit to its <code class="docutils literal notranslate"><span class="pre">sim</span></code> section, one entry per physics step: the gains and joint parameters with which a
+simulation that runs the controller every physics step responds as the robot did, with the payload
+the fit assumed (merged into <code class="docutils literal notranslate"><span class="pre">fr3_link7</span></code> by <code class="docutils literal notranslate"><span class="pre">aiofranka.robot.merge_payload()</span></code>) and where the
+data came from (<code class="docutils literal notranslate"><span class="pre">plant</span></code>: robot or mujoco). Read one with
+<code class="docutils literal notranslate"><span class="pre">aiofranka.config.sim_entry(config,</span> <span class="pre">physics_dt)</span></code>. While the control loop runs, pass
+<code class="docutils literal notranslate"><span class="pre">activate()</span></code> a configuration read before with <code class="docutils literal notranslate"><span class="pre">load_config()</span></code>: reading a file takes a few
+milliseconds.</p>
+</section>
+<section id="trajectory-motion">
+<h2><a class="toc-backref" href="#id17" role="doc-backlink">Trajectory Motion</a><a class="headerlink" href="#trajectory-motion" title="Link to this heading"></a></h2>
+<p>The <code class="docutils literal notranslate"><span class="pre">move()</span></code> method generates a smooth, time-optimal, jerk-limited trajectory using Ruckig and executes it automatically:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="c1"># Move to home position</span>
+<span class="n">controller</span><span class="o">.</span><span class="n">move</span><span class="p">()</span>
+
+<span class="c1"># Move to custom position</span>
+<span class="n">controller</span><span class="o">.</span><span class="n">move</span><span class="p">([</span><span class="mi">0</span><span class="p">,</span> <span class="o">-</span><span class="mf">0.785</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="o">-</span><span class="mf">2.356</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mf">1.571</span><span class="p">,</span> <span class="mf">0.785</span><span class="p">])</span>
+</pre></div>
+</div>
+<p>With <code class="docutils literal notranslate"><span class="pre">NativeFrankaController</span></code>, <code class="docutils literal notranslate"><span class="pre">await</span> <span class="pre">controller.move(...)</span></code>.</p>
+<p><code class="docutils literal notranslate"><span class="pre">move()</span></code> temporarily switches to impedance control. Trajectory limits are:</p>
+<ul class="simple">
+<li><p>Max velocity: 10 rad/s per joint</p></li>
+<li><p>Max acceleration: 5 rad/s per joint squared</p></li>
+<li><p>Max jerk: 1 rad/s per joint cubed</p></li>
+</ul>
+</section>
+<section id="payload-identification">
+<span id="id4"></span><h2><a class="toc-backref" href="#id18" role="doc-backlink">Payload Identification</a><a class="headerlink" href="#payload-identification" title="Link to this heading"></a></h2>
+<p>The robot compensates the gravity of the arm and of the tool on the flange, as configured by the
+active end-effector profile in Desk (Settings &gt; End Effector). <code class="docutils literal notranslate"><span class="pre">RobotInterface</span></code> merges the profile
+into the MuJoCo model when it connects, so the mass matrix used by the OSC includes it too. If the
+profile does not match the tool, the arm drifts in torque control, e.g. with zero torques.</p>
+<p><code class="docutils literal notranslate"><span class="pre">identify_payload()</span></code> measures the mass and center of mass of the tool, starting from any profile,
+e.g. “No End Effector”. Save the result as a profile and activate it:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span><span class="w"> </span><span class="nn">aiofranka</span>
+
+<span class="n">controller</span> <span class="o">=</span> <span class="n">aiofranka</span><span class="o">.</span><span class="n">Controller</span><span class="p">(</span><span class="n">aiofranka</span><span class="o">.</span><span class="n">Robot</span><span class="p">(</span><span class="s2">&quot;172.16.0.2&quot;</span><span class="p">))</span>
+<span class="n">estimate</span> <span class="o">=</span> <span class="n">controller</span><span class="o">.</span><span class="n">identify_payload</span><span class="p">(</span><span class="n">tool_length</span><span class="o">=</span><span class="mf">0.25</span><span class="p">)</span>   <span class="c1"># moves the robot</span>
+<span class="n">aiofranka</span><span class="o">.</span><span class="n">save_tool</span><span class="p">(</span><span class="s2">&quot;gripper&quot;</span><span class="p">,</span> <span class="n">estimate</span><span class="o">.</span><span class="n">mass</span><span class="p">,</span> <span class="n">estimate</span><span class="o">.</span><span class="n">com</span><span class="p">)</span>       <span class="c1"># create or update the profile</span>
+<span class="n">aiofranka</span><span class="o">.</span><span class="n">load_tool</span><span class="p">(</span><span class="s2">&quot;gripper&quot;</span><span class="p">)</span>                                     <span class="c1"># activate it</span>
+</pre></div>
+</div>
+<p>It plans the poses around the current one first. Planning computes for a few tenths of a second,
+and the robot aborts the motion when the 1 kHz control loop stalls that long, so a running
+controller is stopped while planning, with the robot holding still, and started again; one that
+was not started is started for the identification and stopped afterwards.</p>
+<p>Or from the CLI, which does all of this: <code class="docutils literal notranslate"><span class="pre">aiofranka</span> <span class="pre">tool</span> <span class="pre">identify</span> <span class="pre">gripper</span></code> (see <a class="reference internal" href="cli.html"><span class="doc">CLI Reference</span></a>).
+<code class="docutils literal notranslate"><span class="pre">list_tools()</span></code> and <code class="docutils literal notranslate"><span class="pre">remove_tool()</span></code> list and delete profiles. Desk keeps the profiles and the
+active one across reboots, and the web UI shows them too.</p>
+<p><code class="docutils literal notranslate"><span class="pre">identify_payload()</span></code> moves through 16 poses around the current one, in which the flange points in
+different directions, and measures the joint torques at rest that the robot does not compensate.
+Part of the joint friction acts past the torque sensors, so at rest they also see part of the torque
+with which the controller holds each joint against stiction: on an FR3, a few tenths of a Nm that
+flips sign with the side the joint came from. So it approaches each pose from both sides, 0.08 rad
+away, and averages. The torques are linear in the mass and first moment of the tool, which least
+squares fits together with a torque offset per joint. It takes about 3 minutes.</p>
+<p><code class="docutils literal notranslate"><span class="pre">estimate</span></code> has the mass and the center of mass in the flange frame with their standard errors, and
+the RMS of the residual torques per joint before and after. Running it again with the new profile
+active checks the result: the correction should be close to zero.</p>
+<p>The precision depends on the torque noise. With the 16 planned poses, the standard error of the mass
+is about 9 g per 0.05 Nm of residual torque noise, and that of the first moment <code class="docutils literal notranslate"><span class="pre">mass</span> <span class="pre">*</span> <span class="pre">com</span></code> about
+1 g·m. The center of mass is therefore good to about 1 mm for a 1 kg tool, but only to about 1 cm
+for a 100 g one, so light tools are better weighed. Twice the poses gains only a factor of √2. Check
+<code class="docutils literal notranslate"><span class="pre">estimate.mass_std</span></code> and <code class="docutils literal notranslate"><span class="pre">estimate.com_std</span></code> before using the result.</p>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<ul class="simple">
+<li><p>The inertia does not change the gravity torques, so it cannot be identified at rest.
+<code class="docutils literal notranslate"><span class="pre">save_tool()</span></code> keeps a profile’s inertia, and gives a new one that of a 5 cm solid sphere,
+since the robot rejects a mass without inertia. Pass <code class="docutils literal notranslate"><span class="pre">inertia</span></code> to set it.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">save_tool()</span></code> keeps a profile’s tool center point unless you pass <code class="docutils literal notranslate"><span class="pre">translation</span></code> and
+<code class="docutils literal notranslate"><span class="pre">rotation</span></code>.</p></li>
+<li><p>Activating a profile needs the control token: aiofranka uses the one <code class="docutils literal notranslate"><span class="pre">aiofranka</span> <span class="pre">unlock</span></code> saved,
+or takes it for the call. Programs connected to the robot pick up a new profile when they
+reconnect.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">robot.set_load()</span></code> adds a load on top of the profile for one connection; <code class="docutils literal notranslate"><span class="pre">RobotInterface</span></code>
+resets it when it connects.</p></li>
+</ul>
+</div>
+<div class="admonition warning">
+<p class="admonition-title">Warning</p>
+<p>The planned poses are only checked for collisions of the arm, a cylinder around the tool
+(<code class="docutils literal notranslate"><span class="pre">tool_length=0.2</span></code>, <code class="docutils literal notranslate"><span class="pre">tool_radius=0.1</span></code> m by default) and the floor (<code class="docutils literal notranslate"><span class="pre">floor=0.0</span></code> m, the
+mounting plane, by default), from which the arm and tool keep 5 cm. Start in an open pose,
+keep other obstacles out of reach, and stay close to the e-stop.</p>
+</div>
+</section>
+<section id="safety-features">
+<h2><a class="toc-backref" href="#id19" role="doc-backlink">Safety Features</a><a class="headerlink" href="#safety-features" title="Link to this heading"></a></h2>
+<section id="torque-rate-limiting">
+<h3><a class="toc-backref" href="#id20" role="doc-backlink">Torque Rate Limiting</a><a class="headerlink" href="#torque-rate-limiting" title="Link to this heading"></a></h3>
+<p>By default (<code class="docutils literal notranslate"><span class="pre">controller.clip</span> <span class="pre">=</span> <span class="pre">True</span></code>), torque commands are rate-limited to prevent safety triggers:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">controller</span><span class="o">.</span><span class="n">clip</span> <span class="o">=</span> <span class="kc">True</span>                <span class="c1"># Enable rate limiting (default)</span>
+<span class="n">controller</span><span class="o">.</span><span class="n">torque_diff_limit</span> <span class="o">=</span> <span class="mf">990.0</span>  <span class="c1"># Max torque rate [Nm/s]</span>
+<span class="n">controller</span><span class="o">.</span><span class="n">torque_limit</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="mi">87</span><span class="p">,</span> <span class="mi">87</span><span class="p">,</span> <span class="mi">87</span><span class="p">,</span> <span class="mi">87</span><span class="p">,</span> <span class="mi">12</span><span class="p">,</span> <span class="mi">12</span><span class="p">,</span> <span class="mi">12</span><span class="p">])</span>  <span class="c1"># Absolute limits [Nm]</span>
+</pre></div>
+</div>
+</section>
+<section id="gain-tuning-tips">
+<h3><a class="toc-backref" href="#id21" role="doc-backlink">Gain Tuning Tips</a><a class="headerlink" href="#gain-tuning-tips" title="Link to this heading"></a></h3>
+<ul class="simple">
+<li><p>Start with low gains and increase gradually</p></li>
+<li><p>Higher <code class="docutils literal notranslate"><span class="pre">kp</span></code> = stiffer tracking, but can cause oscillation</p></li>
+<li><p>Higher <code class="docutils literal notranslate"><span class="pre">kd</span></code> = more damping, reduces oscillation but slows response</p></li>
+<li><p>For OSC, position gains (first 3) and orientation gains (last 3) can be tuned independently</p></li>
+<li><p>Always test new gains with small motions first</p></li>
+</ul>
+</section>
+</section>
+</section>
+
+
+           </div>
+          </div>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="quickstart.html" class="btn btn-neutral float-left" title="Quick Start" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="native.html" class="btn btn-neutral float-right" title="Native Control Loop" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2025, MIT Improbable AI Lab.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

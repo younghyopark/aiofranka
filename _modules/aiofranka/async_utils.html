@@ -1,0 +1,406 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="../../">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>aiofranka.async_utils &mdash; aiofranka 0.5.1 documentation</title>
+      <link rel="stylesheet" type="text/css" href="../../_static/pygments.css?v=b86133f3" />
+      <link rel="stylesheet" type="text/css" href="../../_static/css/theme.css?v=9edc463e" />
+
+  
+      <script src="../../_static/jquery.js?v=5d32c60e"></script>
+      <script src="../../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="../../_static/documentation_options.js?v=b9afe91b"></script>
+      <script src="../../_static/doctools.js?v=fd6eb6e6"></script>
+      <script src="../../_static/sphinx_highlight.js?v=6ffebe34"></script>
+    <script src="../../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../../genindex.html" />
+    <link rel="search" title="Search" href="../../search.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../../index.html" class="icon icon-home">
+            aiofranka
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">Getting Started</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../installation.html">Installation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../quickstart.html">Quick Start</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../controllers.html">Controllers</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../cli.html">CLI Reference</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../async_mode.html">Async Mode Guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../examples.html">Examples</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../troubleshooting.html">Troubleshooting</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">API Reference</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../api/remote.html">FrankaRemoteController (Server Mode)</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../api/controller.html">Franka Controller</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../api/robot.html">Robot Interface</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../api/server.html">Server Functions</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../api/gripper.html">GripperController</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../api/utilities.html">Async Utilities</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../../index.html">aiofranka</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../../index.html" class="icon icon-home" aria-label="Home"></a></li>
+          <li class="breadcrumb-item"><a href="../index.html">Module code</a></li>
+      <li class="breadcrumb-item active">aiofranka.async_utils</li>
+      <li class="wy-breadcrumbs-aside">
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <h1>Source code for aiofranka.async_utils</h1><div class="highlight"><pre>
+<span></span><span class="sd">"""Utilities for running blocking functions without starving the 1kHz control loop.</span>
+
+<span class="sd">After controller.start(), the asyncio event loop must not be blocked for more</span>
+<span class="sd">than ~1ms.  These helpers offload synchronous work to a thread executor so the</span>
+<span class="sd">real-time loop keeps running.</span>
+
+<span class="sd">Usage::</span>
+
+<span class="sd">    from aiofranka import asyncify</span>
+
+<span class="sd">    # Decorator</span>
+<span class="sd">    class MyPolicy:</span>
+<span class="sd">        @asyncify</span>
+<span class="sd">        def get_action(self, obs):</span>
+<span class="sd">            return self.model(obs)</span>
+
+<span class="sd">    action = await policy.get_action(obs)</span>
+
+<span class="sd">    # Wrap an existing function</span>
+<span class="sd">    model_async = asyncify(model)</span>
+<span class="sd">    result = await model_async(input_tensor)</span>
+
+<span class="sd">    # Original sync function is accessible via .sync</span>
+<span class="sd">    result = policy.get_action.sync(obs)</span>
+<span class="sd">"""</span>
+
+<span class="kn">import</span><span class="w"> </span><span class="nn">asyncio</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">functools</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">multiprocessing</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">queue</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">threading</span>
+
+
+<div class="viewcode-block" id="asyncify">
+<a class="viewcode-back" href="../../api/utilities.html#aiofranka.async_utils.asyncify">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">asyncify</span><span class="p">(</span><span class="n">fn</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">"""Wrap a blocking function so it runs in a thread executor when awaited.</span>
+
+<span class="sd">    Works as a decorator or as a wrapper for existing functions::</span>
+
+<span class="sd">        @asyncify</span>
+<span class="sd">        def heavy_compute(x):</span>
+<span class="sd">            return x ** 2</span>
+
+<span class="sd">        result = await heavy_compute(42)</span>
+<span class="sd">        result = heavy_compute.sync(42)  # original sync version</span>
+<span class="sd">    """</span>
+    <span class="nd">@functools</span><span class="o">.</span><span class="n">wraps</span><span class="p">(</span><span class="n">fn</span><span class="p">)</span>
+    <span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">wrapper</span><span class="p">(</span><span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+        <span class="n">loop</span> <span class="o">=</span> <span class="n">asyncio</span><span class="o">.</span><span class="n">get_event_loop</span><span class="p">()</span>
+        <span class="k">return</span> <span class="k">await</span> <span class="n">loop</span><span class="o">.</span><span class="n">run_in_executor</span><span class="p">(</span><span class="kc">None</span><span class="p">,</span> <span class="n">functools</span><span class="o">.</span><span class="n">partial</span><span class="p">(</span><span class="n">fn</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">))</span>
+
+    <span class="n">wrapper</span><span class="o">.</span><span class="n">sync</span> <span class="o">=</span> <span class="n">fn</span>
+    <span class="k">return</span> <span class="n">wrapper</span></div>
+
+
+
+<div class="viewcode-block" id="CudaInferenceThread">
+<a class="viewcode-back" href="../../api/utilities.html#aiofranka.async_utils.CudaInferenceThread">[docs]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">CudaInferenceThread</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">"""A persistent thread for CUDA inference that avoids run_in_executor overhead.</span>
+
+<span class="sd">    run_in_executor dispatches to a thread pool, which causes ~40x slowdown for</span>
+<span class="sd">    CUDA ops due to thread-pool dispatch and CUDA cross-thread synchronization.</span>
+<span class="sd">    This class keeps a single dedicated thread alive with an initialized CUDA</span>
+<span class="sd">    context, so the per-call cost is just a queue round-trip (~microseconds).</span>
+
+<span class="sd">    Usage::</span>
+
+<span class="sd">        infer = CudaInferenceThread()</span>
+<span class="sd">        infer.start()</span>
+
+<span class="sd">        # wrap any callable</span>
+<span class="sd">        action = await infer.run(policy.get_action, obs)</span>
+
+<span class="sd">        # or use as a decorator</span>
+<span class="sd">        @infer.wrap</span>
+<span class="sd">        def get_action(obs):</span>
+<span class="sd">            return model(obs)</span>
+
+<span class="sd">        action = await get_action(obs)</span>
+<span class="sd">        action = get_action.sync(obs)  # original sync version</span>
+
+<span class="sd">        infer.stop()</span>
+<span class="sd">    """</span>
+
+<div class="viewcode-block" id="CudaInferenceThread.__init__">
+<a class="viewcode-back" href="../../api/utilities.html#aiofranka.async_utils.CudaInferenceThread.__init__">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_req_queue</span> <span class="o">=</span> <span class="n">queue</span><span class="o">.</span><span class="n">Queue</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_thread</span> <span class="o">=</span> <span class="kc">None</span></div>
+
+
+<div class="viewcode-block" id="CudaInferenceThread.start">
+<a class="viewcode-back" href="../../api/utilities.html#aiofranka.async_utils.CudaInferenceThread.start">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">start</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">"""Start the inference thread."""</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_thread</span> <span class="o">=</span> <span class="n">threading</span><span class="o">.</span><span class="n">Thread</span><span class="p">(</span><span class="n">target</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">_loop</span><span class="p">,</span> <span class="n">daemon</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_thread</span><span class="o">.</span><span class="n">start</span><span class="p">()</span></div>
+
+
+<div class="viewcode-block" id="CudaInferenceThread.stop">
+<a class="viewcode-back" href="../../api/utilities.html#aiofranka.async_utils.CudaInferenceThread.stop">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">stop</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">"""Signal the thread to exit."""</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_req_queue</span><span class="o">.</span><span class="n">put</span><span class="p">(</span><span class="kc">None</span><span class="p">)</span></div>
+
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_loop</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">while</span> <span class="kc">True</span><span class="p">:</span>
+            <span class="n">item</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_req_queue</span><span class="o">.</span><span class="n">get</span><span class="p">()</span>
+            <span class="k">if</span> <span class="n">item</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="k">break</span>
+            <span class="n">fn</span><span class="p">,</span> <span class="n">args</span><span class="p">,</span> <span class="n">kwargs</span><span class="p">,</span> <span class="n">loop</span><span class="p">,</span> <span class="n">future</span> <span class="o">=</span> <span class="n">item</span>
+            <span class="k">try</span><span class="p">:</span>
+                <span class="n">result</span> <span class="o">=</span> <span class="n">fn</span><span class="p">(</span><span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
+                <span class="n">loop</span><span class="o">.</span><span class="n">call_soon_threadsafe</span><span class="p">(</span><span class="n">future</span><span class="o">.</span><span class="n">set_result</span><span class="p">,</span> <span class="n">result</span><span class="p">)</span>
+            <span class="k">except</span> <span class="ne">BaseException</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+                <span class="n">loop</span><span class="o">.</span><span class="n">call_soon_threadsafe</span><span class="p">(</span><span class="n">future</span><span class="o">.</span><span class="n">set_exception</span><span class="p">,</span> <span class="n">e</span><span class="p">)</span>
+
+<div class="viewcode-block" id="CudaInferenceThread.run">
+<a class="viewcode-back" href="../../api/utilities.html#aiofranka.async_utils.CudaInferenceThread.run">[docs]</a>
+    <span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">run</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">fn</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">"""Submit a callable and await the result."""</span>
+        <span class="n">loop</span> <span class="o">=</span> <span class="n">asyncio</span><span class="o">.</span><span class="n">get_event_loop</span><span class="p">()</span>
+        <span class="n">future</span> <span class="o">=</span> <span class="n">loop</span><span class="o">.</span><span class="n">create_future</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_req_queue</span><span class="o">.</span><span class="n">put</span><span class="p">((</span><span class="n">fn</span><span class="p">,</span> <span class="n">args</span><span class="p">,</span> <span class="n">kwargs</span><span class="p">,</span> <span class="n">loop</span><span class="p">,</span> <span class="n">future</span><span class="p">))</span>
+        <span class="k">return</span> <span class="k">await</span> <span class="n">future</span></div>
+
+
+<div class="viewcode-block" id="CudaInferenceThread.wrap">
+<a class="viewcode-back" href="../../api/utilities.html#aiofranka.async_utils.CudaInferenceThread.wrap">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">wrap</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">fn</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">"""Decorator: like asyncify but runs on the persistent CUDA thread."""</span>
+        <span class="nd">@functools</span><span class="o">.</span><span class="n">wraps</span><span class="p">(</span><span class="n">fn</span><span class="p">)</span>
+        <span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">wrapper</span><span class="p">(</span><span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+            <span class="k">return</span> <span class="k">await</span> <span class="bp">self</span><span class="o">.</span><span class="n">run</span><span class="p">(</span><span class="n">fn</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
+
+        <span class="n">wrapper</span><span class="o">.</span><span class="n">sync</span> <span class="o">=</span> <span class="n">fn</span>
+        <span class="k">return</span> <span class="n">wrapper</span></div>
+</div>
+
+
+
+<span class="k">class</span><span class="w"> </span><span class="nc">_RemoteAttr</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">"""Returned by ProcessProxy.__getattr__. Awaitable for attribute access,</span>
+<span class="sd">    callable for method calls.</span>
+
+<span class="sd">        await proxy.some_attr          # attribute access</span>
+<span class="sd">        await proxy.some_method(args)  # method call</span>
+<span class="sd">    """</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">proxy</span><span class="p">,</span> <span class="n">name</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_proxy</span> <span class="o">=</span> <span class="n">proxy</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_name</span> <span class="o">=</span> <span class="n">name</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="fm">__call__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_proxy</span><span class="o">.</span><span class="n">_send</span><span class="p">(</span><span class="s2">"call"</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_name</span><span class="p">,</span> <span class="n">args</span><span class="p">,</span> <span class="n">kwargs</span><span class="p">)</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="fm">__await__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_proxy</span><span class="o">.</span><span class="n">_send</span><span class="p">(</span><span class="s2">"getattr"</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_name</span><span class="p">,</span> <span class="p">(),</span> <span class="p">{})</span><span class="o">.</span><span class="fm">__await__</span><span class="p">()</span>
+
+
+<div class="viewcode-block" id="ProcessProxy">
+<a class="viewcode-back" href="../../api/utilities.html#aiofranka.async_utils.ProcessProxy">[docs]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">ProcessProxy</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">"""Transparent proxy to an object living in a separate process.</span>
+
+<span class="sd">    All attribute access and method calls are forwarded to the child process</span>
+<span class="sd">    via a pipe. This completely avoids GIL contention — the child has its own</span>
+<span class="sd">    GIL, so a 1kHz control loop on the main process cannot interfere.</span>
+
+<span class="sd">    Created via ``mpify()``, not directly.</span>
+<span class="sd">    """</span>
+
+<div class="viewcode-block" id="ProcessProxy.__init__">
+<a class="viewcode-back" href="../../api/utilities.html#aiofranka.async_utils.ProcessProxy.__init__">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">conn</span><span class="p">,</span> <span class="n">process</span><span class="p">):</span>
+        <span class="nb">object</span><span class="o">.</span><span class="fm">__setattr__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="s2">"_conn"</span><span class="p">,</span> <span class="n">conn</span><span class="p">)</span>
+        <span class="nb">object</span><span class="o">.</span><span class="fm">__setattr__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="s2">"_process"</span><span class="p">,</span> <span class="n">process</span><span class="p">)</span></div>
+
+
+    <span class="k">def</span><span class="w"> </span><span class="fm">__getattr__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">name</span><span class="p">):</span>
+        <span class="k">return</span> <span class="n">_RemoteAttr</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">name</span><span class="p">)</span>
+
+    <span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">_send</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">msg_type</span><span class="p">,</span> <span class="n">method_name</span><span class="p">,</span> <span class="n">args</span><span class="p">,</span> <span class="n">kwargs</span><span class="p">):</span>
+        <span class="n">conn</span> <span class="o">=</span> <span class="nb">object</span><span class="o">.</span><span class="fm">__getattribute__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="s2">"_conn"</span><span class="p">)</span>
+        <span class="n">loop</span> <span class="o">=</span> <span class="n">asyncio</span><span class="o">.</span><span class="n">get_event_loop</span><span class="p">()</span>
+        <span class="n">conn</span><span class="o">.</span><span class="n">send</span><span class="p">((</span><span class="n">msg_type</span><span class="p">,</span> <span class="n">method_name</span><span class="p">,</span> <span class="n">args</span><span class="p">,</span> <span class="n">kwargs</span><span class="p">))</span>
+        <span class="c1"># recv() blocks but releases the GIL (it's I/O), so run_in_executor is fine</span>
+        <span class="n">status</span><span class="p">,</span> <span class="n">value</span> <span class="o">=</span> <span class="k">await</span> <span class="n">loop</span><span class="o">.</span><span class="n">run_in_executor</span><span class="p">(</span><span class="kc">None</span><span class="p">,</span> <span class="n">conn</span><span class="o">.</span><span class="n">recv</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">status</span> <span class="o">==</span> <span class="s2">"ok"</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">value</span>
+        <span class="k">raise</span> <span class="ne">RuntimeError</span><span class="p">(</span><span class="n">value</span><span class="p">)</span>
+
+<div class="viewcode-block" id="ProcessProxy.stop">
+<a class="viewcode-back" href="../../api/utilities.html#aiofranka.async_utils.ProcessProxy.stop">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">stop</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">"""Signal the child process to exit."""</span>
+        <span class="n">conn</span> <span class="o">=</span> <span class="nb">object</span><span class="o">.</span><span class="fm">__getattribute__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="s2">"_conn"</span><span class="p">)</span>
+        <span class="n">process</span> <span class="o">=</span> <span class="nb">object</span><span class="o">.</span><span class="fm">__getattribute__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="s2">"_process"</span><span class="p">)</span>
+        <span class="n">conn</span><span class="o">.</span><span class="n">send</span><span class="p">(</span><span class="kc">None</span><span class="p">)</span>
+        <span class="n">process</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">timeout</span><span class="o">=</span><span class="mi">5</span><span class="p">)</span></div>
+</div>
+
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_mp_worker</span><span class="p">(</span><span class="n">conn</span><span class="p">,</span> <span class="n">factory_fn</span><span class="p">,</span> <span class="n">factory_args</span><span class="p">,</span> <span class="n">factory_kwargs</span><span class="p">):</span>
+    <span class="k">try</span><span class="p">:</span>
+        <span class="n">obj</span> <span class="o">=</span> <span class="n">factory_fn</span><span class="p">(</span><span class="o">*</span><span class="n">factory_args</span><span class="p">,</span> <span class="o">**</span><span class="n">factory_kwargs</span><span class="p">)</span>
+    <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+        <span class="n">conn</span><span class="o">.</span><span class="n">send</span><span class="p">(</span><span class="sa">f</span><span class="s2">"error: </span><span class="si">{</span><span class="n">e</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
+        <span class="k">return</span>
+    <span class="n">conn</span><span class="o">.</span><span class="n">send</span><span class="p">(</span><span class="s2">"ready"</span><span class="p">)</span>
+    <span class="k">while</span> <span class="kc">True</span><span class="p">:</span>
+        <span class="n">item</span> <span class="o">=</span> <span class="n">conn</span><span class="o">.</span><span class="n">recv</span><span class="p">()</span>
+        <span class="k">if</span> <span class="n">item</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">break</span>
+        <span class="n">msg_type</span><span class="p">,</span> <span class="n">method_name</span><span class="p">,</span> <span class="n">args</span><span class="p">,</span> <span class="n">kwargs</span> <span class="o">=</span> <span class="n">item</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">msg_type</span> <span class="o">==</span> <span class="s2">"getattr"</span><span class="p">:</span>
+                <span class="n">result</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">obj</span><span class="p">,</span> <span class="n">method_name</span><span class="p">)</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">result</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">obj</span><span class="p">,</span> <span class="n">method_name</span><span class="p">)(</span><span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
+            <span class="n">conn</span><span class="o">.</span><span class="n">send</span><span class="p">((</span><span class="s2">"ok"</span><span class="p">,</span> <span class="n">result</span><span class="p">))</span>
+        <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+            <span class="n">conn</span><span class="o">.</span><span class="n">send</span><span class="p">((</span><span class="s2">"error"</span><span class="p">,</span> <span class="nb">str</span><span class="p">(</span><span class="n">e</span><span class="p">)))</span>
+
+
+<div class="viewcode-block" id="mpify">
+<a class="viewcode-back" href="../../api/utilities.html#aiofranka.async_utils.mpify">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">mpify</span><span class="p">(</span><span class="n">factory_fn</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">"""Spawn a child process, run ``factory_fn(*args, **kwargs)`` in it, and</span>
+<span class="sd">    return a transparent async proxy to the created object.</span>
+
+<span class="sd">    The proxy forwards all method calls and attribute access to the child</span>
+<span class="sd">    process. Use ``await`` on every access since it crosses a process boundary.</span>
+
+<span class="sd">    Usage::</span>
+
+<span class="sd">        def make_policy(checkpoint, device):</span>
+<span class="sd">            model, config = load_model(checkpoint, device)</span>
+<span class="sd">            return ACTInferencePolicy(model, config, device)</span>
+
+<span class="sd">        policy = mpify(make_policy, checkpoint, "cuda:0")</span>
+
+<span class="sd">        await policy.reset(initial_ee)</span>
+<span class="sd">        ee = await policy.get_action(ee, qpos, task_type)</span>
+<span class="sd">        timing = await policy._last_timing</span>
+
+<span class="sd">        policy.stop()  # clean shutdown (synchronous)</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        factory_fn: Callable that creates the object. Must be picklable</span>
+<span class="sd">            (module-level function). Runs in the child process.</span>
+<span class="sd">        *args: Passed to factory_fn.</span>
+<span class="sd">        **kwargs: Passed to factory_fn.</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        ProcessProxy that forwards attribute/method access to the child.</span>
+<span class="sd">    """</span>
+    <span class="n">ctx</span> <span class="o">=</span> <span class="n">multiprocessing</span><span class="o">.</span><span class="n">get_context</span><span class="p">(</span><span class="s2">"spawn"</span><span class="p">)</span>
+    <span class="n">parent_conn</span><span class="p">,</span> <span class="n">child_conn</span> <span class="o">=</span> <span class="n">ctx</span><span class="o">.</span><span class="n">Pipe</span><span class="p">()</span>
+    <span class="n">process</span> <span class="o">=</span> <span class="n">ctx</span><span class="o">.</span><span class="n">Process</span><span class="p">(</span>
+        <span class="n">target</span><span class="o">=</span><span class="n">_mp_worker</span><span class="p">,</span>
+        <span class="n">args</span><span class="o">=</span><span class="p">(</span><span class="n">child_conn</span><span class="p">,</span> <span class="n">factory_fn</span><span class="p">,</span> <span class="n">args</span><span class="p">,</span> <span class="n">kwargs</span><span class="p">),</span>
+        <span class="n">daemon</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+    <span class="p">)</span>
+    <span class="n">process</span><span class="o">.</span><span class="n">start</span><span class="p">()</span>
+    <span class="n">child_conn</span><span class="o">.</span><span class="n">close</span><span class="p">()</span>
+    <span class="n">msg</span> <span class="o">=</span> <span class="n">parent_conn</span><span class="o">.</span><span class="n">recv</span><span class="p">()</span>
+    <span class="k">if</span> <span class="n">msg</span> <span class="o">!=</span> <span class="s2">"ready"</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">RuntimeError</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Child process failed to start: </span><span class="si">{</span><span class="n">msg</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">ProcessProxy</span><span class="p">(</span><span class="n">parent_conn</span><span class="p">,</span> <span class="n">process</span><span class="p">)</span></div>
+
+
+
+<div class="viewcode-block" id="async_input">
+<a class="viewcode-back" href="../../api/utilities.html#aiofranka.async_utils.async_input">[docs]</a>
+<span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">async_input</span><span class="p">(</span><span class="n">prompt</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">""</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">"""Async-safe replacement for built-in ``input()``.</span>
+
+<span class="sd">    Runs ``input()`` in a thread executor so the event loop (and the 1kHz</span>
+<span class="sd">    control loop) keeps running while waiting for user input::</span>
+
+<span class="sd">        await async_input("Press Enter to start...")</span>
+<span class="sd">    """</span>
+    <span class="n">loop</span> <span class="o">=</span> <span class="n">asyncio</span><span class="o">.</span><span class="n">get_event_loop</span><span class="p">()</span>
+    <span class="k">return</span> <span class="k">await</span> <span class="n">loop</span><span class="o">.</span><span class="n">run_in_executor</span><span class="p">(</span><span class="kc">None</span><span class="p">,</span> <span class="nb">input</span><span class="p">,</span> <span class="n">prompt</span><span class="p">)</span></div>
+
+</pre></div>
+
+           </div>
+          </div>
+          <footer>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2025, MIT Improbable AI Lab.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

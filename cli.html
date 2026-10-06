@@ -1,0 +1,361 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="./">
+<head>
+  <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>CLI Reference &mdash; aiofranka 0.9.0 documentation</title>
+      <link rel="stylesheet" type="text/css" href="_static/pygments.css?v=b86133f3" />
+      <link rel="stylesheet" type="text/css" href="_static/css/theme.css?v=9edc463e" />
+
+  
+      <script src="_static/jquery.js?v=5d32c60e"></script>
+      <script src="_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="_static/documentation_options.js?v=39bb1c6d"></script>
+      <script src="_static/doctools.js?v=fd6eb6e6"></script>
+      <script src="_static/sphinx_highlight.js?v=6ffebe34"></script>
+    <script src="_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Search" href="search.html" />
+    <link rel="next" title="Async Mode Guide" href="async_mode.html" />
+    <link rel="prev" title="Native Control Loop" href="native.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="index.html" class="icon icon-home">
+            aiofranka
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">Getting Started</span></p>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="installation.html">Installation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="quickstart.html">Quick Start</a></li>
+<li class="toctree-l1"><a class="reference internal" href="controllers.html">Controllers</a></li>
+<li class="toctree-l1"><a class="reference internal" href="native.html">Native Control Loop</a></li>
+<li class="toctree-l1 current"><a class="current reference internal" href="#">CLI Reference</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="#unlock-lock">unlock / lock</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#gravcomp">gravcomp</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#status">status</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#start-server">start-server</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#stop">stop</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#mode">mode</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#config">config</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#tool">tool</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#camera">camera</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#selftest">selftest</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#log">log</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#rt-benchmark">rt-benchmark</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#common-flags">Common Flags</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="async_mode.html">Async Mode Guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="examples.html">Examples</a></li>
+<li class="toctree-l1"><a class="reference internal" href="troubleshooting.html">Troubleshooting</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">API Reference</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="api/franka.html">Robot and Controller</a></li>
+<li class="toctree-l1"><a class="reference internal" href="api/native.html">NativeFrankaController</a></li>
+<li class="toctree-l1"><a class="reference internal" href="api/controller.html">FrankaController</a></li>
+<li class="toctree-l1"><a class="reference internal" href="api/remote.html">FrankaRemoteController (Server Mode)</a></li>
+<li class="toctree-l1"><a class="reference internal" href="api/robot.html">Robot Interface</a></li>
+<li class="toctree-l1"><a class="reference internal" href="api/payload.html">Payload Identification and Tools</a></li>
+<li class="toctree-l1"><a class="reference internal" href="api/config.html">Controller Configurations</a></li>
+<li class="toctree-l1"><a class="reference internal" href="api/server.html">Server Functions</a></li>
+<li class="toctree-l1"><a class="reference internal" href="api/gripper.html">GripperController</a></li>
+<li class="toctree-l1"><a class="reference internal" href="api/utilities.html">Async Utilities</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="index.html">aiofranka</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="index.html" class="icon icon-home" aria-label="Home"></a></li>
+      <li class="breadcrumb-item active">CLI Reference</li>
+      <li class="wy-breadcrumbs-aside">
+            <a href="_sources/cli.rst.txt" rel="nofollow"> View page source</a>
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <section id="cli-reference">
+<h1>CLI Reference<a class="headerlink" href="#cli-reference" title="Link to this heading"></a></h1>
+<p>The CLI handles robot setup, server lifecycle, and diagnostics.</p>
+<div class="highlight-text notranslate"><div class="highlight"><pre><span></span>aiofranka start-server [--ip IP] [--no-home]  Start the control server
+aiofranka unlock   [--ip IP]              Unlock joints + activate FCI
+aiofranka lock     [--ip IP]              Lock joints + deactivate FCI
+aiofranka gravcomp [--ip IP] [--mode program]  Move the robot by hand (freedrive)
+aiofranka home     [--ip IP]              Move the robot to its home pose
+aiofranka status   [--ip IP]              Show robot &amp; server status
+aiofranka stop     [--ip IP]              Stop a running server
+aiofranka mode     [--ip IP] [program|execute]  View/change operating mode
+aiofranka config   [--ip IP] [--mass M]   View/set end-effector config
+aiofranka tool     identify|load|list ... Identify, save and load tools
+aiofranka camera   calibrate|fit          Locate a fixed camera relative to the robot
+aiofranka selftest [--ip IP] [--force]    Run safety self-tests
+aiofranka log      [-n LINES] [-f]        View server logs
+aiofranka gripper  --open|--close          Control the Robotiq gripper
+aiofranka rt-benchmark [--duration SEC]    Benchmark the 1 kHz control loop
+</pre></div>
+</div>
+<section id="unlock-lock">
+<h2>unlock / lock<a class="headerlink" href="#unlock-lock" title="Link to this heading"></a></h2>
+<p>Unlock opens the brakes and activates FCI so the robot is ready for torque control.
+It first recovers safety errors, runs the self-tests if they are overdue, and switches
+from Programming back to Execution. Lock does the reverse. Credentials are prompted on first use and saved to <code class="docutils literal notranslate"><span class="pre">~/.aiofranka/config.json</span></code>.</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="c1"># Unlock before running your script</span>
+aiofranka<span class="w"> </span>unlock
+
+<span class="c1"># Lock when you&#39;re done</span>
+aiofranka<span class="w"> </span>lock
+</pre></div>
+</div>
+<p>You can also do this from Python:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span><span class="w"> </span><span class="nn">aiofranka</span>
+<span class="n">aiofranka</span><span class="o">.</span><span class="n">unlock</span><span class="p">()</span>   <span class="c1"># opens brakes + activates FCI</span>
+<span class="c1"># ... run your control script ...</span>
+<span class="n">aiofranka</span><span class="o">.</span><span class="n">lock</span><span class="p">()</span>     <span class="c1"># closes brakes + deactivates FCI</span>
+</pre></div>
+</div>
+</section>
+<section id="gravcomp">
+<h2>gravcomp<a class="headerlink" href="#gravcomp" title="Link to this heading"></a></h2>
+<p>Runs gravity compensation mode in the foreground. The robot is freely movable by hand.
+Press Ctrl+C to stop control; the joints remain unlocked with FCI active.
+Run <code class="docutils literal notranslate"><span class="pre">aiofranka</span> <span class="pre">lock</span></code> when finished.</p>
+<p>With <code class="docutils literal notranslate"><span class="pre">--mode</span> <span class="pre">program</span></code>, it switches the robot to Programming mode instead, as
+<code class="docutils literal notranslate"><span class="pre">aiofranka</span> <span class="pre">mode</span> <span class="pre">program</span></code> does: the arm moves by hand only while the guiding button on the end
+effector is held, and nothing keeps running. <code class="docutils literal notranslate"><span class="pre">aiofranka</span> <span class="pre">unlock</span></code> switches back for FCI.</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>aiofranka<span class="w"> </span>gravcomp<span class="w">                  </span><span class="c1"># default: zero damping</span>
+aiofranka<span class="w"> </span>gravcomp<span class="w"> </span>--damping<span class="w"> </span><span class="m">2</span>.0<span class="w">    </span><span class="c1"># add velocity damping</span>
+aiofranka<span class="w"> </span>gravcomp<span class="w"> </span>--mode<span class="w"> </span>program<span class="w">   </span><span class="c1"># hand-guide with the guiding button instead</span>
+</pre></div>
+</div>
+</section>
+<section id="status">
+<h2>status<a class="headerlink" href="#status" title="Link to this heading"></a></h2>
+<p>Shows robot state (joints locked/unlocked, FCI active/inactive, control token,
+self-test status, end-effector configuration) and server status if running.</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>aiofranka<span class="w"> </span>status
+</pre></div>
+</div>
+</section>
+<section id="start-server">
+<h2>start-server<a class="headerlink" href="#start-server" title="Link to this heading"></a></h2>
+<p>Runs the control server of the legacy server mode in the background (<code class="docutils literal notranslate"><span class="pre">--foreground</span></code> keeps
+it in the terminal). It unlocks the robot (<code class="docutils literal notranslate"><span class="pre">--no-unlock</span></code> skips that),
+moves it home (<code class="docutils literal notranslate"><span class="pre">--no-home</span></code> skips that) and runs the 1 kHz loop in C++
+(<code class="docutils literal notranslate"><span class="pre">NativeServerController</span></code>). <code class="docutils literal notranslate"><span class="pre">--python</span></code> runs the legacy Python loop instead.</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>aiofranka<span class="w"> </span>start-server<span class="w">              </span><span class="c1"># the native loop</span>
+aiofranka<span class="w"> </span>start-server<span class="w"> </span>--python<span class="w">     </span><span class="c1"># the legacy Python loop</span>
+</pre></div>
+</div>
+</section>
+<section id="stop">
+<h2>stop<a class="headerlink" href="#stop" title="Link to this heading"></a></h2>
+<p>Sends a shutdown signal to a running server process. The server deactivates FCI,
+locks joints, and releases the control token.</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>aiofranka<span class="w"> </span>stop
+</pre></div>
+</div>
+</section>
+<section id="mode">
+<h2>mode<a class="headerlink" href="#mode" title="Link to this heading"></a></h2>
+<p>View or change the operating mode. <code class="docutils literal notranslate"><span class="pre">Execution</span></code> is needed for FCI control.
+<code class="docutils literal notranslate"><span class="pre">Programming</span></code> enables freedrive via the pilot interface button near the end-effector,
+as Desk’s mode switch does: <code class="docutils literal notranslate"><span class="pre">aiofranka</span> <span class="pre">mode</span> <span class="pre">program</span></code> deactivates FCI, opens the brakes
+if they are closed, and hands the control token back to Desk. <code class="docutils literal notranslate"><span class="pre">aiofranka</span> <span class="pre">unlock</span></code>
+switches back to Execution by itself.</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>aiofranka<span class="w"> </span>mode<span class="w">            </span><span class="c1"># view current mode</span>
+aiofranka<span class="w"> </span>mode<span class="w"> </span>program<span class="w">    </span><span class="c1"># switch to Programming, to hand-guide the robot</span>
+aiofranka<span class="w"> </span>mode<span class="w"> </span>execute<span class="w">    </span><span class="c1"># switch back to Execution, for FCI</span>
+</pre></div>
+</div>
+</section>
+<section id="config">
+<h2>config<a class="headerlink" href="#config" title="Link to this heading"></a></h2>
+<p>View or set the end-effector configuration (mass, center of mass, inertia,
+flange-to-EE transform). Changes are applied via the Franka Desk API to the active
+end-effector profile; to keep several tools by name, use <code class="docutils literal notranslate"><span class="pre">aiofranka</span> <span class="pre">tool</span></code> below.</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>aiofranka<span class="w"> </span>config<span class="w">                                </span><span class="c1"># view current config</span>
+aiofranka<span class="w"> </span>config<span class="w"> </span>--mass<span class="w"> </span><span class="m">0</span>.5<span class="w"> </span>--com<span class="w"> </span><span class="m">0</span>,0,0.03<span class="w">      </span><span class="c1"># set mass + CoM</span>
+aiofranka<span class="w"> </span>config<span class="w"> </span>--translation<span class="w"> </span><span class="m">0</span>,0,0.1<span class="w">           </span><span class="c1"># set flange-to-EE offset</span>
+</pre></div>
+</div>
+<p>You can also set end-effector configuration from Python:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span><span class="w"> </span><span class="nn">aiofranka</span>
+<span class="n">aiofranka</span><span class="o">.</span><span class="n">unlock</span><span class="p">()</span>
+<span class="n">aiofranka</span><span class="o">.</span><span class="n">set_configuration</span><span class="p">(</span><span class="n">mass</span><span class="o">=</span><span class="mf">0.5</span><span class="p">,</span> <span class="n">com</span><span class="o">=</span><span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mf">0.03</span><span class="p">])</span>
+<span class="n">aiofranka</span><span class="o">.</span><span class="n">lock</span><span class="p">()</span>
+</pre></div>
+</div>
+</section>
+<section id="tool">
+<h2>tool<a class="headerlink" href="#tool" title="Link to this heading"></a></h2>
+<p>Identify the tool on the flange and keep it as an end-effector profile in Desk (Settings &gt; End
+Effector), the same profiles the web UI shows. The robot compensates the active profile, and
+<code class="docutils literal notranslate"><span class="pre">RobotInterface</span></code> merges it into the MuJoCo model when it connects.</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>aiofranka<span class="w"> </span>tool<span class="w"> </span>identify<span class="w"> </span>gripper<span class="w">   </span><span class="c1"># move through 16 poses, save as profile &quot;gripper&quot;, activate it</span>
+aiofranka<span class="w"> </span>tool<span class="w"> </span>load<span class="w"> </span>gripper<span class="w">       </span><span class="c1"># activate a profile</span>
+aiofranka<span class="w"> </span>tool<span class="w"> </span>unload<span class="w">             </span><span class="c1"># activate the built-in &quot;No End Effector&quot; profile</span>
+aiofranka<span class="w"> </span>tool<span class="w"> </span>list<span class="w">               </span><span class="c1"># list the profiles, marking the active one</span>
+aiofranka<span class="w"> </span>tool<span class="w"> </span>remove<span class="w"> </span>gripper<span class="w">     </span><span class="c1"># delete a profile</span>
+</pre></div>
+</div>
+<p><code class="docutils literal notranslate"><span class="pre">tool</span> <span class="pre">identify</span></code> unlocks the robot like <code class="docutils literal notranslate"><span class="pre">aiofranka</span> <span class="pre">home</span></code> and plans the poses around the current
+one, so move the arm to an open pose first. Describe the tool for the collision checks with
+<code class="docutils literal notranslate"><span class="pre">--tool-length</span></code> and <code class="docutils literal notranslate"><span class="pre">--tool-radius</span></code> (default 0.2 m and 0.1 m), and the table with <code class="docutils literal notranslate"><span class="pre">--floor</span></code>
+(default 0, the mounting plane; the robot keeps 5 cm from it). It shows the estimate and
+asks before saving it, offering to edit the mass (in g) and the center of mass (in mm), e.g. to use
+a scale reading; an existing profile keeps its tool center point and inertia. <code class="docutils literal notranslate"><span class="pre">--no-load</span></code> saves
+it without activating it. See <a class="reference internal" href="controllers.html#payload-identification"><span class="std std-ref">Payload Identification</span></a>.</p>
+<p>From Python:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span><span class="w"> </span><span class="nn">aiofranka</span>
+<span class="n">aiofranka</span><span class="o">.</span><span class="n">save_tool</span><span class="p">(</span><span class="s2">&quot;gripper&quot;</span><span class="p">,</span> <span class="n">mass</span><span class="o">=</span><span class="mf">0.62</span><span class="p">,</span> <span class="n">com</span><span class="o">=</span><span class="p">[</span><span class="mf">0.0</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">,</span> <span class="mf">0.045</span><span class="p">])</span>
+<span class="n">aiofranka</span><span class="o">.</span><span class="n">load_tool</span><span class="p">(</span><span class="s2">&quot;gripper&quot;</span><span class="p">)</span>
+<span class="n">aiofranka</span><span class="o">.</span><span class="n">list_tools</span><span class="p">()</span>
+</pre></div>
+</div>
+</section>
+<section id="camera">
+<h2>camera<a class="headerlink" href="#camera" title="Link to this heading"></a></h2>
+<p>Locate a fixed camera in the robot’s base frame with an AprilCube held on the flange. Print
+aprilcube’s calibration cube
+(<a class="reference external" href="https://github.com/younghyopark/aprilcube/blob/main/models/calibration_cube/cube.3mf">cube.3mf</a>),
+mount it with its connector, start the camera with <code class="docutils literal notranslate"><span class="pre">aiocamera</span> <span class="pre">start</span></code>, and make the cube’s mass the
+active Desk profile. It needs the camera extra: <code class="docutils literal notranslate"><span class="pre">pip</span> <span class="pre">install</span> <span class="pre">&quot;aiofranka[camera]&quot;</span></code>.</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>aiofranka<span class="w"> </span>camera<span class="w"> </span>calibrate<span class="w">      </span><span class="c1"># move the arm by hand; captures and fits into camera_calibration/&lt;date&gt;/</span>
+aiofranka<span class="w"> </span>camera<span class="w"> </span>fit<span class="w"> </span>SESSION<span class="w">    </span><span class="c1"># fit a recorded session again</span>
+</pre></div>
+</div>
+<p><code class="docutils literal notranslate"><span class="pre">camera</span> <span class="pre">calibrate</span></code> switches the robot to Programming mode like <code class="docutils literal notranslate"><span class="pre">aiofranka</span> <span class="pre">mode</span> <span class="pre">program</span></code>, with a
+live view of the camera image in the terminal. Move the arm holding the guiding button on the end
+effector, and let go: whenever it has rested for 0.7 s at a new pose, 5 cm or 10 deg from every view
+so far, with the cube in view, it records the view and beeps. The joint positions come from Desk, as
+its web UI gets them. Space captures anyway, <code class="docutils literal notranslate"><span class="pre">u</span></code> removes the last view, Enter fits and <code class="docutils literal notranslate"><span class="pre">q</span></code> quits
+keeping the views. The fit writes <code class="docutils literal notranslate"><span class="pre">calibration.json</span></code> with <code class="docutils literal notranslate"><span class="pre">T_base_camera</span></code>, <code class="docutils literal notranslate"><span class="pre">T_ee_cube</span></code>, the
+intrinsics and the reprojection errors on held-out views. The robot stays in Programming mode;
+<code class="docutils literal notranslate"><span class="pre">aiofranka</span> <span class="pre">unlock</span></code> switches back.</p>
+</section>
+<section id="selftest">
+<h2>selftest<a class="headerlink" href="#selftest" title="Link to this heading"></a></h2>
+<p>Run the robot’s safety self-tests. The robot will lock joints during the test.</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>aiofranka<span class="w"> </span>selftest<span class="w">          </span><span class="c1"># run if due</span>
+aiofranka<span class="w"> </span>selftest<span class="w"> </span>--force<span class="w">  </span><span class="c1"># run even if not due</span>
+</pre></div>
+</div>
+</section>
+<section id="log">
+<h2>log<a class="headerlink" href="#log" title="Link to this heading"></a></h2>
+<p>View recent server log entries from <code class="docutils literal notranslate"><span class="pre">~/.aiofranka/server.log</span></code>.</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>aiofranka<span class="w"> </span>log<span class="w">              </span><span class="c1"># last 20 lines</span>
+aiofranka<span class="w"> </span>log<span class="w"> </span>-n<span class="w"> </span><span class="m">100</span><span class="w">       </span><span class="c1"># last 100 lines</span>
+aiofranka<span class="w"> </span>log<span class="w"> </span>-f<span class="w">           </span><span class="c1"># follow (like tail -f)</span>
+</pre></div>
+</div>
+</section>
+<section id="rt-benchmark">
+<h2>rt-benchmark<a class="headerlink" href="#rt-benchmark" title="Link to this heading"></a></h2>
+<p>Measures the 1 kHz loop on this machine. It holds the current pose in gravcomp, impedance and
+OSC in turn, 10 s each (<code class="docutils literal notranslate"><span class="pre">--duration</span></code>), records every cycle and compares the modes. <code class="docutils literal notranslate"><span class="pre">--mode</span></code>
+picks the modes; one mode prints its full report: the periods and their percentiles, the
+response time from <code class="docutils literal notranslate"><span class="pre">readOnce</span></code> to <code class="docutils literal notranslate"><span class="pre">writeOnce</span></code> against a 300 us budget, skipped robot
+states, dropped commands and a histogram. <code class="docutils literal notranslate"><span class="pre">--python</span></code> benchmarks the legacy Python loop
+instead, with a breakdown per phase, and <code class="docutils literal notranslate"><span class="pre">--all-combos</span></code> compares its real-time settings.</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>aiofranka<span class="w"> </span>rt-benchmark<span class="w">                 </span><span class="c1"># the native loop, every mode</span>
+aiofranka<span class="w"> </span>rt-benchmark<span class="w"> </span>--mode<span class="w"> </span>osc<span class="w">      </span><span class="c1"># one mode, its full report</span>
+aiofranka<span class="w"> </span>rt-benchmark<span class="w"> </span>--python<span class="w">        </span><span class="c1"># the legacy Python loop</span>
+</pre></div>
+</div>
+</section>
+<section id="common-flags">
+<h2>Common Flags<a class="headerlink" href="#common-flags" title="Link to this heading"></a></h2>
+<p>Most commands accept these flags:</p>
+<table class="docutils align-default">
+<colgroup>
+<col style="width: 30.0%" />
+<col style="width: 70.0%" />
+</colgroup>
+<thead>
+<tr class="row-odd"><th class="head"><p>Flag</p></th>
+<th class="head"><p>Description</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">--ip</span> <span class="pre">IP</span></code></p></td>
+<td><p>Robot IP address (default: last used, or <code class="docutils literal notranslate"><span class="pre">172.16.0.2</span></code>)</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">--username</span> <span class="pre">USER</span></code></p></td>
+<td><p>Franka Desk web UI username (default: saved or prompted)</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">--password</span> <span class="pre">PASS</span></code></p></td>
+<td><p>Franka Desk web UI password (default: saved or prompted)</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">--protocol</span> <span class="pre">http|https</span></code></p></td>
+<td><p>Web UI protocol (default: <code class="docutils literal notranslate"><span class="pre">https</span></code>)</p></td>
+</tr>
+</tbody>
+</table>
+</section>
+</section>
+
+
+           </div>
+          </div>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="native.html" class="btn btn-neutral float-left" title="Native Control Loop" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="async_mode.html" class="btn btn-neutral float-right" title="Async Mode Guide" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2025, MIT Improbable AI Lab.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

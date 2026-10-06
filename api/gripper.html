@@ -1,0 +1,357 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="../">
+<head>
+  <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>GripperController &mdash; aiofranka 0.9.0 documentation</title>
+      <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=b86133f3" />
+      <link rel="stylesheet" type="text/css" href="../_static/css/theme.css?v=9edc463e" />
+
+  
+      <script src="../_static/jquery.js?v=5d32c60e"></script>
+      <script src="../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="../_static/documentation_options.js?v=39bb1c6d"></script>
+      <script src="../_static/doctools.js?v=fd6eb6e6"></script>
+      <script src="../_static/sphinx_highlight.js?v=6ffebe34"></script>
+    <script src="../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="next" title="Async Utilities" href="utilities.html" />
+    <link rel="prev" title="Server Functions" href="server.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../index.html" class="icon icon-home">
+            aiofranka
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">Getting Started</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../installation.html">Installation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../quickstart.html">Quick Start</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../controllers.html">Controllers</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../native.html">Native Control Loop</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../cli.html">CLI Reference</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../async_mode.html">Async Mode Guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../examples.html">Examples</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../troubleshooting.html">Troubleshooting</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">API Reference</span></p>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="franka.html">Robot and Controller</a></li>
+<li class="toctree-l1"><a class="reference internal" href="native.html">NativeFrankaController</a></li>
+<li class="toctree-l1"><a class="reference internal" href="controller.html">FrankaController</a></li>
+<li class="toctree-l1"><a class="reference internal" href="remote.html">FrankaRemoteController (Server Mode)</a></li>
+<li class="toctree-l1"><a class="reference internal" href="robot.html">Robot Interface</a></li>
+<li class="toctree-l1"><a class="reference internal" href="payload.html">Payload Identification and Tools</a></li>
+<li class="toctree-l1"><a class="reference internal" href="config.html">Controller Configurations</a></li>
+<li class="toctree-l1"><a class="reference internal" href="server.html">Server Functions</a></li>
+<li class="toctree-l1 current"><a class="current reference internal" href="#">GripperController</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="#aiofranka.gripper.GripperController"><code class="docutils literal notranslate"><span class="pre">GripperController</span></code></a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#aiofranka.gripper.GripperController.running"><code class="docutils literal notranslate"><span class="pre">GripperController.running</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#aiofranka.gripper.GripperController.__init__"><code class="docutils literal notranslate"><span class="pre">GripperController.__init__()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#aiofranka.gripper.GripperController.q_desired"><code class="docutils literal notranslate"><span class="pre">GripperController.q_desired</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#aiofranka.gripper.GripperController.position"><code class="docutils literal notranslate"><span class="pre">GripperController.position</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#aiofranka.gripper.GripperController.speed"><code class="docutils literal notranslate"><span class="pre">GripperController.speed</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#aiofranka.gripper.GripperController.force"><code class="docutils literal notranslate"><span class="pre">GripperController.force</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#aiofranka.gripper.GripperController.qpos"><code class="docutils literal notranslate"><span class="pre">GripperController.qpos</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#aiofranka.gripper.GripperController.current_position"><code class="docutils literal notranslate"><span class="pre">GripperController.current_position</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#aiofranka.gripper.GripperController.state"><code class="docutils literal notranslate"><span class="pre">GripperController.state</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#aiofranka.gripper.GripperController.set_freq"><code class="docutils literal notranslate"><span class="pre">GripperController.set_freq()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#aiofranka.gripper.GripperController.set"><code class="docutils literal notranslate"><span class="pre">GripperController.set()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#aiofranka.gripper.GripperController.start"><code class="docutils literal notranslate"><span class="pre">GripperController.start()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#aiofranka.gripper.GripperController.stop"><code class="docutils literal notranslate"><span class="pre">GripperController.stop()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#aiofranka.gripper.GripperController.open"><code class="docutils literal notranslate"><span class="pre">GripperController.open()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#aiofranka.gripper.GripperController.close"><code class="docutils literal notranslate"><span class="pre">GripperController.close()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#aiofranka.gripper.GripperController.wait_until_reached"><code class="docutils literal notranslate"><span class="pre">GripperController.wait_until_reached()</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="utilities.html">Async Utilities</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../index.html">aiofranka</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../index.html" class="icon icon-home" aria-label="Home"></a></li>
+      <li class="breadcrumb-item active">GripperController</li>
+      <li class="wy-breadcrumbs-aside">
+            <a href="../_sources/api/gripper.rst.txt" rel="nofollow"> View page source</a>
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <section id="module-aiofranka.gripper">
+<span id="grippercontroller"></span><h1>GripperController<a class="headerlink" href="#module-aiofranka.gripper" title="Link to this heading"></a></h1>
+<p>Robotiq Gripper Interface for aiofranka</p>
+<p>This module provides an async wrapper for Robotiq grippers, following the same
+design pattern as FrankaController - a background control loop continuously
+sends commands while you update the target position.</p>
+<p>Requires optional dependencies: pip install “aiofranka[robotiq]”</p>
+<p class="rubric">Example</p>
+<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="kn">import</span><span class="w"> </span><span class="nn">asyncio</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="kn">from</span><span class="w"> </span><span class="nn">aiofranka.gripper</span><span class="w"> </span><span class="kn">import</span> <span class="n">GripperController</span>
+<span class="gp">&gt;&gt;&gt;</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">main</span><span class="p">():</span>
+<span class="gp">... </span>    <span class="n">gripper</span> <span class="o">=</span> <span class="n">GripperController</span><span class="p">(</span><span class="s2">&quot;/dev/ttyUSB1&quot;</span><span class="p">)</span>
+<span class="gp">... </span>    <span class="k">await</span> <span class="n">gripper</span><span class="o">.</span><span class="n">start</span><span class="p">()</span>
+<span class="gp">... </span>    <span class="n">gripper</span><span class="o">.</span><span class="n">speed</span> <span class="o">=</span> <span class="mi">128</span>  <span class="c1"># Set speed (like kp/kd)</span>
+<span class="gp">... </span>    <span class="n">gripper</span><span class="o">.</span><span class="n">q_desired</span> <span class="o">=</span> <span class="mi">200</span>  <span class="c1"># Set target position</span>
+<span class="gp">... </span>    <span class="k">await</span> <span class="n">asyncio</span><span class="o">.</span><span class="n">sleep</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span>
+<span class="gp">... </span>    <span class="k">await</span> <span class="n">gripper</span><span class="o">.</span><span class="n">stop</span><span class="p">()</span>
+<span class="gp">&gt;&gt;&gt;</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">asyncio</span><span class="o">.</span><span class="n">run</span><span class="p">(</span><span class="n">main</span><span class="p">())</span>
+</pre></div>
+</div>
+<dl class="py class">
+<dt class="sig sig-object py" id="aiofranka.gripper.GripperController">
+<span class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></span><span class="sig-prename descclassname"><span class="pre">aiofranka.gripper.</span></span><span class="sig-name descname"><span class="pre">GripperController</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">port</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'/dev/ttyUSB1'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">speed</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">255</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">force</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">255</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">loop_rate</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">50.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">read_every_n</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">2</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/aiofranka/gripper.html#GripperController"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#aiofranka.gripper.GripperController" title="Link to this definition"></a></dt>
+<dd><p>Bases: <a class="reference external" href="https://docs.python.org/3/builtins/functions.html#object" title="(in Python v3.14)"><code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></a></p>
+<p>Async gripper controller with background control loop.</p>
+<p>Similar to FrankaController, this runs a background loop that continuously
+sends goTo commands. You only need to set the target position - the loop
+handles the communication.</p>
+<dl class="py attribute">
+<dt class="sig sig-object py" id="aiofranka.gripper.GripperController.running">
+<span class="sig-name descname"><span class="pre">running</span></span><a class="headerlink" href="#aiofranka.gripper.GripperController.running" title="Link to this definition"></a></dt>
+<dd><p>Whether control loop is active</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/builtins/functions.html#bool" title="(in Python v3.14)">bool</a></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>port</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a>) – Serial port for the gripper (e.g., “/dev/ttyUSB1”)</p></li>
+<li><p><strong>speed</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/functions.html#int" title="(in Python v3.14)"><em>int</em></a>) – Initial speed setting (default: 255)</p></li>
+<li><p><strong>force</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/functions.html#int" title="(in Python v3.14)"><em>int</em></a>) – Initial force setting (default: 255)</p></li>
+<li><p><strong>loop_rate</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/functions.html#float" title="(in Python v3.14)"><em>float</em></a>) – Control loop frequency in Hz (default: 50)</p></li>
+<li><p><strong>read_every_n</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/functions.html#int" title="(in Python v3.14)"><em>int</em></a>)</p></li>
+</ul>
+</dd>
+</dl>
+<p class="rubric">Example</p>
+<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">gripper</span> <span class="o">=</span> <span class="n">GripperController</span><span class="p">(</span><span class="s2">&quot;/dev/ttyUSB1&quot;</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="k">await</span> <span class="n">gripper</span><span class="o">.</span><span class="n">start</span><span class="p">()</span>
+<span class="gp">&gt;&gt;&gt;</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="c1"># Set gains (speed/force) like you set kp/kd</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">gripper</span><span class="o">.</span><span class="n">speed</span> <span class="o">=</span> <span class="mi">128</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">gripper</span><span class="o">.</span><span class="n">force</span> <span class="o">=</span> <span class="mi">200</span>
+<span class="gp">&gt;&gt;&gt;</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="c1"># Set target position (like q_desired for Franka)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">gripper</span><span class="o">.</span><span class="n">q_desired</span> <span class="o">=</span> <span class="mi">255</span>  <span class="c1"># Close</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="k">await</span> <span class="n">asyncio</span><span class="o">.</span><span class="n">sleep</span><span class="p">(</span><span class="mf">0.5</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">gripper</span><span class="o">.</span><span class="n">q_desired</span> <span class="o">=</span> <span class="mi">0</span>    <span class="c1"># Open</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="k">await</span> <span class="n">asyncio</span><span class="o">.</span><span class="n">sleep</span><span class="p">(</span><span class="mf">0.5</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt;</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="c1"># Read current position (like qpos for Franka)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="nb">print</span><span class="p">(</span><span class="n">gripper</span><span class="o">.</span><span class="n">qpos</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt;</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="k">await</span> <span class="n">gripper</span><span class="o">.</span><span class="n">stop</span><span class="p">()</span>
+</pre></div>
+</div>
+<dl class="py method">
+<dt class="sig sig-object py" id="aiofranka.gripper.GripperController.__init__">
+<span class="sig-name descname"><span class="pre">__init__</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">port</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'/dev/ttyUSB1'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">speed</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">255</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">force</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">255</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">loop_rate</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">50.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">read_every_n</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">2</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/aiofranka/gripper.html#GripperController.__init__"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#aiofranka.gripper.GripperController.__init__" title="Link to this definition"></a></dt>
+<dd><dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>port</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a>)</p></li>
+<li><p><strong>speed</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/functions.html#int" title="(in Python v3.14)"><em>int</em></a>)</p></li>
+<li><p><strong>force</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/functions.html#int" title="(in Python v3.14)"><em>int</em></a>)</p></li>
+<li><p><strong>loop_rate</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/functions.html#float" title="(in Python v3.14)"><em>float</em></a>)</p></li>
+<li><p><strong>read_every_n</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/functions.html#int" title="(in Python v3.14)"><em>int</em></a>)</p></li>
+</ul>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="aiofranka.gripper.GripperController.q_desired">
+<span class="property"><span class="k"><span class="pre">property</span></span><span class="w"> </span></span><span class="sig-name descname"><span class="pre">q_desired</span></span><span class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/builtins/functions.html#int" title="(in Python v3.14)"><span class="pre">int</span></a></span><a class="headerlink" href="#aiofranka.gripper.GripperController.q_desired" title="Link to this definition"></a></dt>
+<dd><p>Target gripper position (0=open, 255=closed).</p>
+</dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="aiofranka.gripper.GripperController.position">
+<span class="property"><span class="k"><span class="pre">property</span></span><span class="w"> </span></span><span class="sig-name descname"><span class="pre">position</span></span><span class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/builtins/functions.html#int" title="(in Python v3.14)"><span class="pre">int</span></a></span><a class="headerlink" href="#aiofranka.gripper.GripperController.position" title="Link to this definition"></a></dt>
+<dd><p>Alias for q_desired (deprecated).</p>
+</dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="aiofranka.gripper.GripperController.speed">
+<span class="property"><span class="k"><span class="pre">property</span></span><span class="w"> </span></span><span class="sig-name descname"><span class="pre">speed</span></span><span class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/builtins/functions.html#int" title="(in Python v3.14)"><span class="pre">int</span></a></span><a class="headerlink" href="#aiofranka.gripper.GripperController.speed" title="Link to this definition"></a></dt>
+<dd><p>Gripper speed (1-255). Higher = faster. Like kp gain.</p>
+</dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="aiofranka.gripper.GripperController.force">
+<span class="property"><span class="k"><span class="pre">property</span></span><span class="w"> </span></span><span class="sig-name descname"><span class="pre">force</span></span><span class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/builtins/functions.html#int" title="(in Python v3.14)"><span class="pre">int</span></a></span><a class="headerlink" href="#aiofranka.gripper.GripperController.force" title="Link to this definition"></a></dt>
+<dd><p>Gripper force (0-255). Higher = stronger grip. Like kd gain.</p>
+</dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="aiofranka.gripper.GripperController.qpos">
+<span class="property"><span class="k"><span class="pre">property</span></span><span class="w"> </span></span><span class="sig-name descname"><span class="pre">qpos</span></span><span class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/builtins/functions.html#int" title="(in Python v3.14)"><span class="pre">int</span></a></span><a class="headerlink" href="#aiofranka.gripper.GripperController.qpos" title="Link to this definition"></a></dt>
+<dd><p>Current gripper position (read-only).</p>
+</dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="aiofranka.gripper.GripperController.current_position">
+<span class="property"><span class="k"><span class="pre">property</span></span><span class="w"> </span></span><span class="sig-name descname"><span class="pre">current_position</span></span><span class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/builtins/functions.html#int" title="(in Python v3.14)"><span class="pre">int</span></a></span><a class="headerlink" href="#aiofranka.gripper.GripperController.current_position" title="Link to this definition"></a></dt>
+<dd><p>Alias for qpos (deprecated).</p>
+</dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="aiofranka.gripper.GripperController.state">
+<span class="property"><span class="k"><span class="pre">property</span></span><span class="w"> </span></span><span class="sig-name descname"><span class="pre">state</span></span><span class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#dict" title="(in Python v3.14)"><span class="pre">dict</span></a></span><a class="headerlink" href="#aiofranka.gripper.GripperController.state" title="Link to this definition"></a></dt>
+<dd><p>Current gripper state as a dict with qpos, q_desired, speed, force and error.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="aiofranka.gripper.GripperController.set_freq">
+<span class="sig-name descname"><span class="pre">set_freq</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">freq</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/aiofranka/gripper.html#GripperController.set_freq"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#aiofranka.gripper.GripperController.set_freq" title="Link to this definition"></a></dt>
+<dd><p>Set the update frequency for rate-limited set() calls.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>freq</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/functions.html#float" title="(in Python v3.14)"><em>float</em></a>) – Desired update frequency in Hz (typically 10-100 Hz)</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="aiofranka.gripper.GripperController.set">
+<span class="property"><span class="k"><span class="pre">async</span></span><span class="w"> </span></span><span class="sig-name descname"><span class="pre">set</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">attr</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">value</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/aiofranka/gripper.html#GripperController.set"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#aiofranka.gripper.GripperController.set" title="Link to this definition"></a></dt>
+<dd><p>Rate-limited setter (same pattern as FrankaController).</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>attr</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a>) – Attribute name (“q_desired”, “speed”, “force”)</p></li>
+<li><p><strong>value</strong> – Value to set</p></li>
+</ul>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="aiofranka.gripper.GripperController.start">
+<span class="property"><span class="k"><span class="pre">async</span></span><span class="w"> </span></span><span class="sig-name descname"><span class="pre">start</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../_modules/aiofranka/gripper.html#GripperController.start"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#aiofranka.gripper.GripperController.start" title="Link to this definition"></a></dt>
+<dd><p>Initialize gripper and start background control loop.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Returns<span class="colon">:</span></dt>
+<dd class="field-odd"><p>The background control loop task</p>
+</dd>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p><a class="reference external" href="https://docs.python.org/3/library/asyncio-task.html#asyncio.Task" title="(in Python v3.14)">asyncio.Task</a></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="aiofranka.gripper.GripperController.stop">
+<span class="property"><span class="k"><span class="pre">async</span></span><span class="w"> </span></span><span class="sig-name descname"><span class="pre">stop</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../_modules/aiofranka/gripper.html#GripperController.stop"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#aiofranka.gripper.GripperController.stop" title="Link to this definition"></a></dt>
+<dd><p>Stop the control loop and wait for thread to finish.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="aiofranka.gripper.GripperController.open">
+<span class="sig-name descname"><span class="pre">open</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../_modules/aiofranka/gripper.html#GripperController.open"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#aiofranka.gripper.GripperController.open" title="Link to this definition"></a></dt>
+<dd><p>Set target to fully open (0).</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="aiofranka.gripper.GripperController.close">
+<span class="sig-name descname"><span class="pre">close</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../_modules/aiofranka/gripper.html#GripperController.close"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#aiofranka.gripper.GripperController.close" title="Link to this definition"></a></dt>
+<dd><p>Set target to fully closed (255).</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="aiofranka.gripper.GripperController.wait_until_reached">
+<span class="property"><span class="k"><span class="pre">async</span></span><span class="w"> </span></span><span class="sig-name descname"><span class="pre">wait_until_reached</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">tolerance</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">5</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">timeout</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">5.0</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/aiofranka/gripper.html#GripperController.wait_until_reached"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#aiofranka.gripper.GripperController.wait_until_reached" title="Link to this definition"></a></dt>
+<dd><p>Wait until gripper reaches target position.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>tolerance</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/functions.html#int" title="(in Python v3.14)"><em>int</em></a>) – Position tolerance in gripper units</p></li>
+<li><p><strong>timeout</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/functions.html#float" title="(in Python v3.14)"><em>float</em></a>) – Maximum wait time in seconds</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>True if position reached, False if timeout</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/builtins/functions.html#bool" title="(in Python v3.14)">bool</a></p>
+</dd>
+</dl>
+</dd></dl>
+
+</dd></dl>
+
+</section>
+
+
+           </div>
+          </div>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="server.html" class="btn btn-neutral float-left" title="Server Functions" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="utilities.html" class="btn btn-neutral float-right" title="Async Utilities" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2025, MIT Improbable AI Lab.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

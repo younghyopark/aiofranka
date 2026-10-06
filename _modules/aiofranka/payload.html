@@ -1,0 +1,796 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="../../">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>aiofranka.payload &mdash; aiofranka 0.7.1 documentation</title>
+      <link rel="stylesheet" type="text/css" href="../../_static/pygments.css?v=b86133f3" />
+      <link rel="stylesheet" type="text/css" href="../../_static/css/theme.css?v=9edc463e" />
+
+  
+      <script src="../../_static/jquery.js?v=5d32c60e"></script>
+      <script src="../../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="../../_static/documentation_options.js?v=5a057da9"></script>
+      <script src="../../_static/doctools.js?v=fd6eb6e6"></script>
+      <script src="../../_static/sphinx_highlight.js?v=6ffebe34"></script>
+    <script src="../../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../../genindex.html" />
+    <link rel="search" title="Search" href="../../search.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../../index.html" class="icon icon-home">
+            aiofranka
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">Getting Started</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../installation.html">Installation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../quickstart.html">Quick Start</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../controllers.html">Controllers</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../native.html">Native Control Loop</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../cli.html">CLI Reference</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../async_mode.html">Async Mode Guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../examples.html">Examples</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../troubleshooting.html">Troubleshooting</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">API Reference</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../api/remote.html">FrankaRemoteController (Server Mode)</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../api/controller.html">Franka Controller</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../api/native.html">Native Controller</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../api/robot.html">Robot Interface</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../api/payload.html">Payload Identification and Tools</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../api/config.html">Controller Configurations</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../api/server.html">Server Functions</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../api/gripper.html">GripperController</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../api/utilities.html">Async Utilities</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../../index.html">aiofranka</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../../index.html" class="icon icon-home" aria-label="Home"></a></li>
+          <li class="breadcrumb-item"><a href="../index.html">Module code</a></li>
+      <li class="breadcrumb-item active">aiofranka.payload</li>
+      <li class="wy-breadcrumbs-aside">
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <h1>Source code for aiofranka.payload</h1><div class="highlight"><pre>
+<span></span><span class="sd">"""</span>
+<span class="sd">Identification of the tool attached to the flange.</span>
+
+<span class="sd">The robot compensates the gravity of the arm and of the payload: the end effector</span>
+<span class="sd">configured in Desk plus the load set with RobotInterface.set_load(). If the</span>
+<span class="sd">payload does not match the tool, the arm drifts in torque control, e.g. with zero</span>
+<span class="sd">torques. identify_payload() estimates the mass and center of mass of the tool from</span>
+<span class="sd">the joint torques at rest in a set of poses, starting from any payload setting,</span>
+<span class="sd">e.g. none.</span>
+
+<span class="sd">At rest, the measured joint torques minus the gravity torques of the robot model,</span>
+<span class="sd">tau_ext_hat_filtered, are the gravity torques of the part of the load the robot</span>
+<span class="sd">does not know about, plus stiction. Some joint friction acts past the torque</span>
+<span class="sd">sensors: at rest, they also see part of the torque with which the controller holds</span>
+<span class="sd">the joint against stiction, which on an FR3 was a few tenths of a Nm, flipping</span>
+<span class="sd">sign with the side the joint came from. So identify_payload() approaches each pose</span>
+<span class="sd">from both sides and averages. The gravity torques are linear in the mass m and the</span>
+<span class="sd">first moment m * c of the unknown part:</span>
+
+<span class="sd">    tau = g * [J_v^T e_z | -J_w^T [e_z]x R] @ [m, m * c]</span>
+
+<span class="sd">where J_v and J_w are the linear and angular Jacobian and R the orientation of the</span>
+<span class="sd">flange in the base frame, and c is the center of mass in the flange frame. With</span>
+<span class="sd">poses in which the flange points in different directions, least squares gives m</span>
+<span class="sd">and c. The inertia does not change the gravity torques, so it cannot be identified</span>
+<span class="sd">at rest. It does not matter for the robot's gravity compensation either.</span>
+<span class="sd">"""</span>
+
+<span class="kn">import</span><span class="w"> </span><span class="nn">asyncio</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">contextlib</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">io</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">time</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">dataclasses</span><span class="w"> </span><span class="kn">import</span> <span class="n">dataclass</span><span class="p">,</span> <span class="n">field</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">functools</span><span class="w"> </span><span class="kn">import</span> <span class="n">lru_cache</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">pathlib</span><span class="w"> </span><span class="kn">import</span> <span class="n">Path</span>
+
+<span class="kn">import</span><span class="w"> </span><span class="nn">mujoco</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
+
+<span class="n">MODEL_PATH</span> <span class="o">=</span> <span class="n">Path</span><span class="p">(</span><span class="vm">__file__</span><span class="p">)</span><span class="o">.</span><span class="n">parent</span><span class="o">.</span><span class="n">resolve</span><span class="p">()</span> <span class="o">/</span> <span class="s2">"model"</span> <span class="o">/</span> <span class="s2">"fr3.xml"</span>
+<span class="n">SITE_NAME</span> <span class="o">=</span> <span class="s2">"attachment_site"</span>
+
+<span class="c1"># Gravitational acceleration the robot uses [m/s^2].</span>
+<span class="n">GRAVITY</span> <span class="o">=</span> <span class="mf">9.81</span>
+
+<span class="c1"># Default half-widths [rad] of the joint ranges around the current pose that the</span>
+<span class="c1"># planned poses are sampled from. Joint 1 does not change the gravity torques.</span>
+<span class="c1"># The wrist joints change the flange orientation, which makes the center of mass</span>
+<span class="c1"># identifiable.</span>
+<span class="n">DEFAULT_SPANS</span> <span class="o">=</span> <span class="p">(</span><span class="mf">0.0</span><span class="p">,</span> <span class="mf">0.3</span><span class="p">,</span> <span class="mf">0.3</span><span class="p">,</span> <span class="mf">0.3</span><span class="p">,</span> <span class="mf">1.3</span><span class="p">,</span> <span class="mf">1.0</span><span class="p">,</span> <span class="mf">2.6</span><span class="p">)</span>
+
+<span class="c1"># Distance [rad] to the joint limits that planned poses keep.</span>
+<span class="n">JOINT_LIMIT_MARGIN</span> <span class="o">=</span> <span class="mf">0.1</span>
+
+<span class="c1"># Offsets [rad] from which identify_payload() approaches each pose, from both sides,</span>
+<span class="c1"># so that stiction, which flips sign with the side, averages out. Joint 1 carries</span>
+<span class="c1"># no gravity torque.</span>
+<span class="n">APPROACH</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="mf">0.0</span><span class="p">,</span> <span class="mf">0.08</span><span class="p">,</span> <span class="mf">0.08</span><span class="p">,</span> <span class="mf">0.08</span><span class="p">,</span> <span class="mf">0.08</span><span class="p">,</span> <span class="mf">0.08</span><span class="p">,</span> <span class="mf">0.08</span><span class="p">])</span>
+
+<span class="c1"># Skew-symmetric matrix of the z-axis of the base frame, [e_z]x v = e_z x v.</span>
+<span class="n">_EZ_CROSS</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([[</span><span class="mf">0.0</span><span class="p">,</span> <span class="o">-</span><span class="mf">1.0</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">],</span> <span class="p">[</span><span class="mf">1.0</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">],</span> <span class="p">[</span><span class="mf">0.0</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">]])</span>
+
+
+<span class="nd">@lru_cache</span><span class="p">(</span><span class="n">maxsize</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">_kinematics</span><span class="p">():</span>
+    <span class="c1"># Loading the model takes about 0.2 s.</span>
+    <span class="n">model</span> <span class="o">=</span> <span class="n">mujoco</span><span class="o">.</span><span class="n">MjModel</span><span class="o">.</span><span class="n">from_xml_path</span><span class="p">(</span><span class="nb">str</span><span class="p">(</span><span class="n">MODEL_PATH</span><span class="p">))</span>
+    <span class="k">return</span> <span class="n">model</span><span class="p">,</span> <span class="n">mujoco</span><span class="o">.</span><span class="n">MjData</span><span class="p">(</span><span class="n">model</span><span class="p">),</span> <span class="n">model</span><span class="o">.</span><span class="n">site</span><span class="p">(</span><span class="n">SITE_NAME</span><span class="p">)</span><span class="o">.</span><span class="n">id</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_robot_kinematics</span><span class="p">(</span><span class="n">robot</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">"""Kinematics of a RobotInterface's model, whose loading is done already."""</span>
+    <span class="k">return</span> <span class="n">robot</span><span class="o">.</span><span class="n">model</span><span class="p">,</span> <span class="n">mujoco</span><span class="o">.</span><span class="n">MjData</span><span class="p">(</span><span class="n">robot</span><span class="o">.</span><span class="n">model</span><span class="p">),</span> <span class="n">robot</span><span class="o">.</span><span class="n">site_id</span>
+
+
+<div class="viewcode-block" id="payload_regressor">
+<a class="viewcode-back" href="../../api/payload.html#aiofranka.payload.payload_regressor">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">payload_regressor</span><span class="p">(</span><span class="n">qpos</span><span class="p">,</span> <span class="n">kinematics</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">"""</span>
+<span class="sd">    Regressor of the gravity torques of a load on the flange.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        qpos (array-like): Joint positions [rad] (7,)</span>
+<span class="sd">        kinematics (tuple | None): MuJoCo model, data and flange site id to</span>
+<span class="sd">            compute it with (default: a model of the FR3)</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        np.ndarray: Matrix Y (7, 4) such that Y @ [m, m * cx, m * cy, m * cz] are</span>
+<span class="sd">            the joint torques [Nm] that hold a load of mass m [kg] with center of</span>
+<span class="sd">            mass c [m] in the flange frame against gravity.</span>
+<span class="sd">    """</span>
+    <span class="n">model</span><span class="p">,</span> <span class="n">data</span><span class="p">,</span> <span class="n">site_id</span> <span class="o">=</span> <span class="n">kinematics</span> <span class="ow">or</span> <span class="n">_kinematics</span><span class="p">()</span>
+    <span class="n">data</span><span class="o">.</span><span class="n">qpos</span><span class="p">[:</span><span class="mi">7</span><span class="p">]</span> <span class="o">=</span> <span class="n">qpos</span>
+    <span class="n">mujoco</span><span class="o">.</span><span class="n">mj_kinematics</span><span class="p">(</span><span class="n">model</span><span class="p">,</span> <span class="n">data</span><span class="p">)</span>
+    <span class="n">mujoco</span><span class="o">.</span><span class="n">mj_comPos</span><span class="p">(</span><span class="n">model</span><span class="p">,</span> <span class="n">data</span><span class="p">)</span>
+    <span class="n">jacp</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">((</span><span class="mi">3</span><span class="p">,</span> <span class="n">model</span><span class="o">.</span><span class="n">nv</span><span class="p">))</span>
+    <span class="n">jacr</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">((</span><span class="mi">3</span><span class="p">,</span> <span class="n">model</span><span class="o">.</span><span class="n">nv</span><span class="p">))</span>
+    <span class="n">mujoco</span><span class="o">.</span><span class="n">mj_jacSite</span><span class="p">(</span><span class="n">model</span><span class="p">,</span> <span class="n">data</span><span class="p">,</span> <span class="n">jacp</span><span class="p">,</span> <span class="n">jacr</span><span class="p">,</span> <span class="n">site_id</span><span class="p">)</span>
+    <span class="n">rot</span> <span class="o">=</span> <span class="n">data</span><span class="o">.</span><span class="n">site_xmat</span><span class="p">[</span><span class="n">site_id</span><span class="p">]</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="mi">3</span><span class="p">,</span> <span class="mi">3</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">GRAVITY</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">hstack</span><span class="p">([</span><span class="n">jacp</span><span class="p">[</span><span class="mi">2</span><span class="p">,</span> <span class="p">:</span><span class="mi">7</span><span class="p">,</span> <span class="kc">None</span><span class="p">],</span> <span class="o">-</span><span class="n">jacr</span><span class="p">[:,</span> <span class="p">:</span><span class="mi">7</span><span class="p">]</span><span class="o">.</span><span class="n">T</span> <span class="o">@</span> <span class="n">_EZ_CROSS</span> <span class="o">@</span> <span class="n">rot</span><span class="p">])</span></div>
+
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_design</span><span class="p">(</span><span class="n">qpos</span><span class="p">,</span> <span class="n">fit_bias</span><span class="p">,</span> <span class="n">kinematics</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">"""Stacked regressors (n, 7, p), with a torque offset per joint if fit_bias."""</span>
+    <span class="n">Y</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">stack</span><span class="p">([</span><span class="n">payload_regressor</span><span class="p">(</span><span class="n">q</span><span class="p">,</span> <span class="n">kinematics</span><span class="p">)</span> <span class="k">for</span> <span class="n">q</span> <span class="ow">in</span> <span class="n">qpos</span><span class="p">])</span>
+    <span class="k">if</span> <span class="n">fit_bias</span><span class="p">:</span>
+        <span class="n">Y</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">concatenate</span><span class="p">([</span><span class="n">Y</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">broadcast_to</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">eye</span><span class="p">(</span><span class="mi">7</span><span class="p">),</span> <span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">Y</span><span class="p">),</span> <span class="mi">7</span><span class="p">,</span> <span class="mi">7</span><span class="p">))],</span> <span class="n">axis</span><span class="o">=</span><span class="mi">2</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">Y</span>
+
+
+<span class="k">class</span><span class="w"> </span><span class="nc">_Progress</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">"""</span>
+<span class="sd">    Progress bar like FrankaController.move()'s, advanced by the planned time of</span>
+<span class="sd">    each step, with an ETA scaled by how much longer the steps took so far.</span>
+<span class="sd">    """</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">total</span><span class="p">,</span> <span class="n">n_poses</span><span class="p">,</span> <span class="n">enabled</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">total</span> <span class="o">=</span> <span class="n">total</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">n_poses</span> <span class="o">=</span> <span class="n">n_poses</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">enabled</span> <span class="o">=</span> <span class="n">enabled</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">done</span> <span class="o">=</span> <span class="mf">0.0</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">measured</span> <span class="o">=</span> <span class="mi">0</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">t0</span> <span class="o">=</span> <span class="n">time</span><span class="o">.</span><span class="n">perf_counter</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">show</span><span class="p">()</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">advance</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">seconds</span><span class="p">,</span> <span class="n">measured</span><span class="o">=</span><span class="mi">0</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">done</span> <span class="o">+=</span> <span class="n">seconds</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">measured</span> <span class="o">+=</span> <span class="n">measured</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">show</span><span class="p">()</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">show</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">enabled</span><span class="p">:</span>
+            <span class="k">return</span>
+        <span class="n">fraction</span> <span class="o">=</span> <span class="nb">min</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">done</span> <span class="o">/</span> <span class="bp">self</span><span class="o">.</span><span class="n">total</span><span class="p">,</span> <span class="mf">1.0</span><span class="p">)</span>
+        <span class="n">elapsed</span> <span class="o">=</span> <span class="n">time</span><span class="o">.</span><span class="n">perf_counter</span><span class="p">()</span> <span class="o">-</span> <span class="bp">self</span><span class="o">.</span><span class="n">t0</span>
+        <span class="n">eta</span> <span class="o">=</span> <span class="nb">max</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">total</span> <span class="o">-</span> <span class="bp">self</span><span class="o">.</span><span class="n">done</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">)</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">done</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="n">eta</span> <span class="o">*=</span> <span class="n">elapsed</span> <span class="o">/</span> <span class="bp">self</span><span class="o">.</span><span class="n">done</span>
+        <span class="n">filled</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">fraction</span> <span class="o">*</span> <span class="mi">20</span><span class="p">)</span>
+        <span class="n">bar</span> <span class="o">=</span> <span class="s2">"█"</span> <span class="o">*</span> <span class="n">filled</span> <span class="o">+</span> <span class="s2">"░"</span> <span class="o">*</span> <span class="p">(</span><span class="mi">20</span> <span class="o">-</span> <span class="n">filled</span><span class="p">)</span>
+        <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"</span><span class="se">\r</span><span class="s2">  Identifying [</span><span class="si">{</span><span class="n">bar</span><span class="si">}</span><span class="s2">] </span><span class="si">{</span><span class="n">fraction</span><span class="si">:</span><span class="s2">4.0%</span><span class="si">}</span><span class="s2">  </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">measured</span><span class="si">}</span><span class="s2">/</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">n_poses</span><span class="si">}</span><span class="s2"> poses"</span>
+              <span class="sa">f</span><span class="s2">"  ETA </span><span class="si">{</span><span class="nb">int</span><span class="p">(</span><span class="n">eta</span><span class="p">)</span><span class="w"> </span><span class="o">//</span><span class="w"> </span><span class="mi">60</span><span class="si">}</span><span class="s2">:</span><span class="si">{</span><span class="nb">int</span><span class="p">(</span><span class="n">eta</span><span class="p">)</span><span class="w"> </span><span class="o">%</span><span class="w"> </span><span class="mi">60</span><span class="si">:</span><span class="s2">02d</span><span class="si">}</span><span class="s2"> "</span><span class="p">,</span> <span class="n">end</span><span class="o">=</span><span class="s2">""</span><span class="p">,</span> <span class="n">flush</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">finish</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">enabled</span><span class="p">:</span>
+            <span class="nb">print</span><span class="p">()</span>
+
+
+<div class="viewcode-block" id="PayloadEstimate">
+<a class="viewcode-back" href="../../api/payload.html#aiofranka.payload.PayloadEstimate">[docs]</a>
+<span class="nd">@dataclass</span>
+<span class="k">class</span><span class="w"> </span><span class="nc">PayloadEstimate</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">"""</span>
+<span class="sd">    Tool on the flange estimated by identify_payload() or fit_payload().</span>
+
+<span class="sd">    The estimate is the whole tool: the payload that was set during the</span>
+<span class="sd">    measurements plus the correction the measurements found.</span>
+
+<span class="sd">    Attributes:</span>
+<span class="sd">        mass (float): Tool mass [kg]</span>
+<span class="sd">        com (np.ndarray): Center of mass in the flange frame [m] (3,)</span>
+<span class="sd">        mass_std (float): Standard error of the mass [kg]</span>
+<span class="sd">        com_std (np.ndarray): Standard error of the center of mass [m] (3,)</span>
+<span class="sd">        previous (dict): Payload that was set during the measurements, with</span>
+<span class="sd">            "mass" and "com"</span>
+<span class="sd">        bias (np.ndarray): Torque offsets per joint [Nm] (7,), e.g. from the</span>
+<span class="sd">            torque sensors. The payload cannot compensate them.</span>
+<span class="sd">        rms_before (np.ndarray): RMS of the residual torques at rest with the</span>
+<span class="sd">            previous payload [Nm] (7,)</span>
+<span class="sd">        rms_after (np.ndarray): RMS of the residual torques at rest predicted with</span>
+<span class="sd">            this tool [Nm] (7,). It includes the offsets in bias.</span>
+<span class="sd">        condition (float): Condition number of the least-squares problem. Large</span>
+<span class="sd">            values, e.g. &gt; 100, mean the poses do not tell the parameters apart.</span>
+<span class="sd">        qpos (np.ndarray): Joint positions of the measurements [rad] (n, 7)</span>
+<span class="sd">        residuals (np.ndarray): Measured residual torques at rest [Nm] (n, 7)</span>
+<span class="sd">    """</span>
+
+    <span class="n">mass</span><span class="p">:</span> <span class="nb">float</span>
+    <span class="n">com</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span>
+    <span class="n">mass_std</span><span class="p">:</span> <span class="nb">float</span>
+    <span class="n">com_std</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span>
+    <span class="n">previous</span><span class="p">:</span> <span class="nb">dict</span>
+    <span class="n">bias</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span>
+    <span class="n">rms_before</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span>
+    <span class="n">rms_after</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span>
+    <span class="n">condition</span><span class="p">:</span> <span class="nb">float</span>
+    <span class="n">qpos</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span> <span class="o">=</span> <span class="n">field</span><span class="p">(</span><span class="nb">repr</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+    <span class="n">residuals</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span> <span class="o">=</span> <span class="n">field</span><span class="p">(</span><span class="nb">repr</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="fm">__str__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="n">com</span> <span class="o">=</span> <span class="s2">", "</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">axis</span><span class="si">}</span><span class="s2"> </span><span class="si">{</span><span class="mf">1e3</span><span class="w"> </span><span class="o">*</span><span class="w"> </span><span class="n">c</span><span class="si">:</span><span class="s2">+.1f</span><span class="si">}</span><span class="s2"> ± </span><span class="si">{</span><span class="mf">1e3</span><span class="w"> </span><span class="o">*</span><span class="w"> </span><span class="n">s</span><span class="si">:</span><span class="s2">.1f</span><span class="si">}</span><span class="s2">"</span>
+                        <span class="k">for</span> <span class="n">axis</span><span class="p">,</span> <span class="n">c</span><span class="p">,</span> <span class="n">s</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="s2">"xyz"</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">com</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">com_std</span><span class="p">))</span>
+        <span class="c1"># Joint 1 carries no gravity torque.</span>
+        <span class="n">before</span><span class="p">,</span> <span class="n">after</span> <span class="o">=</span> <span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">mean</span><span class="p">(</span><span class="n">rms</span><span class="p">[</span><span class="mi">1</span><span class="p">:]</span> <span class="o">**</span> <span class="mi">2</span><span class="p">))</span> <span class="k">for</span> <span class="n">rms</span> <span class="ow">in</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">rms_before</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">rms_after</span><span class="p">))</span>
+        <span class="k">return</span> <span class="s2">"</span><span class="se">\n</span><span class="s2">"</span><span class="o">.</span><span class="n">join</span><span class="p">([</span>
+            <span class="s2">"Estimated tool, in the flange frame:"</span><span class="p">,</span>
+            <span class="sa">f</span><span class="s2">"  mass            </span><span class="si">{</span><span class="mf">1e3</span><span class="w"> </span><span class="o">*</span><span class="w"> </span><span class="bp">self</span><span class="o">.</span><span class="n">mass</span><span class="si">:</span><span class="s2">.1f</span><span class="si">}</span><span class="s2"> ± </span><span class="si">{</span><span class="mf">1e3</span><span class="w"> </span><span class="o">*</span><span class="w"> </span><span class="bp">self</span><span class="o">.</span><span class="n">mass_std</span><span class="si">:</span><span class="s2">.1f</span><span class="si">}</span><span class="s2"> g"</span>
+            <span class="sa">f</span><span class="s2">"   (previous payload </span><span class="si">{</span><span class="mf">1e3</span><span class="w"> </span><span class="o">*</span><span class="w"> </span><span class="bp">self</span><span class="o">.</span><span class="n">previous</span><span class="p">[</span><span class="s1">'mass'</span><span class="p">]</span><span class="si">:</span><span class="s2">.1f</span><span class="si">}</span><span class="s2"> g)"</span><span class="p">,</span>
+            <span class="sa">f</span><span class="s2">"  center of mass  </span><span class="si">{</span><span class="n">com</span><span class="si">}</span><span class="s2"> mm"</span><span class="p">,</span>
+            <span class="sa">f</span><span class="s2">"  fit             residual torque </span><span class="si">{</span><span class="n">before</span><span class="si">:</span><span class="s2">.2f</span><span class="si">}</span><span class="s2"> -&gt; </span><span class="si">{</span><span class="n">after</span><span class="si">:</span><span class="s2">.2f</span><span class="si">}</span><span class="s2"> Nm RMS over </span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">qpos</span><span class="p">)</span><span class="si">}</span><span class="s2"> poses"</span><span class="p">,</span>
+        <span class="p">])</span></div>
+
+
+
+<div class="viewcode-block" id="fit_payload">
+<a class="viewcode-back" href="../../api/payload.html#aiofranka.payload.fit_payload">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">fit_payload</span><span class="p">(</span><span class="n">qpos</span><span class="p">,</span> <span class="n">residuals</span><span class="p">,</span> <span class="n">previous</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">fit_bias</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">kinematics</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">"""</span>
+<span class="sd">    Estimate the tool on the flange from residual torques at rest.</span>
+
+<span class="sd">    Solves for the mass and first moment of the unmodeled part of the tool, and</span>
+<span class="sd">    with fit_bias a constant torque offset per joint, by least squares. A second</span>
+<span class="sd">    pass weights the joints by their residual noise, so that model errors of the</span>
+<span class="sd">    shoulder joints do not swamp the wrist joints, which see the center of mass.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        qpos (array-like): Joint positions [rad] (n, 7)</span>
+<span class="sd">        residuals (array-like): Residual torques at rest [Nm] (n, 7): the</span>
+<span class="sd">            measured joint torques minus the gravity torques of the arm and the</span>
+<span class="sd">            previous payload, e.g. tau_ext_hat_filtered</span>
+<span class="sd">        previous (dict | None): Payload that was set during the measurements,</span>
+<span class="sd">            with "mass" [kg] and "com" [m] (default: none)</span>
+<span class="sd">        fit_bias (bool): Estimate a torque offset per joint (default: True)</span>
+<span class="sd">        kinematics (tuple | None): See payload_regressor()</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        PayloadEstimate: Estimated tool, i.e. previous plus the correction</span>
+
+<span class="sd">    Raises:</span>
+<span class="sd">        ValueError: If there are too few poses for the parameters</span>
+<span class="sd">    """</span>
+    <span class="n">qpos</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">qpos</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">)</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="mi">7</span><span class="p">)</span>
+    <span class="n">residuals</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">residuals</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">)</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="mi">7</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">previous</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">previous</span> <span class="o">=</span> <span class="p">{</span><span class="s2">"mass"</span><span class="p">:</span> <span class="mf">0.0</span><span class="p">,</span> <span class="s2">"com"</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="mi">3</span><span class="p">)}</span>
+    <span class="n">previous</span> <span class="o">=</span> <span class="p">{</span><span class="s2">"mass"</span><span class="p">:</span> <span class="nb">float</span><span class="p">(</span><span class="n">previous</span><span class="p">[</span><span class="s2">"mass"</span><span class="p">]),</span> <span class="s2">"com"</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">previous</span><span class="p">[</span><span class="s2">"com"</span><span class="p">],</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">)}</span>
+
+    <span class="n">n</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">qpos</span><span class="p">)</span>
+    <span class="n">design</span> <span class="o">=</span> <span class="n">_design</span><span class="p">(</span><span class="n">qpos</span><span class="p">,</span> <span class="n">fit_bias</span><span class="p">,</span> <span class="n">kinematics</span><span class="p">)</span>
+    <span class="n">p</span> <span class="o">=</span> <span class="n">design</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">2</span><span class="p">]</span>
+    <span class="n">dof</span> <span class="o">=</span> <span class="mi">7</span> <span class="o">*</span> <span class="n">n</span> <span class="o">-</span> <span class="n">p</span>
+    <span class="k">if</span> <span class="n">n</span> <span class="o">&lt;</span> <span class="mi">2</span> <span class="ow">or</span> <span class="n">dof</span> <span class="o">&lt;</span> <span class="mi">1</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">n</span><span class="si">}</span><span class="s2"> poses are too few to estimate </span><span class="si">{</span><span class="n">p</span><span class="si">}</span><span class="s2"> parameters"</span><span class="p">)</span>
+
+    <span class="n">A</span> <span class="o">=</span> <span class="n">design</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="n">p</span><span class="p">)</span>
+    <span class="n">r</span> <span class="o">=</span> <span class="n">residuals</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">)</span>
+    <span class="n">theta</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">lstsq</span><span class="p">(</span><span class="n">A</span><span class="p">,</span> <span class="n">r</span><span class="p">,</span> <span class="n">rcond</span><span class="o">=</span><span class="kc">None</span><span class="p">)[</span><span class="mi">0</span><span class="p">]</span>
+
+    <span class="c1"># Weight each joint by the noise of its residuals.</span>
+    <span class="n">error</span> <span class="o">=</span> <span class="p">(</span><span class="n">r</span> <span class="o">-</span> <span class="n">A</span> <span class="o">@</span> <span class="n">theta</span><span class="p">)</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="n">n</span><span class="p">,</span> <span class="mi">7</span><span class="p">)</span>
+    <span class="n">sigma</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">maximum</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">sqrt</span><span class="p">((</span><span class="n">error</span> <span class="o">**</span> <span class="mi">2</span><span class="p">)</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">axis</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span> <span class="o">*</span> <span class="mi">7</span> <span class="o">/</span> <span class="n">dof</span><span class="p">),</span> <span class="mf">1e-3</span><span class="p">)</span>
+    <span class="n">weights</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">tile</span><span class="p">(</span><span class="mf">1.0</span> <span class="o">/</span> <span class="n">sigma</span><span class="p">,</span> <span class="n">n</span><span class="p">)</span>
+    <span class="n">Aw</span> <span class="o">=</span> <span class="n">A</span> <span class="o">*</span> <span class="n">weights</span><span class="p">[:,</span> <span class="kc">None</span><span class="p">]</span>
+    <span class="n">rw</span> <span class="o">=</span> <span class="n">r</span> <span class="o">*</span> <span class="n">weights</span>
+    <span class="n">theta</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">lstsq</span><span class="p">(</span><span class="n">Aw</span><span class="p">,</span> <span class="n">rw</span><span class="p">,</span> <span class="n">rcond</span><span class="o">=</span><span class="kc">None</span><span class="p">)[</span><span class="mi">0</span><span class="p">]</span>
+    <span class="n">error</span> <span class="o">=</span> <span class="n">rw</span> <span class="o">-</span> <span class="n">Aw</span> <span class="o">@</span> <span class="n">theta</span>
+    <span class="n">cov</span> <span class="o">=</span> <span class="p">(</span><span class="n">error</span> <span class="o">@</span> <span class="n">error</span> <span class="o">/</span> <span class="n">dof</span><span class="p">)</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">pinv</span><span class="p">(</span><span class="n">Aw</span><span class="o">.</span><span class="n">T</span> <span class="o">@</span> <span class="n">Aw</span><span class="p">)</span>
+    <span class="n">condition</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">cond</span><span class="p">(</span><span class="n">Aw</span> <span class="o">/</span> <span class="n">np</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">norm</span><span class="p">(</span><span class="n">Aw</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">0</span><span class="p">)))</span>
+
+    <span class="n">delta</span> <span class="o">=</span> <span class="n">theta</span><span class="p">[:</span><span class="mi">4</span><span class="p">]</span>
+    <span class="n">mass</span> <span class="o">=</span> <span class="n">previous</span><span class="p">[</span><span class="s2">"mass"</span><span class="p">]</span> <span class="o">+</span> <span class="n">delta</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+    <span class="n">moment</span> <span class="o">=</span> <span class="n">previous</span><span class="p">[</span><span class="s2">"mass"</span><span class="p">]</span> <span class="o">*</span> <span class="n">previous</span><span class="p">[</span><span class="s2">"com"</span><span class="p">]</span> <span class="o">+</span> <span class="n">delta</span><span class="p">[</span><span class="mi">1</span><span class="p">:]</span>
+    <span class="k">if</span> <span class="nb">abs</span><span class="p">(</span><span class="n">mass</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mf">1e-3</span><span class="p">:</span>
+        <span class="n">com</span> <span class="o">=</span> <span class="n">moment</span> <span class="o">/</span> <span class="n">mass</span>
+        <span class="c1"># Propagate the covariance of (m, m * c) to c = (m * c) / m.</span>
+        <span class="n">jac</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">hstack</span><span class="p">([</span><span class="o">-</span><span class="n">moment</span><span class="p">[:,</span> <span class="kc">None</span><span class="p">]</span> <span class="o">/</span> <span class="n">mass</span> <span class="o">**</span> <span class="mi">2</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">eye</span><span class="p">(</span><span class="mi">3</span><span class="p">)</span> <span class="o">/</span> <span class="n">mass</span><span class="p">])</span>
+        <span class="n">com_std</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">diag</span><span class="p">(</span><span class="n">jac</span> <span class="o">@</span> <span class="n">cov</span><span class="p">[:</span><span class="mi">4</span><span class="p">,</span> <span class="p">:</span><span class="mi">4</span><span class="p">]</span> <span class="o">@</span> <span class="n">jac</span><span class="o">.</span><span class="n">T</span><span class="p">))</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">com</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="mi">3</span><span class="p">)</span>
+        <span class="n">com_std</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">full</span><span class="p">(</span><span class="mi">3</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">inf</span><span class="p">)</span>
+
+    <span class="n">unmodeled</span> <span class="o">=</span> <span class="n">design</span><span class="p">[:,</span> <span class="p">:,</span> <span class="p">:</span><span class="mi">4</span><span class="p">]</span> <span class="o">@</span> <span class="n">delta</span>
+    <span class="k">return</span> <span class="n">PayloadEstimate</span><span class="p">(</span>
+        <span class="n">mass</span><span class="o">=</span><span class="nb">float</span><span class="p">(</span><span class="n">mass</span><span class="p">),</span>
+        <span class="n">com</span><span class="o">=</span><span class="n">com</span><span class="p">,</span>
+        <span class="n">mass_std</span><span class="o">=</span><span class="nb">float</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="n">cov</span><span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">])),</span>
+        <span class="n">com_std</span><span class="o">=</span><span class="n">com_std</span><span class="p">,</span>
+        <span class="n">previous</span><span class="o">=</span><span class="n">previous</span><span class="p">,</span>
+        <span class="n">bias</span><span class="o">=</span><span class="n">theta</span><span class="p">[</span><span class="mi">4</span><span class="p">:]</span> <span class="k">if</span> <span class="n">fit_bias</span> <span class="k">else</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="mi">7</span><span class="p">),</span>
+        <span class="n">rms_before</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">mean</span><span class="p">(</span><span class="n">residuals</span> <span class="o">**</span> <span class="mi">2</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">0</span><span class="p">)),</span>
+        <span class="n">rms_after</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">mean</span><span class="p">((</span><span class="n">residuals</span> <span class="o">-</span> <span class="n">unmodeled</span><span class="p">)</span> <span class="o">**</span> <span class="mi">2</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">0</span><span class="p">)),</span>
+        <span class="n">condition</span><span class="o">=</span><span class="n">condition</span><span class="p">,</span>
+        <span class="n">qpos</span><span class="o">=</span><span class="n">qpos</span><span class="p">,</span>
+        <span class="n">residuals</span><span class="o">=</span><span class="n">residuals</span><span class="p">,</span>
+    <span class="p">)</span></div>
+
+
+
+<span class="nd">@lru_cache</span><span class="p">(</span><span class="n">maxsize</span><span class="o">=</span><span class="mi">8</span><span class="p">)</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">_collision_model</span><span class="p">(</span><span class="n">tool_length</span><span class="p">,</span> <span class="n">tool_radius</span><span class="p">,</span> <span class="n">floor</span><span class="p">,</span> <span class="n">clearance</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">"""</span>
+<span class="sd">    The arm with a cylinder around the tool and a floor, for collision checks.</span>
+
+<span class="sd">    Contacts are reported for geoms closer than clearance to the tool or floor.</span>
+<span class="sd">    """</span>
+    <span class="n">spec</span> <span class="o">=</span> <span class="n">mujoco</span><span class="o">.</span><span class="n">MjSpec</span><span class="o">.</span><span class="n">from_file</span><span class="p">(</span><span class="nb">str</span><span class="p">(</span><span class="n">MODEL_PATH</span><span class="p">))</span>
+    <span class="n">site</span> <span class="o">=</span> <span class="nb">next</span><span class="p">(</span><span class="n">s</span> <span class="k">for</span> <span class="n">s</span> <span class="ow">in</span> <span class="n">spec</span><span class="o">.</span><span class="n">sites</span> <span class="k">if</span> <span class="n">s</span><span class="o">.</span><span class="n">name</span> <span class="o">==</span> <span class="n">SITE_NAME</span><span class="p">)</span>
+    <span class="n">tip</span> <span class="o">=</span> <span class="n">site</span><span class="o">.</span><span class="n">pos</span> <span class="o">+</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="mf">0.0</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">,</span> <span class="n">tool_length</span><span class="p">])</span>
+    <span class="n">spec</span><span class="o">.</span><span class="n">body</span><span class="p">(</span><span class="s2">"fr3_link7"</span><span class="p">)</span><span class="o">.</span><span class="n">add_geom</span><span class="p">(</span>
+        <span class="n">name</span><span class="o">=</span><span class="s2">"tool"</span><span class="p">,</span>
+        <span class="nb">type</span><span class="o">=</span><span class="n">mujoco</span><span class="o">.</span><span class="n">mjtGeom</span><span class="o">.</span><span class="n">mjGEOM_CYLINDER</span><span class="p">,</span>
+        <span class="n">fromto</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">concatenate</span><span class="p">([</span><span class="n">site</span><span class="o">.</span><span class="n">pos</span><span class="p">,</span> <span class="n">tip</span><span class="p">]),</span>
+        <span class="n">size</span><span class="o">=</span><span class="p">[</span><span class="n">tool_radius</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">],</span>
+        <span class="n">margin</span><span class="o">=</span><span class="n">clearance</span><span class="p">,</span>
+        <span class="n">mass</span><span class="o">=</span><span class="mf">0.0</span><span class="p">,</span>
+    <span class="p">)</span>
+    <span class="n">spec</span><span class="o">.</span><span class="n">worldbody</span><span class="o">.</span><span class="n">add_geom</span><span class="p">(</span>
+        <span class="n">name</span><span class="o">=</span><span class="s2">"floor"</span><span class="p">,</span> <span class="nb">type</span><span class="o">=</span><span class="n">mujoco</span><span class="o">.</span><span class="n">mjtGeom</span><span class="o">.</span><span class="n">mjGEOM_PLANE</span><span class="p">,</span> <span class="n">pos</span><span class="o">=</span><span class="p">[</span><span class="mf">0.0</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">,</span> <span class="n">floor</span><span class="p">],</span>
+        <span class="n">size</span><span class="o">=</span><span class="p">[</span><span class="mf">0.0</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">,</span> <span class="mf">1.0</span><span class="p">],</span> <span class="n">margin</span><span class="o">=</span><span class="n">clearance</span><span class="p">,</span>
+    <span class="p">)</span>
+    <span class="n">spec</span><span class="o">.</span><span class="n">add_exclude</span><span class="p">(</span><span class="n">bodyname1</span><span class="o">=</span><span class="s2">"world"</span><span class="p">,</span> <span class="n">bodyname2</span><span class="o">=</span><span class="s2">"fr3_link0"</span><span class="p">)</span>
+    <span class="n">model</span> <span class="o">=</span> <span class="n">spec</span><span class="o">.</span><span class="n">compile</span><span class="p">()</span>
+    <span class="k">return</span> <span class="n">model</span><span class="p">,</span> <span class="n">mujoco</span><span class="o">.</span><span class="n">MjData</span><span class="p">(</span><span class="n">model</span><span class="p">)</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_is_clear</span><span class="p">(</span><span class="n">model</span><span class="p">,</span> <span class="n">data</span><span class="p">,</span> <span class="n">qpos</span><span class="p">):</span>
+    <span class="n">data</span><span class="o">.</span><span class="n">qpos</span><span class="p">[:</span><span class="mi">7</span><span class="p">]</span> <span class="o">=</span> <span class="n">qpos</span>
+    <span class="n">mujoco</span><span class="o">.</span><span class="n">mj_fwdPosition</span><span class="p">(</span><span class="n">model</span><span class="p">,</span> <span class="n">data</span><span class="p">)</span>
+    <span class="c1"># MuJoCo adds the margins of two geoms, so it reports the tool from as far as twice</span>
+    <span class="c1"># the clearance from the floor: only contacts within the larger margin count.</span>
+    <span class="n">margin</span> <span class="o">=</span> <span class="n">model</span><span class="o">.</span><span class="n">geom_margin</span>
+    <span class="k">return</span> <span class="nb">all</span><span class="p">(</span><span class="n">c</span><span class="o">.</span><span class="n">dist</span> <span class="o">&gt;=</span> <span class="nb">max</span><span class="p">(</span><span class="n">margin</span><span class="p">[</span><span class="n">c</span><span class="o">.</span><span class="n">geom1</span><span class="p">],</span> <span class="n">margin</span><span class="p">[</span><span class="n">c</span><span class="o">.</span><span class="n">geom2</span><span class="p">])</span> <span class="k">for</span> <span class="n">c</span> <span class="ow">in</span> <span class="n">data</span><span class="o">.</span><span class="n">contact</span><span class="p">[:</span><span class="n">data</span><span class="o">.</span><span class="n">ncon</span><span class="p">])</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_closest</span><span class="p">(</span><span class="n">model</span><span class="p">,</span> <span class="n">data</span><span class="p">,</span> <span class="n">qpos</span><span class="p">,</span> <span class="n">clearance</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">"""Describes the closest pair of parts at qpos that are too close to each other."""</span>
+    <span class="n">_is_clear</span><span class="p">(</span><span class="n">model</span><span class="p">,</span> <span class="n">data</span><span class="p">,</span> <span class="n">qpos</span><span class="p">)</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">part</span><span class="p">(</span><span class="n">geom</span><span class="p">):</span>
+        <span class="n">name</span> <span class="o">=</span> <span class="n">model</span><span class="o">.</span><span class="n">geom</span><span class="p">(</span><span class="n">geom</span><span class="p">)</span><span class="o">.</span><span class="n">name</span>
+        <span class="k">if</span> <span class="n">name</span> <span class="ow">in</span> <span class="p">(</span><span class="s2">"tool"</span><span class="p">,</span> <span class="s2">"floor"</span><span class="p">):</span>
+            <span class="k">return</span> <span class="sa">f</span><span class="s2">"the </span><span class="si">{</span><span class="n">name</span><span class="si">}</span><span class="s2">"</span>
+        <span class="k">return</span> <span class="s2">"link "</span> <span class="o">+</span> <span class="n">model</span><span class="o">.</span><span class="n">body</span><span class="p">(</span><span class="n">model</span><span class="o">.</span><span class="n">geom_bodyid</span><span class="p">[</span><span class="n">geom</span><span class="p">])</span><span class="o">.</span><span class="n">name</span><span class="o">.</span><span class="n">removeprefix</span><span class="p">(</span><span class="s2">"fr3_link"</span><span class="p">)</span>
+
+    <span class="n">contact</span> <span class="o">=</span> <span class="nb">min</span><span class="p">(</span><span class="n">data</span><span class="o">.</span><span class="n">contact</span><span class="p">[:</span><span class="n">data</span><span class="o">.</span><span class="n">ncon</span><span class="p">],</span> <span class="n">key</span><span class="o">=</span><span class="k">lambda</span> <span class="n">c</span><span class="p">:</span> <span class="n">c</span><span class="o">.</span><span class="n">dist</span><span class="p">)</span>
+    <span class="n">a</span><span class="p">,</span> <span class="n">b</span> <span class="o">=</span> <span class="n">part</span><span class="p">(</span><span class="n">contact</span><span class="o">.</span><span class="n">geom1</span><span class="p">),</span> <span class="n">part</span><span class="p">(</span><span class="n">contact</span><span class="o">.</span><span class="n">geom2</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">contact</span><span class="o">.</span><span class="n">dist</span> <span class="o">&lt;=</span> <span class="mi">0</span><span class="p">:</span>
+        <span class="k">return</span> <span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">a</span><span class="si">}</span><span class="s2"> and </span><span class="si">{</span><span class="n">b</span><span class="si">}</span><span class="s2"> collide"</span>
+    <span class="k">return</span> <span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">a</span><span class="si">}</span><span class="s2"> is </span><span class="si">{</span><span class="mi">100</span><span class="w"> </span><span class="o">*</span><span class="w"> </span><span class="n">contact</span><span class="o">.</span><span class="n">dist</span><span class="si">:</span><span class="s2">.0f</span><span class="si">}</span><span class="s2"> cm from </span><span class="si">{</span><span class="n">b</span><span class="si">}</span><span class="s2">, closer than the </span><span class="si">{</span><span class="mi">100</span><span class="w"> </span><span class="o">*</span><span class="w"> </span><span class="n">clearance</span><span class="si">:</span><span class="s2">.0f</span><span class="si">}</span><span class="s2"> cm clearance"</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_is_path_clear</span><span class="p">(</span><span class="n">model</span><span class="p">,</span> <span class="n">data</span><span class="p">,</span> <span class="n">start</span><span class="p">,</span> <span class="n">end</span><span class="p">,</span> <span class="n">step</span><span class="o">=</span><span class="mf">0.05</span><span class="p">):</span>
+    <span class="n">n</span> <span class="o">=</span> <span class="nb">max</span><span class="p">(</span><span class="nb">int</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">ceil</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">max</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="n">end</span> <span class="o">-</span> <span class="n">start</span><span class="p">))</span> <span class="o">/</span> <span class="n">step</span><span class="p">)),</span> <span class="mi">1</span><span class="p">)</span>
+    <span class="k">return</span> <span class="nb">all</span><span class="p">(</span><span class="n">_is_clear</span><span class="p">(</span><span class="n">model</span><span class="p">,</span> <span class="n">data</span><span class="p">,</span> <span class="n">start</span> <span class="o">+</span> <span class="n">s</span> <span class="o">*</span> <span class="p">(</span><span class="n">end</span> <span class="o">-</span> <span class="n">start</span><span class="p">))</span> <span class="k">for</span> <span class="n">s</span> <span class="ow">in</span> <span class="n">np</span><span class="o">.</span><span class="n">linspace</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="n">n</span> <span class="o">+</span> <span class="mi">1</span><span class="p">))</span>
+
+
+<span class="nd">@dataclass</span>
+<span class="k">class</span><span class="w"> </span><span class="nc">_Plan</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">"""</span>
+<span class="sd">    Motion of identify_payload().</span>
+
+<span class="sd">    Attributes:</span>
+<span class="sd">        center (np.ndarray): Joint positions the motion starts and ends at [rad] (7,)</span>
+<span class="sd">        waypoints (np.ndarray): Joint positions to move to in order, along straight</span>
+<span class="sd">            lines [rad] (m, 7)</span>
+<span class="sd">        pose (np.ndarray): For each waypoint, the index of the pose measured there,</span>
+<span class="sd">            or -1 to pass through it (m,). identify_payload() averages the</span>
+<span class="sd">            measurements of each pose.</span>
+<span class="sd">    """</span>
+
+    <span class="n">center</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span>
+    <span class="n">waypoints</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span>
+    <span class="n">pose</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">poses</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">"""The measured poses [rad] (n, 7)."""</span>
+        <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="bp">self</span><span class="o">.</span><span class="n">waypoints</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">argmax</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">pose</span> <span class="o">==</span> <span class="n">i</span><span class="p">)]</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">pose</span><span class="o">.</span><span class="n">max</span><span class="p">()</span> <span class="o">+</span> <span class="mi">1</span><span class="p">)])</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_approaches</span><span class="p">(</span><span class="n">pose</span><span class="p">,</span> <span class="n">index</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">"""Waypoints that measure pose after approaching it from both sides."""</span>
+    <span class="k">return</span> <span class="p">[</span><span class="n">pose</span> <span class="o">+</span> <span class="n">APPROACH</span><span class="p">,</span> <span class="n">pose</span><span class="p">,</span> <span class="n">pose</span> <span class="o">-</span> <span class="n">APPROACH</span><span class="p">,</span> <span class="n">pose</span><span class="p">],</span> <span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="n">index</span><span class="p">,</span> <span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="n">index</span><span class="p">]</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_plan</span><span class="p">(</span>
+    <span class="n">center</span><span class="p">,</span>
+    <span class="n">n_poses</span><span class="o">=</span><span class="mi">16</span><span class="p">,</span>
+    <span class="n">tool_length</span><span class="o">=</span><span class="mf">0.2</span><span class="p">,</span>
+    <span class="n">tool_radius</span><span class="o">=</span><span class="mf">0.1</span><span class="p">,</span>
+    <span class="n">floor</span><span class="o">=</span><span class="mf">0.0</span><span class="p">,</span>
+    <span class="n">clearance</span><span class="o">=</span><span class="mf">0.05</span><span class="p">,</span>
+    <span class="n">fit_bias</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+    <span class="n">spans</span><span class="o">=</span><span class="n">DEFAULT_SPANS</span><span class="p">,</span>
+    <span class="n">n_candidates</span><span class="o">=</span><span class="mi">2000</span><span class="p">,</span>
+    <span class="n">seed</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span>
+<span class="p">):</span>
+<span class="w">    </span><span class="sd">"""</span>
+<span class="sd">    Plan the motion of identify_payload() around center.</span>
+
+<span class="sd">    Samples poses around center within the joint limits and keeps those in which</span>
+<span class="sd">    the arm and a cylinder around the tool neither collide with the arm nor come</span>
+<span class="sd">    closer than clearance to each other or to the floor, also at</span>
+<span class="sd">    the approach offsets APPROACH on both sides of the pose. From those, it greedily</span>
+<span class="sd">    picks the poses that make the parameters best identifiable (D-optimal design)</span>
+<span class="sd">    and orders them to keep the motions short. All straight paths between the</span>
+<span class="sd">    waypoints are checked; where one is not clear, the motion goes through center.</span>
+
+<span class="sd">    It computes for a few tenths of a second, which would stall a running 1 kHz</span>
+<span class="sd">    control loop.</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        _Plan: The motion</span>
+
+<span class="sd">    Raises:</span>
+<span class="sd">        ValueError: If center is not clear, or too few sampled poses are</span>
+<span class="sd">    """</span>
+    <span class="n">center</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">center</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">)</span>
+    <span class="n">spans</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">spans</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">)</span>
+    <span class="n">model</span><span class="p">,</span> <span class="n">data</span> <span class="o">=</span> <span class="n">_collision_model</span><span class="p">(</span>
+        <span class="nb">float</span><span class="p">(</span><span class="n">tool_length</span><span class="p">),</span> <span class="nb">float</span><span class="p">(</span><span class="n">tool_radius</span><span class="p">),</span> <span class="nb">float</span><span class="p">(</span><span class="n">floor</span><span class="p">),</span> <span class="nb">float</span><span class="p">(</span><span class="n">clearance</span><span class="p">)</span>
+    <span class="p">)</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="n">_is_clear</span><span class="p">(</span><span class="n">model</span><span class="p">,</span> <span class="n">data</span><span class="p">,</span> <span class="n">center</span><span class="p">):</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+            <span class="sa">f</span><span class="s2">"At the current pose, </span><span class="si">{</span><span class="n">_closest</span><span class="p">(</span><span class="n">model</span><span class="p">,</span><span class="w"> </span><span class="n">data</span><span class="p">,</span><span class="w"> </span><span class="n">center</span><span class="p">,</span><span class="w"> </span><span class="n">clearance</span><span class="p">)</span><span class="si">}</span><span class="s2">. Move the arm "</span>
+            <span class="s2">"to an open pose, or reduce tool_length, tool_radius or clearance."</span>
+        <span class="p">)</span>
+
+    <span class="c1"># Poses whose approach offsets stay within the joint limits too.</span>
+    <span class="n">limits</span> <span class="o">=</span> <span class="n">model</span><span class="o">.</span><span class="n">jnt_range</span><span class="p">[:</span><span class="mi">7</span><span class="p">]</span>
+    <span class="n">low</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">maximum</span><span class="p">(</span><span class="n">center</span> <span class="o">-</span> <span class="n">spans</span><span class="p">,</span> <span class="n">limits</span><span class="p">[:,</span> <span class="mi">0</span><span class="p">]</span> <span class="o">+</span> <span class="n">JOINT_LIMIT_MARGIN</span> <span class="o">+</span> <span class="n">APPROACH</span><span class="p">)</span>
+    <span class="n">high</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">minimum</span><span class="p">(</span><span class="n">center</span> <span class="o">+</span> <span class="n">spans</span><span class="p">,</span> <span class="n">limits</span><span class="p">[:,</span> <span class="mi">1</span><span class="p">]</span> <span class="o">-</span> <span class="n">JOINT_LIMIT_MARGIN</span> <span class="o">-</span> <span class="n">APPROACH</span><span class="p">)</span>
+    <span class="n">low</span><span class="p">,</span> <span class="n">high</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">minimum</span><span class="p">(</span><span class="n">low</span><span class="p">,</span> <span class="n">center</span><span class="p">),</span> <span class="n">np</span><span class="o">.</span><span class="n">maximum</span><span class="p">(</span><span class="n">high</span><span class="p">,</span> <span class="n">center</span><span class="p">)</span>
+    <span class="n">rng</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">default_rng</span><span class="p">(</span><span class="n">seed</span><span class="p">)</span>
+    <span class="n">samples</span> <span class="o">=</span> <span class="n">rng</span><span class="o">.</span><span class="n">uniform</span><span class="p">(</span><span class="n">low</span><span class="p">,</span> <span class="n">high</span><span class="p">,</span> <span class="n">size</span><span class="o">=</span><span class="p">(</span><span class="n">n_candidates</span><span class="p">,</span> <span class="mi">7</span><span class="p">))</span>
+    <span class="n">candidates</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span>
+        <span class="n">q</span> <span class="k">for</span> <span class="n">q</span> <span class="ow">in</span> <span class="n">samples</span>
+        <span class="k">if</span> <span class="nb">all</span><span class="p">(</span><span class="n">_is_clear</span><span class="p">(</span><span class="n">model</span><span class="p">,</span> <span class="n">data</span><span class="p">,</span> <span class="n">w</span><span class="p">)</span> <span class="k">for</span> <span class="n">w</span> <span class="ow">in</span> <span class="p">(</span><span class="n">q</span><span class="p">,</span> <span class="n">q</span> <span class="o">+</span> <span class="n">APPROACH</span><span class="p">,</span> <span class="n">q</span> <span class="o">-</span> <span class="n">APPROACH</span><span class="p">))</span>
+    <span class="p">])</span>
+    <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">candidates</span><span class="p">)</span> <span class="o">&lt;</span> <span class="n">n_poses</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+            <span class="sa">f</span><span class="s2">"Only </span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">candidates</span><span class="p">)</span><span class="si">}</span><span class="s2"> of </span><span class="si">{</span><span class="n">n_candidates</span><span class="si">}</span><span class="s2"> sampled poses are clear. "</span>
+            <span class="s2">"Increase spans or n_candidates, or reduce the tool size or clearance."</span>
+        <span class="p">)</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">reachable</span><span class="p">(</span><span class="n">q</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">"""Whether the paths from center to q and its approach are clear."""</span>
+        <span class="k">return</span> <span class="p">(</span><span class="n">_is_path_clear</span><span class="p">(</span><span class="n">model</span><span class="p">,</span> <span class="n">data</span><span class="p">,</span> <span class="n">center</span><span class="p">,</span> <span class="n">q</span><span class="p">)</span>
+                <span class="ow">and</span> <span class="n">_is_path_clear</span><span class="p">(</span><span class="n">model</span><span class="p">,</span> <span class="n">data</span><span class="p">,</span> <span class="n">center</span><span class="p">,</span> <span class="n">q</span> <span class="o">+</span> <span class="n">APPROACH</span><span class="p">)</span>
+                <span class="ow">and</span> <span class="n">_is_path_clear</span><span class="p">(</span><span class="n">model</span><span class="p">,</span> <span class="n">data</span><span class="p">,</span> <span class="n">q</span> <span class="o">+</span> <span class="n">APPROACH</span><span class="p">,</span> <span class="n">q</span> <span class="o">-</span> <span class="n">APPROACH</span><span class="p">))</span>
+
+    <span class="c1"># Greedy D-optimal design: add the pose that increases log det of the</span>
+    <span class="c1"># information matrix most. Its paths are checked lazily.</span>
+    <span class="n">design</span> <span class="o">=</span> <span class="n">_design</span><span class="p">(</span><span class="n">candidates</span><span class="p">,</span> <span class="n">fit_bias</span><span class="p">)</span>
+    <span class="n">design</span> <span class="o">=</span> <span class="n">design</span> <span class="o">/</span> <span class="n">np</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">mean</span><span class="p">(</span><span class="n">design</span> <span class="o">**</span> <span class="mi">2</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">)))</span>
+    <span class="n">p</span> <span class="o">=</span> <span class="n">design</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">2</span><span class="p">]</span>
+    <span class="n">info</span> <span class="o">=</span> <span class="mf">1e-6</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">eye</span><span class="p">(</span><span class="n">p</span><span class="p">)</span>
+    <span class="n">available</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">ones</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">candidates</span><span class="p">),</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">bool</span><span class="p">)</span>
+    <span class="n">chosen</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="k">while</span> <span class="nb">len</span><span class="p">(</span><span class="n">chosen</span><span class="p">)</span> <span class="o">&lt;</span> <span class="n">n_poses</span> <span class="ow">and</span> <span class="n">available</span><span class="o">.</span><span class="n">any</span><span class="p">():</span>
+        <span class="n">gain</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">slogdet</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">eye</span><span class="p">(</span><span class="mi">7</span><span class="p">)</span> <span class="o">+</span> <span class="n">design</span> <span class="o">@</span> <span class="n">np</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">solve</span><span class="p">(</span><span class="n">info</span><span class="p">,</span> <span class="n">design</span><span class="o">.</span><span class="n">transpose</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">1</span><span class="p">)))[</span><span class="mi">1</span><span class="p">]</span>
+        <span class="n">gain</span><span class="p">[</span><span class="o">~</span><span class="n">available</span><span class="p">]</span> <span class="o">=</span> <span class="o">-</span><span class="n">np</span><span class="o">.</span><span class="n">inf</span>
+        <span class="n">best</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">argmax</span><span class="p">(</span><span class="n">gain</span><span class="p">))</span>
+        <span class="n">available</span><span class="p">[</span><span class="n">best</span><span class="p">]</span> <span class="o">=</span> <span class="kc">False</span>
+        <span class="k">if</span> <span class="n">reachable</span><span class="p">(</span><span class="n">candidates</span><span class="p">[</span><span class="n">best</span><span class="p">]):</span>
+            <span class="n">chosen</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">best</span><span class="p">)</span>
+            <span class="n">info</span> <span class="o">+=</span> <span class="n">design</span><span class="p">[</span><span class="n">best</span><span class="p">]</span><span class="o">.</span><span class="n">T</span> <span class="o">@</span> <span class="n">design</span><span class="p">[</span><span class="n">best</span><span class="p">]</span>
+    <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">chosen</span><span class="p">)</span> <span class="o">&lt;</span> <span class="n">n_poses</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Only </span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">chosen</span><span class="p">)</span><span class="si">}</span><span class="s2"> poses have clear paths from the center pose"</span><span class="p">)</span>
+
+    <span class="c1"># Visit the poses nearest neighbor first, going through center where the</span>
+    <span class="c1"># straight path to the next approach is not clear.</span>
+    <span class="n">remaining</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="n">chosen</span><span class="p">)</span>
+    <span class="n">waypoints</span><span class="p">,</span> <span class="n">index</span> <span class="o">=</span> <span class="p">[],</span> <span class="p">[]</span>
+    <span class="n">current</span> <span class="o">=</span> <span class="n">center</span>
+    <span class="k">while</span> <span class="n">remaining</span><span class="p">:</span>
+        <span class="n">nearest</span> <span class="o">=</span> <span class="nb">min</span><span class="p">(</span><span class="n">remaining</span><span class="p">,</span> <span class="n">key</span><span class="o">=</span><span class="k">lambda</span> <span class="n">i</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">max</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="n">candidates</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">-</span> <span class="n">current</span><span class="p">)))</span>
+        <span class="n">remaining</span><span class="o">.</span><span class="n">remove</span><span class="p">(</span><span class="n">nearest</span><span class="p">)</span>
+        <span class="n">target</span> <span class="o">=</span> <span class="n">candidates</span><span class="p">[</span><span class="n">nearest</span><span class="p">]</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">_is_path_clear</span><span class="p">(</span><span class="n">model</span><span class="p">,</span> <span class="n">data</span><span class="p">,</span> <span class="n">current</span><span class="p">,</span> <span class="n">target</span> <span class="o">+</span> <span class="n">APPROACH</span><span class="p">):</span>
+            <span class="n">waypoints</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">center</span><span class="o">.</span><span class="n">copy</span><span class="p">())</span>
+            <span class="n">index</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">)</span>
+        <span class="n">more_waypoints</span><span class="p">,</span> <span class="n">more_index</span> <span class="o">=</span> <span class="n">_approaches</span><span class="p">(</span><span class="n">target</span><span class="p">,</span> <span class="nb">len</span><span class="p">(</span><span class="n">chosen</span><span class="p">)</span> <span class="o">-</span> <span class="nb">len</span><span class="p">(</span><span class="n">remaining</span><span class="p">)</span> <span class="o">-</span> <span class="mi">1</span><span class="p">)</span>
+        <span class="n">waypoints</span> <span class="o">+=</span> <span class="n">more_waypoints</span>
+        <span class="n">index</span> <span class="o">+=</span> <span class="n">more_index</span>
+        <span class="n">current</span> <span class="o">=</span> <span class="n">target</span>
+    <span class="k">return</span> <span class="n">_Plan</span><span class="p">(</span><span class="n">center</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">waypoints</span><span class="p">),</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">index</span><span class="p">))</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_move_duration</span><span class="p">(</span><span class="n">start</span><span class="p">,</span> <span class="n">end</span><span class="p">,</span> <span class="n">speed</span><span class="p">):</span>
+    <span class="c1"># Peak velocity of a quintic time scaling is 1.875 times the average.</span>
+    <span class="k">return</span> <span class="nb">max</span><span class="p">(</span><span class="mf">1.875</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">max</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="n">end</span> <span class="o">-</span> <span class="n">start</span><span class="p">))</span> <span class="o">/</span> <span class="n">speed</span><span class="p">,</span> <span class="mf">0.5</span><span class="p">)</span>
+
+
+<span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">_move_to</span><span class="p">(</span><span class="n">controller</span><span class="p">,</span> <span class="n">target</span><span class="p">,</span> <span class="n">speed</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">"""Move in a straight line in joint space with a quintic time scaling."""</span>
+    <span class="k">with</span> <span class="n">controller</span><span class="o">.</span><span class="n">state_lock</span><span class="p">:</span>
+        <span class="n">start</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">controller</span><span class="o">.</span><span class="n">q_desired</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">)</span>
+    <span class="n">target</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">target</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">)</span>
+    <span class="n">duration</span> <span class="o">=</span> <span class="n">_move_duration</span><span class="p">(</span><span class="n">start</span><span class="p">,</span> <span class="n">target</span><span class="p">,</span> <span class="n">speed</span><span class="p">)</span>
+    <span class="n">t0</span> <span class="o">=</span> <span class="n">time</span><span class="o">.</span><span class="n">perf_counter</span><span class="p">()</span>
+    <span class="k">while</span> <span class="kc">True</span><span class="p">:</span>
+        <span class="n">s</span> <span class="o">=</span> <span class="nb">min</span><span class="p">((</span><span class="n">time</span><span class="o">.</span><span class="n">perf_counter</span><span class="p">()</span> <span class="o">-</span> <span class="n">t0</span><span class="p">)</span> <span class="o">/</span> <span class="n">duration</span><span class="p">,</span> <span class="mf">1.0</span><span class="p">)</span>
+        <span class="k">with</span> <span class="n">controller</span><span class="o">.</span><span class="n">state_lock</span><span class="p">:</span>
+            <span class="n">controller</span><span class="o">.</span><span class="n">q_desired</span> <span class="o">=</span> <span class="n">start</span> <span class="o">+</span> <span class="n">s</span> <span class="o">**</span> <span class="mi">3</span> <span class="o">*</span> <span class="p">(</span><span class="mi">10</span> <span class="o">-</span> <span class="mi">15</span> <span class="o">*</span> <span class="n">s</span> <span class="o">+</span> <span class="mi">6</span> <span class="o">*</span> <span class="n">s</span> <span class="o">**</span> <span class="mi">2</span><span class="p">)</span> <span class="o">*</span> <span class="p">(</span><span class="n">target</span> <span class="o">-</span> <span class="n">start</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">s</span> <span class="o">&gt;=</span> <span class="mf">1.0</span><span class="p">:</span>
+            <span class="k">return</span>
+        <span class="k">await</span> <span class="n">asyncio</span><span class="o">.</span><span class="n">sleep</span><span class="p">(</span><span class="mf">0.01</span><span class="p">)</span>
+
+
+<span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">_settle</span><span class="p">(</span><span class="n">controller</span><span class="p">,</span> <span class="n">wait</span><span class="p">,</span> <span class="n">tolerance</span><span class="o">=</span><span class="mf">0.01</span><span class="p">,</span> <span class="n">hold</span><span class="o">=</span><span class="mf">0.2</span><span class="p">,</span> <span class="n">timeout</span><span class="o">=</span><span class="mf">5.0</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">"""Wait for wait seconds, then until all joint speeds stay below tolerance."""</span>
+    <span class="k">await</span> <span class="n">asyncio</span><span class="o">.</span><span class="n">sleep</span><span class="p">(</span><span class="n">wait</span><span class="p">)</span>
+    <span class="n">deadline</span> <span class="o">=</span> <span class="n">time</span><span class="o">.</span><span class="n">perf_counter</span><span class="p">()</span> <span class="o">+</span> <span class="n">timeout</span>
+    <span class="n">still_since</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="k">while</span> <span class="n">time</span><span class="o">.</span><span class="n">perf_counter</span><span class="p">()</span> <span class="o">&lt;</span> <span class="n">deadline</span><span class="p">:</span>
+        <span class="n">now</span> <span class="o">=</span> <span class="n">time</span><span class="o">.</span><span class="n">perf_counter</span><span class="p">()</span>
+        <span class="k">if</span> <span class="n">np</span><span class="o">.</span><span class="n">max</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="n">controller</span><span class="o">.</span><span class="n">state</span><span class="p">[</span><span class="s2">"qvel"</span><span class="p">]))</span> <span class="o">&lt;</span> <span class="n">tolerance</span><span class="p">:</span>
+            <span class="n">still_since</span> <span class="o">=</span> <span class="n">still_since</span> <span class="ow">or</span> <span class="n">now</span>
+            <span class="k">if</span> <span class="n">now</span> <span class="o">-</span> <span class="n">still_since</span> <span class="o">&gt;=</span> <span class="n">hold</span><span class="p">:</span>
+                <span class="k">return</span> <span class="kc">True</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">still_since</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="k">await</span> <span class="n">asyncio</span><span class="o">.</span><span class="n">sleep</span><span class="p">(</span><span class="mf">0.005</span><span class="p">)</span>
+    <span class="k">return</span> <span class="kc">False</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_read_residual</span><span class="p">(</span><span class="n">robot</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">"""Joint positions and torques at rest that the robot does not compensate."""</span>
+    <span class="k">if</span> <span class="n">robot</span><span class="o">.</span><span class="n">real</span><span class="p">:</span>
+        <span class="n">state</span> <span class="o">=</span> <span class="n">robot</span><span class="o">.</span><span class="n">robot_state</span>
+        <span class="c1"># tau_J minus the modeled gravity; it does not subtract the commanded torque.</span>
+        <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">state</span><span class="o">.</span><span class="n">q</span><span class="p">),</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">state</span><span class="o">.</span><span class="n">tau_ext_hat_filtered</span><span class="p">)</span>
+    <span class="c1"># In simulation, the gravity of bodies without gravcomp.</span>
+    <span class="n">data</span> <span class="o">=</span> <span class="n">robot</span><span class="o">.</span><span class="n">data</span>
+    <span class="k">return</span> <span class="n">data</span><span class="o">.</span><span class="n">qpos</span><span class="p">[:</span><span class="mi">7</span><span class="p">]</span><span class="o">.</span><span class="n">copy</span><span class="p">(),</span> <span class="n">data</span><span class="o">.</span><span class="n">qfrc_bias</span><span class="p">[:</span><span class="mi">7</span><span class="p">]</span> <span class="o">-</span> <span class="n">data</span><span class="o">.</span><span class="n">qfrc_gravcomp</span><span class="p">[:</span><span class="mi">7</span><span class="p">]</span>
+
+
+<span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">_measure</span><span class="p">(</span><span class="n">controller</span><span class="p">,</span> <span class="n">duration</span><span class="p">,</span> <span class="n">period</span><span class="o">=</span><span class="mf">0.005</span><span class="p">):</span>
+    <span class="n">qpos</span><span class="p">,</span> <span class="n">residuals</span><span class="p">,</span> <span class="n">speed</span> <span class="o">=</span> <span class="p">[],</span> <span class="p">[],</span> <span class="mf">0.0</span>
+    <span class="n">t_end</span> <span class="o">=</span> <span class="n">time</span><span class="o">.</span><span class="n">perf_counter</span><span class="p">()</span> <span class="o">+</span> <span class="n">duration</span>
+    <span class="k">while</span> <span class="n">time</span><span class="o">.</span><span class="n">perf_counter</span><span class="p">()</span> <span class="o">&lt;</span> <span class="n">t_end</span><span class="p">:</span>
+        <span class="n">q</span><span class="p">,</span> <span class="n">r</span> <span class="o">=</span> <span class="n">_read_residual</span><span class="p">(</span><span class="n">controller</span><span class="o">.</span><span class="n">robot</span><span class="p">)</span>
+        <span class="n">qpos</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">q</span><span class="p">)</span>
+        <span class="n">residuals</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">r</span><span class="p">)</span>
+        <span class="n">speed</span> <span class="o">=</span> <span class="nb">max</span><span class="p">(</span><span class="n">speed</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">max</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="n">controller</span><span class="o">.</span><span class="n">state</span><span class="p">[</span><span class="s2">"qvel"</span><span class="p">])))</span>
+        <span class="k">await</span> <span class="n">asyncio</span><span class="o">.</span><span class="n">sleep</span><span class="p">(</span><span class="n">period</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">mean</span><span class="p">(</span><span class="n">qpos</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">0</span><span class="p">),</span> <span class="n">np</span><span class="o">.</span><span class="n">mean</span><span class="p">(</span><span class="n">residuals</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">0</span><span class="p">),</span> <span class="n">speed</span>
+
+
+<span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">_quietly</span><span class="p">(</span><span class="n">coroutine</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">"""Await coroutine without its prints, e.g. FrankaController.stop()'s."""</span>
+    <span class="k">with</span> <span class="n">contextlib</span><span class="o">.</span><span class="n">redirect_stdout</span><span class="p">(</span><span class="n">io</span><span class="o">.</span><span class="n">StringIO</span><span class="p">()):</span>
+        <span class="k">return</span> <span class="k">await</span> <span class="n">coroutine</span>
+
+
+<div class="viewcode-block" id="identify_payload">
+<a class="viewcode-back" href="../../api/payload.html#aiofranka.payload.identify_payload">[docs]</a>
+<span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">identify_payload</span><span class="p">(</span>
+    <span class="n">controller</span><span class="p">,</span>
+    <span class="n">tool_length</span><span class="o">=</span><span class="mf">0.2</span><span class="p">,</span>
+    <span class="n">tool_radius</span><span class="o">=</span><span class="mf">0.1</span><span class="p">,</span>
+    <span class="n">floor</span><span class="o">=</span><span class="mf">0.0</span><span class="p">,</span>
+    <span class="n">clearance</span><span class="o">=</span><span class="mf">0.05</span><span class="p">,</span>
+    <span class="n">n_poses</span><span class="o">=</span><span class="mi">16</span><span class="p">,</span>
+    <span class="n">speed</span><span class="o">=</span><span class="mf">0.5</span><span class="p">,</span>
+    <span class="n">settle</span><span class="o">=</span><span class="mf">1.5</span><span class="p">,</span>
+    <span class="n">duration</span><span class="o">=</span><span class="mf">1.0</span><span class="p">,</span>
+    <span class="n">fit_bias</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+    <span class="n">verbose</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+<span class="p">):</span>
+<span class="w">    </span><span class="sd">"""</span>
+<span class="sd">    Identify the mass and center of mass of the tool on the flange.</span>
+
+<span class="sd">    Plans n_poses poses around the current joint positions, in which the flange</span>
+<span class="sd">    points in different directions, and moves through them in joint impedance</span>
+<span class="sd">    control, approaching each from both sides. It measures the residual joint</span>
+<span class="sd">    torques at rest in each and fits the tool with fit_payload(). It only measures:</span>
+<span class="sd">    save the result as an end-effector profile in Desk with aiofranka.save_tool()</span>
+<span class="sd">    and activate it with aiofranka.load_tool(). It starts from the payload the robot</span>
+<span class="sd">    compensates, e.g. none, so running it again with the new profile active checks</span>
+<span class="sd">    the result: the correction should be close to zero.</span>
+
+<span class="sd">    The poses and the paths between them are checked for collisions of the arm, a</span>
+<span class="sd">    cylinder around the tool and the floor. Planning computes for a few tenths of</span>
+<span class="sd">    a second, which would stall a running 1 kHz control loop and make the robot</span>
+<span class="sd">    abort, so it plans while no control loop runs: a running controller is stopped</span>
+<span class="sd">    for it, while the robot holds still, and started again.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        controller (FrankaController): Controller, started or not. One that was</span>
+<span class="sd">            not started is started for the identification and stopped afterwards.</span>
+<span class="sd">        tool_length (float): Length of the tool from the flange along its z-axis</span>
+<span class="sd">            [m] (default: 0.2)</span>
+<span class="sd">        tool_radius (float): Radius of the tool around the flange z-axis [m]</span>
+<span class="sd">            (default: 0.1)</span>
+<span class="sd">        floor (float): Height of the floor or table in the base frame [m]</span>
+<span class="sd">            (default: 0.0, the mounting plane of the robot)</span>
+<span class="sd">        clearance (float): Minimum distance of the tool from the arm, and of the</span>
+<span class="sd">            arm and tool from the floor [m] (default: 0.05)</span>
+<span class="sd">        n_poses (int): Number of poses (default: 16)</span>
+<span class="sd">        speed (float): Peak joint speed of the motions [rad/s] (default: 0.5)</span>
+<span class="sd">        settle (float): Time to wait in each pose before measuring [s] (default:</span>
+<span class="sd">            1.5). tau_ext_hat_filtered lags by about 0.3 s.</span>
+<span class="sd">        duration (float): Time to average the torques over in each pose [s]</span>
+<span class="sd">            (default: 1)</span>
+<span class="sd">        fit_bias (bool): Estimate a torque offset per joint (default: True)</span>
+<span class="sd">        verbose (bool): Show a progress bar and the result (default: True)</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        PayloadEstimate: Estimated tool</span>
+
+<span class="sd">    Raises:</span>
+<span class="sd">        ValueError: If too few poses around the current joint positions are clear;</span>
+<span class="sd">            move the arm to an open pose</span>
+
+<span class="sd">    Caveats:</span>
+<span class="sd">        - Takes about 3 minutes. Start in an open pose, keep other obstacles out of</span>
+<span class="sd">          reach, and stay close to the e-stop.</span>
+<span class="sd">        - Afterwards, a running controller is in impedance mode at the start pose.</span>
+<span class="sd">    """</span>
+    <span class="n">robot</span> <span class="o">=</span> <span class="n">controller</span><span class="o">.</span><span class="n">robot</span>
+    <span class="n">was_running</span> <span class="o">=</span> <span class="n">controller</span><span class="o">.</span><span class="n">running</span>
+    <span class="k">if</span> <span class="n">was_running</span><span class="p">:</span>
+        <span class="k">await</span> <span class="n">_quietly</span><span class="p">(</span><span class="n">controller</span><span class="o">.</span><span class="n">stop</span><span class="p">())</span>
+    <span class="k">try</span><span class="p">:</span>
+        <span class="n">plan</span> <span class="o">=</span> <span class="n">_plan</span><span class="p">(</span><span class="n">robot</span><span class="o">.</span><span class="n">state</span><span class="p">[</span><span class="s2">"qpos"</span><span class="p">],</span> <span class="n">n_poses</span><span class="o">=</span><span class="n">n_poses</span><span class="p">,</span> <span class="n">tool_length</span><span class="o">=</span><span class="n">tool_length</span><span class="p">,</span>
+                     <span class="n">tool_radius</span><span class="o">=</span><span class="n">tool_radius</span><span class="p">,</span> <span class="n">floor</span><span class="o">=</span><span class="n">floor</span><span class="p">,</span> <span class="n">clearance</span><span class="o">=</span><span class="n">clearance</span><span class="p">,</span> <span class="n">fit_bias</span><span class="o">=</span><span class="n">fit_bias</span><span class="p">)</span>
+    <span class="k">except</span> <span class="ne">Exception</span><span class="p">:</span>
+        <span class="k">if</span> <span class="n">was_running</span><span class="p">:</span>
+            <span class="k">await</span> <span class="n">controller</span><span class="o">.</span><span class="n">start</span><span class="p">()</span>
+        <span class="k">raise</span>
+    <span class="n">controller</span><span class="o">.</span><span class="n">switch</span><span class="p">(</span><span class="s2">"impedance"</span><span class="p">)</span>
+    <span class="k">await</span> <span class="n">controller</span><span class="o">.</span><span class="n">start</span><span class="p">()</span>
+    <span class="k">try</span><span class="p">:</span>
+        <span class="k">return</span> <span class="k">await</span> <span class="n">_run</span><span class="p">(</span><span class="n">controller</span><span class="p">,</span> <span class="n">plan</span><span class="p">,</span> <span class="n">speed</span><span class="p">,</span> <span class="n">settle</span><span class="p">,</span> <span class="n">duration</span><span class="p">,</span> <span class="n">fit_bias</span><span class="p">,</span> <span class="n">verbose</span><span class="p">)</span>
+    <span class="k">finally</span><span class="p">:</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">was_running</span><span class="p">:</span>
+            <span class="k">await</span> <span class="n">_quietly</span><span class="p">(</span><span class="n">controller</span><span class="o">.</span><span class="n">stop</span><span class="p">())</span></div>
+
+
+
+<span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">_run</span><span class="p">(</span><span class="n">controller</span><span class="p">,</span> <span class="n">plan</span><span class="p">,</span> <span class="n">speed</span><span class="p">,</span> <span class="n">settle</span><span class="p">,</span> <span class="n">duration</span><span class="p">,</span> <span class="n">fit_bias</span><span class="p">,</span> <span class="n">verbose</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">"""Move through the plan, measure, and fit, with the controller running."""</span>
+    <span class="n">log</span> <span class="o">=</span> <span class="nb">print</span> <span class="k">if</span> <span class="n">verbose</span> <span class="k">else</span> <span class="p">(</span><span class="k">lambda</span> <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">:</span> <span class="kc">None</span><span class="p">)</span>
+    <span class="n">robot</span> <span class="o">=</span> <span class="n">controller</span><span class="o">.</span><span class="n">robot</span>
+    <span class="n">previous</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">(</span><span class="n">robot</span><span class="o">.</span><span class="n">payload</span><span class="p">)</span>
+    <span class="k">with</span> <span class="n">controller</span><span class="o">.</span><span class="n">state_lock</span><span class="p">:</span>
+        <span class="n">start</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">controller</span><span class="o">.</span><span class="n">q_desired</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">)</span>
+
+    <span class="n">n_poses</span> <span class="o">=</span> <span class="n">plan</span><span class="o">.</span><span class="n">pose</span><span class="o">.</span><span class="n">max</span><span class="p">()</span> <span class="o">+</span> <span class="mi">1</span>
+    <span class="n">path</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">vstack</span><span class="p">([</span><span class="n">start</span><span class="p">,</span> <span class="n">plan</span><span class="o">.</span><span class="n">center</span><span class="p">,</span> <span class="n">plan</span><span class="o">.</span><span class="n">waypoints</span><span class="p">,</span> <span class="n">plan</span><span class="o">.</span><span class="n">center</span><span class="p">])</span>
+    <span class="n">moves</span> <span class="o">=</span> <span class="p">[</span><span class="n">_move_duration</span><span class="p">(</span><span class="n">a</span><span class="p">,</span> <span class="n">b</span><span class="p">,</span> <span class="n">speed</span><span class="p">)</span> <span class="k">for</span> <span class="n">a</span><span class="p">,</span> <span class="n">b</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="n">path</span><span class="p">[:</span><span class="o">-</span><span class="mi">1</span><span class="p">],</span> <span class="n">path</span><span class="p">[</span><span class="mi">1</span><span class="p">:])]</span>
+    <span class="n">measuring</span> <span class="o">=</span> <span class="n">settle</span> <span class="o">+</span> <span class="n">duration</span> <span class="o">+</span> <span class="mf">0.3</span>
+    <span class="n">progress</span> <span class="o">=</span> <span class="n">_Progress</span><span class="p">(</span><span class="nb">sum</span><span class="p">(</span><span class="n">moves</span><span class="p">)</span> <span class="o">+</span> <span class="n">np</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">plan</span><span class="o">.</span><span class="n">pose</span> <span class="o">&gt;=</span> <span class="mi">0</span><span class="p">)</span> <span class="o">*</span> <span class="n">measuring</span><span class="p">,</span> <span class="n">n_poses</span><span class="p">,</span> <span class="n">verbose</span><span class="p">)</span>
+
+    <span class="n">measured</span> <span class="o">=</span> <span class="p">{}</span>
+    <span class="k">try</span><span class="p">:</span>
+        <span class="k">await</span> <span class="n">_move_to</span><span class="p">(</span><span class="n">controller</span><span class="p">,</span> <span class="n">plan</span><span class="o">.</span><span class="n">center</span><span class="p">,</span> <span class="n">speed</span><span class="p">)</span>
+        <span class="n">progress</span><span class="o">.</span><span class="n">advance</span><span class="p">(</span><span class="n">moves</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span>
+        <span class="k">for</span> <span class="n">waypoint</span><span class="p">,</span> <span class="n">i</span><span class="p">,</span> <span class="n">move</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="n">plan</span><span class="o">.</span><span class="n">waypoints</span><span class="p">,</span> <span class="n">plan</span><span class="o">.</span><span class="n">pose</span><span class="p">,</span> <span class="n">moves</span><span class="p">[</span><span class="mi">1</span><span class="p">:]):</span>
+            <span class="k">await</span> <span class="n">_move_to</span><span class="p">(</span><span class="n">controller</span><span class="p">,</span> <span class="n">waypoint</span><span class="p">,</span> <span class="n">speed</span><span class="p">)</span>
+            <span class="n">progress</span><span class="o">.</span><span class="n">advance</span><span class="p">(</span><span class="n">move</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">i</span> <span class="o">&lt;</span> <span class="mi">0</span><span class="p">:</span>
+                <span class="k">continue</span>
+            <span class="n">settled</span> <span class="o">=</span> <span class="k">await</span> <span class="n">_settle</span><span class="p">(</span><span class="n">controller</span><span class="p">,</span> <span class="n">settle</span><span class="p">)</span>
+            <span class="n">q</span><span class="p">,</span> <span class="n">r</span><span class="p">,</span> <span class="n">peak</span> <span class="o">=</span> <span class="k">await</span> <span class="n">_measure</span><span class="p">(</span><span class="n">controller</span><span class="p">,</span> <span class="n">duration</span><span class="p">)</span>
+            <span class="n">measured</span><span class="o">.</span><span class="n">setdefault</span><span class="p">(</span><span class="n">i</span><span class="p">,</span> <span class="p">[])</span><span class="o">.</span><span class="n">append</span><span class="p">((</span><span class="n">q</span><span class="p">,</span> <span class="n">r</span><span class="p">)</span> <span class="k">if</span> <span class="n">settled</span> <span class="ow">and</span> <span class="n">peak</span> <span class="o">&lt;=</span> <span class="mf">0.02</span> <span class="k">else</span> <span class="kc">None</span><span class="p">)</span>
+            <span class="n">progress</span><span class="o">.</span><span class="n">advance</span><span class="p">(</span><span class="n">measuring</span><span class="p">,</span> <span class="n">measured</span><span class="o">=</span><span class="nb">len</span><span class="p">(</span><span class="n">measured</span><span class="p">[</span><span class="n">i</span><span class="p">])</span> <span class="o">==</span> <span class="mi">2</span><span class="p">)</span>
+    <span class="k">finally</span><span class="p">:</span>
+        <span class="k">await</span> <span class="n">_move_to</span><span class="p">(</span><span class="n">controller</span><span class="p">,</span> <span class="n">plan</span><span class="o">.</span><span class="n">center</span><span class="p">,</span> <span class="n">speed</span><span class="p">)</span>
+        <span class="n">progress</span><span class="o">.</span><span class="n">advance</span><span class="p">(</span><span class="n">moves</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">])</span>
+        <span class="n">progress</span><span class="o">.</span><span class="n">finish</span><span class="p">()</span>
+
+    <span class="n">pairs</span> <span class="o">=</span> <span class="p">[</span><span class="n">m</span> <span class="k">for</span> <span class="n">m</span> <span class="ow">in</span> <span class="n">measured</span><span class="o">.</span><span class="n">values</span><span class="p">()</span> <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">m</span><span class="p">)</span> <span class="o">==</span> <span class="mi">2</span> <span class="ow">and</span> <span class="kc">None</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">m</span><span class="p">]</span>
+    <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">pairs</span><span class="p">)</span> <span class="o">&lt;</span> <span class="n">n_poses</span><span class="p">:</span>
+        <span class="n">log</span><span class="p">(</span><span class="sa">f</span><span class="s2">"  Skipped </span><span class="si">{</span><span class="n">n_poses</span><span class="w"> </span><span class="o">-</span><span class="w"> </span><span class="nb">len</span><span class="p">(</span><span class="n">pairs</span><span class="p">)</span><span class="si">}</span><span class="s2"> of </span><span class="si">{</span><span class="n">n_poses</span><span class="si">}</span><span class="s2"> poses, where the arm did not come to rest"</span><span class="p">)</span>
+    <span class="n">qpos</span> <span class="o">=</span> <span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">mean</span><span class="p">([</span><span class="n">q</span> <span class="k">for</span> <span class="n">q</span><span class="p">,</span> <span class="n">_</span> <span class="ow">in</span> <span class="n">m</span><span class="p">],</span> <span class="n">axis</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span> <span class="k">for</span> <span class="n">m</span> <span class="ow">in</span> <span class="n">pairs</span><span class="p">]</span>
+    <span class="n">residuals</span> <span class="o">=</span> <span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">mean</span><span class="p">([</span><span class="n">r</span> <span class="k">for</span> <span class="n">_</span><span class="p">,</span> <span class="n">r</span> <span class="ow">in</span> <span class="n">m</span><span class="p">],</span> <span class="n">axis</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span> <span class="k">for</span> <span class="n">m</span> <span class="ow">in</span> <span class="n">pairs</span><span class="p">]</span>
+    <span class="c1"># The robot's model is loaded already; loading another would stall the loop.</span>
+    <span class="n">estimate</span> <span class="o">=</span> <span class="n">fit_payload</span><span class="p">(</span><span class="n">qpos</span><span class="p">,</span> <span class="n">residuals</span><span class="p">,</span> <span class="n">previous</span><span class="o">=</span><span class="n">previous</span><span class="p">,</span> <span class="n">fit_bias</span><span class="o">=</span><span class="n">fit_bias</span><span class="p">,</span>
+                           <span class="n">kinematics</span><span class="o">=</span><span class="n">_robot_kinematics</span><span class="p">(</span><span class="n">robot</span><span class="p">))</span>
+    <span class="n">log</span><span class="p">()</span>
+    <span class="n">log</span><span class="p">(</span><span class="s2">"</span><span class="se">\n</span><span class="s2">"</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="sa">f</span><span class="s2">"  </span><span class="si">{</span><span class="n">line</span><span class="si">}</span><span class="s2">"</span> <span class="k">for</span> <span class="n">line</span> <span class="ow">in</span> <span class="nb">str</span><span class="p">(</span><span class="n">estimate</span><span class="p">)</span><span class="o">.</span><span class="n">splitlines</span><span class="p">()))</span>
+    <span class="k">return</span> <span class="n">estimate</span>
+</pre></div>
+
+           </div>
+          </div>
+          <footer>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2025, MIT Improbable AI Lab.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

@@ -1,0 +1,474 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="../../">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>aiofranka.tools &mdash; aiofranka 0.6.0 documentation</title>
+      <link rel="stylesheet" type="text/css" href="../../_static/pygments.css?v=b86133f3" />
+      <link rel="stylesheet" type="text/css" href="../../_static/css/theme.css?v=9edc463e" />
+
+  
+      <script src="../../_static/jquery.js?v=5d32c60e"></script>
+      <script src="../../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="../../_static/documentation_options.js?v=8fa8b3e9"></script>
+      <script src="../../_static/doctools.js?v=fd6eb6e6"></script>
+      <script src="../../_static/sphinx_highlight.js?v=6ffebe34"></script>
+    <script src="../../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../../genindex.html" />
+    <link rel="search" title="Search" href="../../search.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../../index.html" class="icon icon-home">
+            aiofranka
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">Getting Started</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../installation.html">Installation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../quickstart.html">Quick Start</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../controllers.html">Controllers</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../cli.html">CLI Reference</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../async_mode.html">Async Mode Guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../examples.html">Examples</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../troubleshooting.html">Troubleshooting</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">API Reference</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../api/remote.html">FrankaRemoteController (Server Mode)</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../api/controller.html">Franka Controller</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../api/robot.html">Robot Interface</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../api/payload.html">Payload Identification and Tools</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../api/config.html">Controller Configurations</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../api/server.html">Server Functions</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../api/gripper.html">GripperController</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../api/utilities.html">Async Utilities</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../../index.html">aiofranka</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../../index.html" class="icon icon-home" aria-label="Home"></a></li>
+          <li class="breadcrumb-item"><a href="../index.html">Module code</a></li>
+      <li class="breadcrumb-item active">aiofranka.tools</li>
+      <li class="wy-breadcrumbs-aside">
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <h1>Source code for aiofranka.tools</h1><div class="highlight"><pre>
+<span></span><span class="sd">"""</span>
+<span class="sd">Tools on the flange, kept as end-effector profiles in Desk.</span>
+
+<span class="sd">Desk keeps named end-effector profiles (Settings &gt; End Effector): the mass, center</span>
+<span class="sd">of mass and inertia of the tool on the flange, and its tool center point. The robot</span>
+<span class="sd">compensates the gravity of the active profile, and RobotInterface merges it into</span>
+<span class="sd">the MuJoCo model when it connects. These functions manage the profiles through the</span>
+<span class="sd">admin API that the Desk web UI uses, so Desk stays the one place that knows which</span>
+<span class="sd">tool is mounted.</span>
+
+<span class="sd">Example:</span>
+<span class="sd">    &gt;&gt;&gt; estimate = await controller.identify_payload()</span>
+<span class="sd">    &gt;&gt;&gt; await controller.stop()</span>
+<span class="sd">    &gt;&gt;&gt; aiofranka.save_tool("gripper", estimate.mass, estimate.com)</span>
+<span class="sd">    &gt;&gt;&gt; aiofranka.load_tool("gripper")</span>
+<span class="sd">"""</span>
+
+<span class="kn">from</span><span class="w"> </span><span class="nn">dataclasses</span><span class="w"> </span><span class="kn">import</span> <span class="n">dataclass</span><span class="p">,</span> <span class="n">replace</span>
+
+<span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
+
+<span class="c1"># Desk's device for tools other than the Franka Hand ("Generic Device").</span>
+<span class="n">GENERIC_DEVICE</span> <span class="o">=</span> <span class="s2">"ee-no-gripper"</span>
+
+<span class="c1"># Desk's built-in profile without an end effector.</span>
+<span class="n">NO_END_EFFECTOR</span> <span class="o">=</span> <span class="s2">"ee-no-profile"</span>
+
+<span class="c1"># Radius of the solid sphere whose inertia a new tool gets if none is given [m].</span>
+<span class="n">DEFAULT_RADIUS</span> <span class="o">=</span> <span class="mf">0.05</span>
+
+
+<div class="viewcode-block" id="Tool">
+<a class="viewcode-back" href="../../api/payload.html#aiofranka.tools.Tool">[docs]</a>
+<span class="nd">@dataclass</span>
+<span class="k">class</span><span class="w"> </span><span class="nc">Tool</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">"""</span>
+<span class="sd">    An end-effector profile in Desk.</span>
+
+<span class="sd">    Attributes:</span>
+<span class="sd">        name (str): Name of the profile</span>
+<span class="sd">        mass (float): Mass [kg]</span>
+<span class="sd">        com (np.ndarray): Center of mass in the flange frame [m] (3,)</span>
+<span class="sd">        inertia (np.ndarray): Inertia about the center of mass in the flange</span>
+<span class="sd">            frame [kg m^2] (3, 3)</span>
+<span class="sd">        translation (np.ndarray): Translation from the flange to the tool center</span>
+<span class="sd">            point [m] (3,)</span>
+<span class="sd">        rotation (np.ndarray): Rotation from the flange to the tool center point</span>
+<span class="sd">            as roll, pitch, yaw [rad] (3,)</span>
+<span class="sd">        device (str): Desk device, "ee-no-gripper" (Generic Device) or</span>
+<span class="sd">            "ee-gripper" (Franka Hand)</span>
+<span class="sd">        active (bool): Whether the robot uses this profile</span>
+<span class="sd">        id (str | None): Id of the profile in Desk</span>
+<span class="sd">    """</span>
+
+    <span class="n">name</span><span class="p">:</span> <span class="nb">str</span>
+    <span class="n">mass</span><span class="p">:</span> <span class="nb">float</span>
+    <span class="n">com</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span>
+    <span class="n">inertia</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span>
+    <span class="n">translation</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span>
+    <span class="n">rotation</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span>
+    <span class="n">device</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="n">GENERIC_DEVICE</span>
+    <span class="n">active</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span>
+    <span class="nb">id</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="kc">None</span></div>
+
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_from_desk</span><span class="p">(</span><span class="n">profile</span><span class="p">):</span>
+    <span class="n">inertial</span><span class="p">,</span> <span class="n">tcp</span> <span class="o">=</span> <span class="n">profile</span><span class="p">[</span><span class="s2">"inertial"</span><span class="p">],</span> <span class="n">profile</span><span class="p">[</span><span class="s2">"tcp"</span><span class="p">]</span>
+    <span class="n">c</span><span class="p">,</span> <span class="n">i</span> <span class="o">=</span> <span class="n">inertial</span><span class="p">[</span><span class="s2">"centerOfMass"</span><span class="p">],</span> <span class="n">inertial</span><span class="p">[</span><span class="s2">"inertia"</span><span class="p">]</span>
+    <span class="n">t</span><span class="p">,</span> <span class="n">r</span> <span class="o">=</span> <span class="n">tcp</span><span class="p">[</span><span class="s2">"translation"</span><span class="p">],</span> <span class="n">tcp</span><span class="p">[</span><span class="s2">"rotation"</span><span class="p">]</span>
+    <span class="k">return</span> <span class="n">Tool</span><span class="p">(</span>
+        <span class="n">name</span><span class="o">=</span><span class="n">profile</span><span class="p">[</span><span class="s2">"name"</span><span class="p">],</span>
+        <span class="n">mass</span><span class="o">=</span><span class="nb">float</span><span class="p">(</span><span class="n">inertial</span><span class="p">[</span><span class="s2">"mass"</span><span class="p">]),</span>
+        <span class="n">com</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="n">c</span><span class="p">[</span><span class="s2">"x"</span><span class="p">],</span> <span class="n">c</span><span class="p">[</span><span class="s2">"y"</span><span class="p">],</span> <span class="n">c</span><span class="p">[</span><span class="s2">"z"</span><span class="p">]],</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">),</span>
+        <span class="n">inertia</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span>
+            <span class="p">[</span><span class="n">i</span><span class="p">[</span><span class="s2">"x11"</span><span class="p">],</span> <span class="n">i</span><span class="p">[</span><span class="s2">"x12"</span><span class="p">],</span> <span class="n">i</span><span class="p">[</span><span class="s2">"x13"</span><span class="p">]],</span>
+            <span class="p">[</span><span class="n">i</span><span class="p">[</span><span class="s2">"x12"</span><span class="p">],</span> <span class="n">i</span><span class="p">[</span><span class="s2">"x22"</span><span class="p">],</span> <span class="n">i</span><span class="p">[</span><span class="s2">"x23"</span><span class="p">]],</span>
+            <span class="p">[</span><span class="n">i</span><span class="p">[</span><span class="s2">"x13"</span><span class="p">],</span> <span class="n">i</span><span class="p">[</span><span class="s2">"x23"</span><span class="p">],</span> <span class="n">i</span><span class="p">[</span><span class="s2">"x33"</span><span class="p">]],</span>
+        <span class="p">],</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">),</span>
+        <span class="n">translation</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="n">t</span><span class="p">[</span><span class="s2">"x"</span><span class="p">],</span> <span class="n">t</span><span class="p">[</span><span class="s2">"y"</span><span class="p">],</span> <span class="n">t</span><span class="p">[</span><span class="s2">"z"</span><span class="p">]],</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">),</span>
+        <span class="n">rotation</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="n">r</span><span class="p">[</span><span class="s2">"roll"</span><span class="p">],</span> <span class="n">r</span><span class="p">[</span><span class="s2">"pitch"</span><span class="p">],</span> <span class="n">r</span><span class="p">[</span><span class="s2">"yaw"</span><span class="p">]],</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">),</span>
+        <span class="n">device</span><span class="o">=</span><span class="n">profile</span><span class="p">[</span><span class="s2">"deviceId"</span><span class="p">],</span>
+        <span class="n">active</span><span class="o">=</span><span class="nb">bool</span><span class="p">(</span><span class="n">profile</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"active"</span><span class="p">,</span> <span class="kc">False</span><span class="p">)),</span>
+        <span class="nb">id</span><span class="o">=</span><span class="n">profile</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"id"</span><span class="p">),</span>
+    <span class="p">)</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_to_desk</span><span class="p">(</span><span class="n">tool</span><span class="p">):</span>
+    <span class="n">c</span><span class="p">,</span> <span class="n">i</span><span class="p">,</span> <span class="n">t</span><span class="p">,</span> <span class="n">r</span> <span class="o">=</span> <span class="n">tool</span><span class="o">.</span><span class="n">com</span><span class="p">,</span> <span class="n">tool</span><span class="o">.</span><span class="n">inertia</span><span class="p">,</span> <span class="n">tool</span><span class="o">.</span><span class="n">translation</span><span class="p">,</span> <span class="n">tool</span><span class="o">.</span><span class="n">rotation</span>
+    <span class="k">return</span> <span class="p">{</span>
+        <span class="s2">"name"</span><span class="p">:</span> <span class="n">tool</span><span class="o">.</span><span class="n">name</span><span class="p">,</span>
+        <span class="s2">"deviceId"</span><span class="p">:</span> <span class="n">tool</span><span class="o">.</span><span class="n">device</span><span class="p">,</span>
+        <span class="s2">"inertial"</span><span class="p">:</span> <span class="p">{</span>
+            <span class="s2">"mass"</span><span class="p">:</span> <span class="nb">float</span><span class="p">(</span><span class="n">tool</span><span class="o">.</span><span class="n">mass</span><span class="p">),</span>
+            <span class="s2">"centerOfMass"</span><span class="p">:</span> <span class="p">{</span><span class="s2">"x"</span><span class="p">:</span> <span class="nb">float</span><span class="p">(</span><span class="n">c</span><span class="p">[</span><span class="mi">0</span><span class="p">]),</span> <span class="s2">"y"</span><span class="p">:</span> <span class="nb">float</span><span class="p">(</span><span class="n">c</span><span class="p">[</span><span class="mi">1</span><span class="p">]),</span> <span class="s2">"z"</span><span class="p">:</span> <span class="nb">float</span><span class="p">(</span><span class="n">c</span><span class="p">[</span><span class="mi">2</span><span class="p">])},</span>
+            <span class="s2">"inertia"</span><span class="p">:</span> <span class="p">{</span>
+                <span class="s2">"x11"</span><span class="p">:</span> <span class="nb">float</span><span class="p">(</span><span class="n">i</span><span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">]),</span> <span class="s2">"x12"</span><span class="p">:</span> <span class="nb">float</span><span class="p">(</span><span class="n">i</span><span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">]),</span> <span class="s2">"x13"</span><span class="p">:</span> <span class="nb">float</span><span class="p">(</span><span class="n">i</span><span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">2</span><span class="p">]),</span>
+                <span class="s2">"x22"</span><span class="p">:</span> <span class="nb">float</span><span class="p">(</span><span class="n">i</span><span class="p">[</span><span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">]),</span> <span class="s2">"x23"</span><span class="p">:</span> <span class="nb">float</span><span class="p">(</span><span class="n">i</span><span class="p">[</span><span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">]),</span> <span class="s2">"x33"</span><span class="p">:</span> <span class="nb">float</span><span class="p">(</span><span class="n">i</span><span class="p">[</span><span class="mi">2</span><span class="p">,</span> <span class="mi">2</span><span class="p">]),</span>
+            <span class="p">},</span>
+        <span class="p">},</span>
+        <span class="s2">"tcp"</span><span class="p">:</span> <span class="p">{</span>
+            <span class="s2">"translation"</span><span class="p">:</span> <span class="p">{</span><span class="s2">"x"</span><span class="p">:</span> <span class="nb">float</span><span class="p">(</span><span class="n">t</span><span class="p">[</span><span class="mi">0</span><span class="p">]),</span> <span class="s2">"y"</span><span class="p">:</span> <span class="nb">float</span><span class="p">(</span><span class="n">t</span><span class="p">[</span><span class="mi">1</span><span class="p">]),</span> <span class="s2">"z"</span><span class="p">:</span> <span class="nb">float</span><span class="p">(</span><span class="n">t</span><span class="p">[</span><span class="mi">2</span><span class="p">])},</span>
+            <span class="s2">"rotation"</span><span class="p">:</span> <span class="p">{</span><span class="s2">"roll"</span><span class="p">:</span> <span class="nb">float</span><span class="p">(</span><span class="n">r</span><span class="p">[</span><span class="mi">0</span><span class="p">]),</span> <span class="s2">"pitch"</span><span class="p">:</span> <span class="nb">float</span><span class="p">(</span><span class="n">r</span><span class="p">[</span><span class="mi">1</span><span class="p">]),</span> <span class="s2">"yaw"</span><span class="p">:</span> <span class="nb">float</span><span class="p">(</span><span class="n">r</span><span class="p">[</span><span class="mi">2</span><span class="p">])},</span>
+        <span class="p">},</span>
+    <span class="p">}</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_check</span><span class="p">(</span><span class="n">tool</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">"""Raise ValueError if Desk or the robot would reject the tool."""</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="n">tool</span><span class="o">.</span><span class="n">name</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">"A tool needs a name"</span><span class="p">)</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="mi">0</span> <span class="o">&lt;=</span> <span class="n">tool</span><span class="o">.</span><span class="n">mass</span> <span class="o">&lt;=</span> <span class="mi">3</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">"mass must be in [0, 3] kg, not </span><span class="si">{</span><span class="n">tool</span><span class="o">.</span><span class="n">mass</span><span class="si">:</span><span class="s2">.3f</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
+    <span class="k">for</span> <span class="n">label</span><span class="p">,</span> <span class="n">values</span><span class="p">,</span> <span class="n">bound</span> <span class="ow">in</span> <span class="p">((</span><span class="s2">"com"</span><span class="p">,</span> <span class="n">tool</span><span class="o">.</span><span class="n">com</span><span class="p">,</span> <span class="mf">0.3</span><span class="p">),</span> <span class="p">(</span><span class="s2">"translation"</span><span class="p">,</span> <span class="n">tool</span><span class="o">.</span><span class="n">translation</span><span class="p">,</span> <span class="mf">0.3</span><span class="p">),</span>
+                                 <span class="p">(</span><span class="s2">"rotation"</span><span class="p">,</span> <span class="n">tool</span><span class="o">.</span><span class="n">rotation</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">pi</span><span class="p">),</span> <span class="p">(</span><span class="s2">"inertia"</span><span class="p">,</span> <span class="n">tool</span><span class="o">.</span><span class="n">inertia</span><span class="p">,</span> <span class="mf">1.0</span><span class="p">)):</span>
+        <span class="k">if</span> <span class="n">np</span><span class="o">.</span><span class="n">any</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="n">values</span><span class="p">)</span> <span class="o">&gt;</span> <span class="n">bound</span><span class="p">):</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">label</span><span class="si">}</span><span class="s2"> must be within +/-</span><span class="si">{</span><span class="n">bound</span><span class="si">:</span><span class="s2">g</span><span class="si">}</span><span class="s2">, not </span><span class="si">{</span><span class="n">np</span><span class="o">.</span><span class="n">round</span><span class="p">(</span><span class="n">values</span><span class="p">,</span><span class="w"> </span><span class="mi">4</span><span class="p">)</span><span class="o">.</span><span class="n">tolist</span><span class="p">()</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="n">np</span><span class="o">.</span><span class="n">allclose</span><span class="p">(</span><span class="n">tool</span><span class="o">.</span><span class="n">inertia</span><span class="p">,</span> <span class="n">tool</span><span class="o">.</span><span class="n">inertia</span><span class="o">.</span><span class="n">T</span><span class="p">):</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">"inertia must be symmetric"</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">tool</span><span class="o">.</span><span class="n">mass</span> <span class="o">&gt;</span> <span class="mi">0</span> <span class="ow">and</span> <span class="n">np</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">eigvalsh</span><span class="p">(</span><span class="n">tool</span><span class="o">.</span><span class="n">inertia</span><span class="p">)</span><span class="o">.</span><span class="n">min</span><span class="p">()</span> <span class="o">&lt;=</span> <span class="mi">0</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">"A tool with mass needs a positive definite inertia"</span><span class="p">)</span>
+
+
+<span class="k">class</span><span class="w"> </span><span class="nc">_Desk</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">"""Session with the admin API of the Desk web UI."""</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">ip</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">username</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">password</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">protocol</span><span class="o">=</span><span class="s2">"https"</span><span class="p">,</span> <span class="n">timeout</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+        <span class="kn">from</span><span class="w"> </span><span class="nn">aiofranka.server</span><span class="w"> </span><span class="kn">import</span> <span class="n">_DeskClient</span><span class="p">,</span> <span class="n">_DeskClientV2</span><span class="p">,</span> <span class="n">_resolve_from_config</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">ip</span><span class="p">,</span> <span class="n">username</span><span class="p">,</span> <span class="n">password</span> <span class="o">=</span> <span class="n">_resolve_from_config</span><span class="p">(</span><span class="n">ip</span><span class="p">,</span> <span class="n">username</span><span class="p">,</span> <span class="n">password</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_admin</span> <span class="o">=</span> <span class="n">_DeskClient</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">ip</span><span class="p">,</span> <span class="n">username</span><span class="p">,</span> <span class="n">password</span><span class="p">,</span> <span class="n">protocol</span><span class="o">=</span><span class="n">protocol</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">timeout</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="c1"># Every request of this session, the login included, gives up after timeout seconds.</span>
+            <span class="n">request</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_admin</span><span class="o">.</span><span class="n">_req</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_admin</span><span class="o">.</span><span class="n">_req</span> <span class="o">=</span> <span class="k">lambda</span> <span class="n">method</span><span class="p">,</span> <span class="n">path</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">:</span> <span class="n">request</span><span class="p">(</span><span class="n">method</span><span class="p">,</span> <span class="n">path</span><span class="p">,</span> <span class="o">**</span><span class="p">{</span><span class="s2">"timeout"</span><span class="p">:</span> <span class="n">timeout</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">})</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_admin</span><span class="o">.</span><span class="n">login</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_spoc</span> <span class="o">=</span> <span class="n">_DeskClientV2</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">ip</span><span class="p">,</span> <span class="n">username</span><span class="p">,</span> <span class="n">password</span><span class="p">,</span> <span class="n">protocol</span><span class="o">=</span><span class="n">protocol</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_took_token</span> <span class="o">=</span> <span class="kc">False</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="fm">__enter__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="bp">self</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="fm">__exit__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">*</span><span class="n">exc</span><span class="p">):</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_took_token</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_spoc</span><span class="o">.</span><span class="n">release_token</span><span class="p">(</span><span class="n">best_effort</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_token</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">"""The control token: the one saved by aiofranka.unlock(), or a new one."""</span>
+        <span class="kn">from</span><span class="w"> </span><span class="nn">aiofranka.server</span><span class="w"> </span><span class="kn">import</span> <span class="n">_load_token_state</span>
+
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_spoc</span><span class="o">.</span><span class="n">_token</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_spoc</span><span class="o">.</span><span class="n">_token</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_spoc</span><span class="o">.</span><span class="n">_token_id</span> <span class="o">=</span> <span class="n">_load_token_state</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">ip</span><span class="p">)</span>
+            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_spoc</span><span class="o">.</span><span class="n">_token</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">_spoc</span><span class="o">.</span><span class="n">validate_token</span><span class="p">():</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">_spoc</span><span class="o">.</span><span class="n">_token</span> <span class="o">=</span> <span class="kc">None</span>
+            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_spoc</span><span class="o">.</span><span class="n">_token</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">_spoc</span><span class="o">.</span><span class="n">_with_retry</span><span class="p">(</span><span class="k">lambda</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">_spoc</span><span class="o">.</span><span class="n">take_token</span><span class="p">(</span><span class="n">timeout</span><span class="o">=</span><span class="mi">15</span><span class="p">),</span> <span class="n">context</span><span class="o">=</span><span class="s2">"take_token"</span><span class="p">)</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">_took_token</span> <span class="o">=</span> <span class="kc">True</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_spoc</span><span class="o">.</span><span class="n">_token</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">request</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">method</span><span class="p">,</span> <span class="n">path</span><span class="p">,</span> <span class="n">token</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">"""Request /admin/api{path}, with the control token if Desk wants one and token is True."""</span>
+        <span class="n">r</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_admin</span><span class="o">.</span><span class="n">_req</span><span class="p">(</span><span class="n">method</span><span class="p">,</span> <span class="sa">f</span><span class="s2">"/admin/api</span><span class="si">{</span><span class="n">path</span><span class="si">}</span><span class="s2">"</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">token</span> <span class="ow">and</span> <span class="p">(</span><span class="n">r</span><span class="o">.</span><span class="n">status_code</span> <span class="o">==</span> <span class="mi">423</span> <span class="ow">or</span> <span class="p">(</span><span class="n">r</span><span class="o">.</span><span class="n">status_code</span> <span class="o">==</span> <span class="mi">400</span> <span class="ow">and</span> <span class="s2">"token"</span> <span class="ow">in</span> <span class="n">r</span><span class="o">.</span><span class="n">text</span><span class="o">.</span><span class="n">lower</span><span class="p">())):</span>
+            <span class="n">r</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_admin</span><span class="o">.</span><span class="n">_req</span><span class="p">(</span><span class="n">method</span><span class="p">,</span> <span class="sa">f</span><span class="s2">"/admin/api</span><span class="si">{</span><span class="n">path</span><span class="si">}</span><span class="s2">"</span><span class="p">,</span>
+                                 <span class="n">headers</span><span class="o">=</span><span class="p">{</span><span class="s2">"X-Control-Token"</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">_token</span><span class="p">()},</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">r</span><span class="o">.</span><span class="n">status_code</span> <span class="ow">not</span> <span class="ow">in</span> <span class="p">(</span><span class="mi">200</span><span class="p">,</span> <span class="mi">201</span><span class="p">,</span> <span class="mi">204</span><span class="p">):</span>
+            <span class="k">raise</span> <span class="ne">RuntimeError</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Desk rejected </span><span class="si">{</span><span class="n">method</span><span class="si">}</span><span class="s2"> </span><span class="si">{</span><span class="n">path</span><span class="si">}</span><span class="s2">: </span><span class="si">{</span><span class="n">r</span><span class="o">.</span><span class="n">status_code</span><span class="si">}</span><span class="s2"> </span><span class="si">{</span><span class="n">r</span><span class="o">.</span><span class="n">text</span><span class="p">[:</span><span class="mi">300</span><span class="p">]</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">r</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">tools</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="p">[</span><span class="n">_from_desk</span><span class="p">(</span><span class="n">p</span><span class="p">)</span> <span class="k">for</span> <span class="n">p</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">request</span><span class="p">(</span><span class="s2">"GET"</span><span class="p">,</span> <span class="s2">"/end-effector/profiles"</span><span class="p">)</span><span class="o">.</span><span class="n">json</span><span class="p">()]</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">find</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">name</span><span class="p">,</span> <span class="n">missing_ok</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">"""The profile with that name, or None if missing_ok and there is none."""</span>
+        <span class="n">tools</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">tools</span><span class="p">()</span>
+        <span class="n">matches</span> <span class="o">=</span> <span class="p">[</span><span class="n">tool</span> <span class="k">for</span> <span class="n">tool</span> <span class="ow">in</span> <span class="n">tools</span> <span class="k">if</span> <span class="n">tool</span><span class="o">.</span><span class="n">name</span> <span class="o">==</span> <span class="n">name</span><span class="p">]</span>
+        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">matches</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">1</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">KeyError</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Desk has </span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">matches</span><span class="p">)</span><span class="si">}</span><span class="s2"> end-effector profiles named </span><span class="si">{</span><span class="n">name</span><span class="si">!r}</span><span class="s2">"</span><span class="p">)</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">matches</span> <span class="ow">and</span> <span class="ow">not</span> <span class="n">missing_ok</span><span class="p">:</span>
+            <span class="n">known</span> <span class="o">=</span> <span class="s2">", "</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">tool</span><span class="o">.</span><span class="n">name</span> <span class="k">for</span> <span class="n">tool</span> <span class="ow">in</span> <span class="n">tools</span><span class="p">)</span>
+            <span class="k">raise</span> <span class="ne">KeyError</span><span class="p">(</span><span class="sa">f</span><span class="s2">"No end-effector profile named </span><span class="si">{</span><span class="n">name</span><span class="si">!r}</span><span class="s2"> in Desk. Profiles: </span><span class="si">{</span><span class="n">known</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">matches</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="k">if</span> <span class="n">matches</span> <span class="k">else</span> <span class="kc">None</span>
+
+
+<div class="viewcode-block" id="list_tools">
+<a class="viewcode-back" href="../../api/payload.html#aiofranka.tools.list_tools">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">list_tools</span><span class="p">(</span><span class="n">ip</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">username</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">password</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">protocol</span><span class="o">=</span><span class="s2">"https"</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">"""</span>
+<span class="sd">    The end-effector profiles in Desk.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        ip (str | None): Robot IP (default: from config or 172.16.0.2)</span>
+<span class="sd">        username, password, protocol: Desk credentials (default: from config)</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        dict: The tools by name, in Desk's order</span>
+<span class="sd">    """</span>
+    <span class="k">with</span> <span class="n">_Desk</span><span class="p">(</span><span class="n">ip</span><span class="p">,</span> <span class="n">username</span><span class="p">,</span> <span class="n">password</span><span class="p">,</span> <span class="n">protocol</span><span class="p">)</span> <span class="k">as</span> <span class="n">desk</span><span class="p">:</span>
+        <span class="k">return</span> <span class="p">{</span><span class="n">tool</span><span class="o">.</span><span class="n">name</span><span class="p">:</span> <span class="n">tool</span> <span class="k">for</span> <span class="n">tool</span> <span class="ow">in</span> <span class="n">desk</span><span class="o">.</span><span class="n">tools</span><span class="p">()}</span></div>
+
+
+
+<div class="viewcode-block" id="active_tool">
+<a class="viewcode-back" href="../../api/payload.html#aiofranka.tools.active_tool">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">active_tool</span><span class="p">(</span><span class="n">ip</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">username</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">password</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">protocol</span><span class="o">=</span><span class="s2">"https"</span><span class="p">,</span> <span class="n">timeout</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">"""</span>
+<span class="sd">    The end-effector profile active in Desk, the tool the robot compensates.</span>
+
+<span class="sd">    Only reads: it never takes the control token.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        ip (str | None): Robot IP (default: from config or 172.16.0.2)</span>
+<span class="sd">        username, password, protocol: Desk credentials (default: from config)</span>
+<span class="sd">        timeout (float | None): Seconds each request to Desk may take (default: 30)</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        Tool: The active profile</span>
+<span class="sd">    """</span>
+    <span class="k">with</span> <span class="n">_Desk</span><span class="p">(</span><span class="n">ip</span><span class="p">,</span> <span class="n">username</span><span class="p">,</span> <span class="n">password</span><span class="p">,</span> <span class="n">protocol</span><span class="p">,</span> <span class="n">timeout</span><span class="o">=</span><span class="n">timeout</span><span class="p">)</span> <span class="k">as</span> <span class="n">desk</span><span class="p">:</span>
+        <span class="n">tool</span> <span class="o">=</span> <span class="n">_from_desk</span><span class="p">(</span><span class="n">desk</span><span class="o">.</span><span class="n">request</span><span class="p">(</span><span class="s2">"GET"</span><span class="p">,</span> <span class="s2">"/end-effector/profiles/active"</span><span class="p">,</span> <span class="n">token</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span><span class="o">.</span><span class="n">json</span><span class="p">())</span>
+        <span class="n">tool</span><span class="o">.</span><span class="n">active</span> <span class="o">=</span> <span class="kc">True</span>
+        <span class="k">return</span> <span class="n">tool</span></div>
+
+
+
+<div class="viewcode-block" id="save_tool">
+<a class="viewcode-back" href="../../api/payload.html#aiofranka.tools.save_tool">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">save_tool</span><span class="p">(</span><span class="n">name</span><span class="p">,</span> <span class="n">mass</span><span class="p">,</span> <span class="n">com</span><span class="p">,</span> <span class="n">inertia</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">translation</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">rotation</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+              <span class="n">ip</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">username</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">password</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">protocol</span><span class="o">=</span><span class="s2">"https"</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">"""</span>
+<span class="sd">    Save a tool as an end-effector profile in Desk.</span>
+
+<span class="sd">    Updates the profile with that name, keeping what is not given, or creates one</span>
+<span class="sd">    for a Generic Device. Does not activate it; see load_tool().</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        name (str): Name of the profile</span>
+<span class="sd">        mass (float): Mass [kg]</span>
+<span class="sd">        com (array-like): Center of mass in the flange frame [m] (3,)</span>
+<span class="sd">        inertia (array-like | None): Inertia about the center of mass in the</span>
+<span class="sd">            flange frame [kg m^2], as a (3, 3) tensor or its diagonal (3,).</span>
+<span class="sd">            Default: keep the profile's, or for a new one that of a solid sphere</span>
+<span class="sd">            of radius DEFAULT_RADIUS, since the robot needs some inertia.</span>
+<span class="sd">        translation (array-like | None): Translation from the flange to the tool</span>
+<span class="sd">            center point [m] (3,) (default: keep the profile's, or zero)</span>
+<span class="sd">        rotation (array-like | None): Rotation from the flange to the tool center</span>
+<span class="sd">            point as roll, pitch, yaw [rad] (3,) (default: keep the profile's, or</span>
+<span class="sd">            zero)</span>
+<span class="sd">        ip (str | None): Robot IP (default: from config or 172.16.0.2)</span>
+<span class="sd">        username, password, protocol: Desk credentials (default: from config)</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        Tool: The saved tool</span>
+
+<span class="sd">    Raises:</span>
+<span class="sd">        ValueError: If Desk or the robot would reject the tool</span>
+<span class="sd">    """</span>
+    <span class="k">with</span> <span class="n">_Desk</span><span class="p">(</span><span class="n">ip</span><span class="p">,</span> <span class="n">username</span><span class="p">,</span> <span class="n">password</span><span class="p">,</span> <span class="n">protocol</span><span class="p">)</span> <span class="k">as</span> <span class="n">desk</span><span class="p">:</span>
+        <span class="n">existing</span> <span class="o">=</span> <span class="n">desk</span><span class="o">.</span><span class="n">find</span><span class="p">(</span><span class="n">name</span><span class="p">,</span> <span class="n">missing_ok</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">existing</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">existing</span><span class="o">.</span><span class="n">id</span> <span class="o">==</span> <span class="n">NO_END_EFFECTOR</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">name</span><span class="si">!r}</span><span class="s2"> is built into Desk"</span><span class="p">)</span>
+
+        <span class="n">base</span> <span class="o">=</span> <span class="n">existing</span> <span class="ow">or</span> <span class="n">Tool</span><span class="p">(</span><span class="n">name</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="mi">3</span><span class="p">),</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">((</span><span class="mi">3</span><span class="p">,</span> <span class="mi">3</span><span class="p">)),</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="mi">3</span><span class="p">),</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="mi">3</span><span class="p">))</span>
+        <span class="n">tool</span> <span class="o">=</span> <span class="n">replace</span><span class="p">(</span><span class="n">base</span><span class="p">,</span> <span class="n">mass</span><span class="o">=</span><span class="nb">float</span><span class="p">(</span><span class="n">mass</span><span class="p">),</span> <span class="n">com</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">com</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">))</span>
+        <span class="k">if</span> <span class="n">inertia</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">inertia</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">inertia</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">)</span>
+            <span class="n">tool</span><span class="o">.</span><span class="n">inertia</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">diag</span><span class="p">(</span><span class="n">inertia</span><span class="p">)</span> <span class="k">if</span> <span class="n">inertia</span><span class="o">.</span><span class="n">shape</span> <span class="o">==</span> <span class="p">(</span><span class="mi">3</span><span class="p">,)</span> <span class="k">else</span> <span class="n">inertia</span>
+        <span class="k">elif</span> <span class="n">tool</span><span class="o">.</span><span class="n">mass</span> <span class="o">&gt;</span> <span class="mi">0</span> <span class="ow">and</span> <span class="n">np</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">eigvalsh</span><span class="p">(</span><span class="n">tool</span><span class="o">.</span><span class="n">inertia</span><span class="p">)</span><span class="o">.</span><span class="n">min</span><span class="p">()</span> <span class="o">&lt;=</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="n">tool</span><span class="o">.</span><span class="n">inertia</span> <span class="o">=</span> <span class="mf">0.4</span> <span class="o">*</span> <span class="n">tool</span><span class="o">.</span><span class="n">mass</span> <span class="o">*</span> <span class="n">DEFAULT_RADIUS</span> <span class="o">**</span> <span class="mi">2</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">eye</span><span class="p">(</span><span class="mi">3</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">translation</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">tool</span><span class="o">.</span><span class="n">translation</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">translation</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">rotation</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">tool</span><span class="o">.</span><span class="n">rotation</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">rotation</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">)</span>
+        <span class="n">_check</span><span class="p">(</span><span class="n">tool</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="n">existing</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">tool</span><span class="o">.</span><span class="n">id</span> <span class="o">=</span> <span class="n">desk</span><span class="o">.</span><span class="n">request</span><span class="p">(</span><span class="s2">"POST"</span><span class="p">,</span> <span class="s2">"/end-effector/profiles"</span><span class="p">,</span> <span class="n">json</span><span class="o">=</span><span class="n">_to_desk</span><span class="p">(</span><span class="n">tool</span><span class="p">))</span><span class="o">.</span><span class="n">json</span><span class="p">()[</span><span class="s2">"id"</span><span class="p">]</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">desk</span><span class="o">.</span><span class="n">request</span><span class="p">(</span><span class="s2">"PUT"</span><span class="p">,</span> <span class="sa">f</span><span class="s2">"/end-effector/profiles/</span><span class="si">{</span><span class="n">existing</span><span class="o">.</span><span class="n">id</span><span class="si">}</span><span class="s2">"</span><span class="p">,</span> <span class="n">json</span><span class="o">=</span><span class="n">_to_desk</span><span class="p">(</span><span class="n">tool</span><span class="p">))</span>
+        <span class="k">return</span> <span class="n">tool</span></div>
+
+
+
+<div class="viewcode-block" id="load_tool">
+<a class="viewcode-back" href="../../api/payload.html#aiofranka.tools.load_tool">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">load_tool</span><span class="p">(</span><span class="n">name</span><span class="p">,</span> <span class="n">ip</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">username</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">password</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">protocol</span><span class="o">=</span><span class="s2">"https"</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">"""</span>
+<span class="sd">    Activate an end-effector profile in Desk, so the robot compensates that tool.</span>
+
+<span class="sd">    Desk keeps it active across connections and reboots. RobotInterface merges it</span>
+<span class="sd">    into the MuJoCo model when it connects, so connect after loading.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        name (str): Name of the profile</span>
+<span class="sd">        ip (str | None): Robot IP (default: from config or 172.16.0.2)</span>
+<span class="sd">        username, password, protocol: Desk credentials (default: from config)</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        Tool: The loaded tool</span>
+
+<span class="sd">    Raises:</span>
+<span class="sd">        KeyError: If Desk has no profile, or several, with that name</span>
+<span class="sd">    """</span>
+    <span class="k">with</span> <span class="n">_Desk</span><span class="p">(</span><span class="n">ip</span><span class="p">,</span> <span class="n">username</span><span class="p">,</span> <span class="n">password</span><span class="p">,</span> <span class="n">protocol</span><span class="p">)</span> <span class="k">as</span> <span class="n">desk</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">_activate</span><span class="p">(</span><span class="n">desk</span><span class="p">,</span> <span class="n">desk</span><span class="o">.</span><span class="n">find</span><span class="p">(</span><span class="n">name</span><span class="p">))</span></div>
+
+
+
+<div class="viewcode-block" id="unload_tool">
+<a class="viewcode-back" href="../../api/payload.html#aiofranka.tools.unload_tool">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">unload_tool</span><span class="p">(</span><span class="n">ip</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">username</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">password</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">protocol</span><span class="o">=</span><span class="s2">"https"</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">"""</span>
+<span class="sd">    Activate Desk's built-in profile without an end effector ("No End Effector").</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        ip (str | None): Robot IP (default: from config or 172.16.0.2)</span>
+<span class="sd">        username, password, protocol: Desk credentials (default: from config)</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        Tool: The built-in profile, now active</span>
+<span class="sd">    """</span>
+    <span class="k">with</span> <span class="n">_Desk</span><span class="p">(</span><span class="n">ip</span><span class="p">,</span> <span class="n">username</span><span class="p">,</span> <span class="n">password</span><span class="p">,</span> <span class="n">protocol</span><span class="p">)</span> <span class="k">as</span> <span class="n">desk</span><span class="p">:</span>
+        <span class="n">tool</span> <span class="o">=</span> <span class="nb">next</span><span class="p">((</span><span class="n">tool</span> <span class="k">for</span> <span class="n">tool</span> <span class="ow">in</span> <span class="n">desk</span><span class="o">.</span><span class="n">tools</span><span class="p">()</span> <span class="k">if</span> <span class="n">tool</span><span class="o">.</span><span class="n">id</span> <span class="o">==</span> <span class="n">NO_END_EFFECTOR</span><span class="p">),</span> <span class="kc">None</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">tool</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">KeyError</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Desk has no built-in profile </span><span class="si">{</span><span class="n">NO_END_EFFECTOR</span><span class="si">!r}</span><span class="s2">"</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">_activate</span><span class="p">(</span><span class="n">desk</span><span class="p">,</span> <span class="n">tool</span><span class="p">)</span></div>
+
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_activate</span><span class="p">(</span><span class="n">desk</span><span class="p">,</span> <span class="n">tool</span><span class="p">):</span>
+    <span class="n">desk</span><span class="o">.</span><span class="n">request</span><span class="p">(</span><span class="s2">"PUT"</span><span class="p">,</span> <span class="s2">"/end-effector/profiles/active"</span><span class="p">,</span> <span class="n">json</span><span class="o">=</span><span class="n">tool</span><span class="o">.</span><span class="n">id</span><span class="p">)</span>
+    <span class="n">active</span> <span class="o">=</span> <span class="n">_from_desk</span><span class="p">(</span><span class="n">desk</span><span class="o">.</span><span class="n">request</span><span class="p">(</span><span class="s2">"GET"</span><span class="p">,</span> <span class="s2">"/end-effector/profiles/active"</span><span class="p">)</span><span class="o">.</span><span class="n">json</span><span class="p">())</span>
+    <span class="k">if</span> <span class="n">active</span><span class="o">.</span><span class="n">id</span> <span class="o">!=</span> <span class="n">tool</span><span class="o">.</span><span class="n">id</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">RuntimeError</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Desk did not activate </span><span class="si">{</span><span class="n">tool</span><span class="o">.</span><span class="n">name</span><span class="si">!r}</span><span class="s2">; </span><span class="si">{</span><span class="n">active</span><span class="o">.</span><span class="n">name</span><span class="si">!r}</span><span class="s2"> is active"</span><span class="p">)</span>
+    <span class="n">tool</span><span class="o">.</span><span class="n">active</span> <span class="o">=</span> <span class="kc">True</span>
+    <span class="k">return</span> <span class="n">tool</span>
+
+
+<div class="viewcode-block" id="remove_tool">
+<a class="viewcode-back" href="../../api/payload.html#aiofranka.tools.remove_tool">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">remove_tool</span><span class="p">(</span><span class="n">name</span><span class="p">,</span> <span class="n">ip</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">username</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">password</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">protocol</span><span class="o">=</span><span class="s2">"https"</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">"""</span>
+<span class="sd">    Delete an end-effector profile from Desk.</span>
+
+<span class="sd">    Raises:</span>
+<span class="sd">        KeyError: If Desk has no profile, or several, with that name</span>
+<span class="sd">        ValueError: If the profile is built in or active</span>
+<span class="sd">    """</span>
+    <span class="k">with</span> <span class="n">_Desk</span><span class="p">(</span><span class="n">ip</span><span class="p">,</span> <span class="n">username</span><span class="p">,</span> <span class="n">password</span><span class="p">,</span> <span class="n">protocol</span><span class="p">)</span> <span class="k">as</span> <span class="n">desk</span><span class="p">:</span>
+        <span class="n">tool</span> <span class="o">=</span> <span class="n">desk</span><span class="o">.</span><span class="n">find</span><span class="p">(</span><span class="n">name</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">tool</span><span class="o">.</span><span class="n">id</span> <span class="o">==</span> <span class="n">NO_END_EFFECTOR</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">name</span><span class="si">!r}</span><span class="s2"> is built into Desk"</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">tool</span><span class="o">.</span><span class="n">active</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">name</span><span class="si">!r}</span><span class="s2"> is active; load another tool first"</span><span class="p">)</span>
+        <span class="n">desk</span><span class="o">.</span><span class="n">request</span><span class="p">(</span><span class="s2">"DELETE"</span><span class="p">,</span> <span class="sa">f</span><span class="s2">"/end-effector/profiles/</span><span class="si">{</span><span class="n">tool</span><span class="o">.</span><span class="n">id</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span></div>
+
+</pre></div>
+
+           </div>
+          </div>
+          <footer>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2025, MIT Improbable AI Lab.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

@@ -1,0 +1,315 @@
+Examples
+========
+
+This page provides complete, working examples for common use cases, with ``Robot`` and
+``Controller``. Example 2 shows the same motion for asyncio code, with ``NativeFrankaController``.
+
+Example 1: Simple Motion
+------------------------
+
+Move the robot through positions:
+
+.. code-block:: python
+
+   import time
+   import aiofranka
+
+   robot = aiofranka.Robot("172.16.0.2")
+   with aiofranka.Controller(robot) as controller:  # start() here, stop() at the end
+       home = [0, 0, 0, -1.57079, 0, 1.57079, -0.7853]
+       pose1 = [0, -0.785, 0, -2.356, 0, 1.571, 0.785]
+
+       for pose in [home, pose1, home]:
+           print(f"Moving to: {pose}")
+           controller.move(pose)
+           time.sleep(1.0)
+
+Example 2: Simple Motion with asyncio
+-------------------------------------
+
+Same motion in an asyncio program:
+
+.. code-block:: python
+
+   import asyncio
+   from aiofranka import RobotInterface, NativeFrankaController
+
+   async def simple_motion():
+       controller = NativeFrankaController(RobotInterface("172.16.0.2"))
+       await controller.start()
+       try:
+           home = [0, 0, 0, -1.57079, 0, 1.57079, -0.7853]
+           pose1 = [0, -0.785, 0, -2.356, 0, 1.571, 0.785]
+
+           for pose in [home, pose1, home]:
+               print(f"Moving to: {pose}")
+               await controller.move(pose)
+               await asyncio.sleep(1.0)
+       finally:
+           await controller.stop()
+
+   asyncio.run(simple_motion())
+
+Example 3: Impedance Control
+------------------------------
+
+Compliant joint-space control with sinusoidal motion:
+
+.. code-block:: python
+
+   import numpy as np
+   import aiofranka
+
+   robot = aiofranka.Robot("172.16.0.2")
+   with aiofranka.Controller(robot) as controller:
+       # Move to start position
+       controller.move()
+
+       # Configure impedance control
+       controller.switch("impedance")
+       controller.kp = np.ones(7) * 80.0
+       controller.kd = np.ones(7) * 4.0
+       controller.set_freq(50)
+
+       # Execute smooth sinusoidal motion
+       for i in range(200):  # 4 seconds at 50 Hz
+           delta = np.sin(i / 50.0 * np.pi) * 0.1
+           controller.set("q_desired", controller.initial_qpos + delta)
+
+Example 4: Operational Space Control
+--------------------------------------
+
+Control end-effector position in Cartesian space:
+
+.. code-block:: python
+
+   import numpy as np
+   import aiofranka
+
+   robot = aiofranka.Robot("172.16.0.2")
+   with aiofranka.Controller(robot) as controller:
+       controller.move()
+
+       # Configure OSC
+       controller.switch("osc")
+       controller.ee_kp = np.array([300, 300, 300, 1000, 1000, 1000])
+       controller.ee_kd = np.ones(6) * 10.0
+       controller.set_freq(50)
+
+       # Circular motion in XY plane
+       for i in range(200):
+           angle = i / 50.0 * np.pi
+           radius = 0.05
+
+           desired_ee = controller.initial_ee.copy()
+           desired_ee[0, 3] += radius * np.cos(angle)
+           desired_ee[1, 3] += radius * np.sin(angle)
+
+           controller.set("ee_desired", desired_ee)
+
+Example 5: Data Collection
+----------------------------
+
+Record every 1 kHz cycle during operation, with ``record()`` (see :doc:`native`):
+
+.. code-block:: python
+
+   import numpy as np
+   import aiofranka
+
+   robot = aiofranka.Robot("172.16.0.2")
+   with aiofranka.Controller(robot) as controller:
+       controller.move()
+
+       controller.switch("impedance")
+       controller.kp = np.ones(7) * 80.0
+       controller.kd = np.ones(7) * 4.0
+       controller.set_freq(50)
+
+       # The state of each cycle, the target it used and the torque it sent
+       fields = ["time", "q", "dq", "ee", "q_desired", "tau"]
+       with controller.record(fields, path="robot_data.npz") as recording:
+           for i in range(200):
+               delta = np.sin(i / 50.0 * np.pi) * 0.1
+               controller.set("q_desired", controller.initial_qpos + delta)
+
+   print(f"Saved {recording.rows} cycles")
+
+Example 6: Gain Tuning
+------------------------
+
+Systematically test different controller gains:
+
+.. code-block:: python
+
+   import os
+   import time
+   import numpy as np
+   import aiofranka
+
+   os.makedirs("sysid_data", exist_ok=True)
+   base = np.array([1, 1, 1, 1, 0.6, 0.6, 0.6])
+   kps = [16, 32, 64, 128, 256]
+   kds = [1, 2, 4, 8, 16]
+
+   robot = aiofranka.Robot("172.16.0.2")
+   with aiofranka.Controller(robot) as controller:
+       for kp in kps:
+           for kd in kds:
+               # Move to start
+               controller.kp = base * 80
+               controller.kd = base * 4
+               controller.move()
+               time.sleep(1.0)
+
+               print(f"Testing kp={kp}, kd={kd}")
+               controller.switch("impedance")
+               controller.kp = base * kp
+               controller.kd = base * kd
+               controller.set_freq(50)
+
+               with controller.record(["time", "q", "q_desired"], path=f"sysid_data/K{kp}_D{kd}.npz"):
+                   for cnt in range(200):
+                       delta = np.sin(cnt / 50.0 * np.pi) * 0.1
+                       controller.set("q_desired", controller.initial_qpos + delta)
+
+Example 7: End-Effector Configuration
+---------------------------------------
+
+Set end-effector mass and center of mass for accurate gravity compensation:
+
+.. code-block:: python
+
+   import aiofranka
+
+   aiofranka.unlock()
+
+   # Set end-effector parameters (mass in kg, CoM in meters)
+   aiofranka.set_configuration(mass=1.0, com=[0, 0, 0.057])
+
+   # Now start your control script...
+   # The robot will use the updated parameters for gravity compensation
+
+   aiofranka.lock()
+
+If you do not know the parameters, identify the tool with ``aiofranka tool identify gripper``, which
+saves it as an end-effector profile in Desk. Activate a saved profile whenever its tool is mounted
+(see :ref:`payload-identification`):
+
+.. code-block:: python
+
+   aiofranka.load_tool("gripper")
+
+Example 8: Gripper Control
+---------------------------
+
+Control a Robotiq gripper alongside the robot arm:
+
+.. code-block:: python
+
+   import asyncio
+   from aiofranka import GripperController
+
+   async def gripper_demo():
+       gripper = GripperController("/dev/ttyUSB1")
+       await gripper.start()
+
+       # Set speed and force (like kp/kd for the arm)
+       gripper.speed = 128
+       gripper.force = 200
+
+       # Open and close
+       gripper.q_desired = 0     # Open
+       await gripper.wait_until_reached()
+
+       gripper.q_desired = 255   # Close
+       await gripper.wait_until_reached()
+
+       # Or use convenience methods
+       gripper.open()
+       await gripper.wait_until_reached()
+
+       gripper.close()
+       await gripper.wait_until_reached()
+
+       await gripper.stop()
+
+   asyncio.run(gripper_demo())
+
+.. note::
+   Gripper support requires: ``pip install "aiofranka[robotiq]"``
+
+Example 9: Simulation Testing
+-------------------------------
+
+Test your controller in simulation before deploying to real robot:
+
+.. code-block:: python
+
+   import numpy as np
+   import aiofranka
+
+   def test_algorithm(robot_ip=None):
+       mode = "SIMULATION" if robot_ip is None else "REAL"
+       print(f"Testing in {mode} mode")
+
+       robot = aiofranka.Robot(robot_ip)
+       with aiofranka.Controller(robot) as controller:
+           controller.move()
+
+           controller.switch("impedance")
+           controller.kp = np.ones(7) * 80.0
+           controller.kd = np.ones(7) * 4.0
+           controller.set_freq(50)
+
+           for i in range(100):
+               delta = np.sin(i / 50.0 * np.pi) * 0.1
+               controller.set("q_desired", controller.initial_qpos + delta)
+
+       print("Test successful!")
+
+   if __name__ == "__main__":
+       # First test in simulation (on macOS, run with mjpython for MuJoCo's viewer)
+       test_algorithm(None)
+
+       # Then deploy to real robot
+       test_algorithm("172.16.0.2")
+
+More Examples
+-------------
+
+The ``examples/`` directory in the repository has minimal scripts. Each takes the robot IP as an
+optional argument and runs in MuJoCo without it:
+
+- ``00_move.py``: Move one joint (``--joint``, ``--delta``)
+- ``01_joint_impedance.py``: Hold the current joint positions with joint impedance control
+- ``02_osc_hold.py``: Hold the current end-effector pose with operational space control
+- ``03_zero_torque.py``: Stream zero torque, so the robot only compensates gravity. With a new tool
+  on the flange, the arm should stay still; if it drifts, identify the tool with
+  ``aiofranka tool identify NAME`` (see :ref:`payload-identification`).
+- ``04_collect_joint_sysid.py``: Play steps, multisines and slow ramps with joint impedance at three
+  poses, about 1.5 minutes, with a controller configuration (``--activate configs/joint_impedance.yaml``,
+  see :ref:`controller-configurations`). It sets the targets at the configuration's policy rate, as a
+  policy would, and records every 1 kHz cycle with ``Controller.record()``. What it
+  shares with ``06`` is in ``sysid.py``.
+- ``05_fit_joint_sysid.py``: Fit kp, kd, damping and friction loss of each joint to the
+  configuration's latest recording with CMA-ES, simulating at your physics step (``--activate``,
+  ``--physics_dt``; ``--traj`` for another recording), and add the fit to the configuration's
+  ``sim`` section. The armature stays at fr3.xml's, like the link inertias; ``--fixed`` chooses
+  which parameters stay at their start values. Needs ``pip install mjbatch``.
+- ``06_collect_osc_sysid.py``: The same with operational space control
+  (``--activate configs/osc.yaml``), about 2 minutes
+- ``07_fit_osc_sysid.py``: Fit ee_kp, ee_kd, null_kp, null_kd and each joint's damping and friction
+  loss to an OSC recording, weighing the TCP response and the joints
+- ``08_native_custom_law.py``: Hold the arm with a PID law written in Python, which the native loop
+  runs compiled with Numba (see :doc:`native`)
+
+Research scripts (system identification, SpaceMouse teleoperation, Robotiq gripper) are on the
+`research-scripts <https://github.com/younghyopark/aiofranka/tree/research-scripts>`_ branch.
+
+Next Steps
+----------
+
+- Review :doc:`controllers` for detailed controller documentation
+- Check :doc:`cli` for robot setup commands
+- Explore the :doc:`async_mode` guide if using ``NativeFrankaController`` with asyncio

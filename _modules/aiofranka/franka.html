@@ -1,0 +1,776 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="../../">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>aiofranka.franka &mdash; aiofranka 0.9.0 documentation</title>
+      <link rel="stylesheet" type="text/css" href="../../_static/pygments.css?v=b86133f3" />
+      <link rel="stylesheet" type="text/css" href="../../_static/css/theme.css?v=9edc463e" />
+
+  
+      <script src="../../_static/jquery.js?v=5d32c60e"></script>
+      <script src="../../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="../../_static/documentation_options.js?v=39bb1c6d"></script>
+      <script src="../../_static/doctools.js?v=fd6eb6e6"></script>
+      <script src="../../_static/sphinx_highlight.js?v=6ffebe34"></script>
+    <script src="../../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../../genindex.html" />
+    <link rel="search" title="Search" href="../../search.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../../index.html" class="icon icon-home">
+            aiofranka
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">Getting Started</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../installation.html">Installation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../quickstart.html">Quick Start</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../controllers.html">Controllers</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../native.html">Native Control Loop</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../cli.html">CLI Reference</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../async_mode.html">Async Mode Guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../examples.html">Examples</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../troubleshooting.html">Troubleshooting</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">API Reference</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../api/franka.html">Robot and Controller</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../api/native.html">NativeFrankaController</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../api/controller.html">FrankaController</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../api/remote.html">FrankaRemoteController (Server Mode)</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../api/robot.html">Robot Interface</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../api/payload.html">Payload Identification and Tools</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../api/config.html">Controller Configurations</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../api/server.html">Server Functions</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../api/gripper.html">GripperController</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../api/utilities.html">Async Utilities</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../../index.html">aiofranka</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../../index.html" class="icon icon-home" aria-label="Home"></a></li>
+          <li class="breadcrumb-item"><a href="../index.html">Module code</a></li>
+      <li class="breadcrumb-item active">aiofranka.franka</li>
+      <li class="wy-breadcrumbs-aside">
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <h1>Source code for aiofranka.franka</h1><div class="highlight"><pre>
+<span></span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">aiofranka&#39;s API: a Robot, the arm, and a Controller that drives it.</span>
+
+<span class="sd">    &gt;&gt;&gt; import aiofranka</span>
+<span class="sd">    &gt;&gt;&gt; robot = aiofranka.Robot(&quot;172.16.0.2&quot;)      # None: a simulated arm in MuJoCo</span>
+<span class="sd">    &gt;&gt;&gt; controller = aiofranka.Controller(robot)</span>
+<span class="sd">    &gt;&gt;&gt; controller.start()                          # takes torque control, starts the 1 kHz loop</span>
+<span class="sd">    &gt;&gt;&gt; controller.move()</span>
+<span class="sd">    &gt;&gt;&gt; controller.switch(&quot;osc&quot;)</span>
+<span class="sd">    &gt;&gt;&gt; controller.set_freq(50)</span>
+<span class="sd">    &gt;&gt;&gt; controller.set(&quot;ee_desired&quot;, target)</span>
+<span class="sd">    &gt;&gt;&gt; robot.state[&quot;ee&quot;]</span>
+<span class="sd">    &gt;&gt;&gt; controller.stop()</span>
+
+<span class="sd">Robot is what is true about the arm whoever drives it: its connection, its MuJoCo model with</span>
+<span class="sd">the tool, and its state. Controller is how it is driven: the 1 kHz loop, which runs in C++ and</span>
+<span class="sd">never waits for Python, and the modes, gains, targets, trajectories and recordings it runs.</span>
+
+<span class="sd">Controller&#39;s methods are plain calls. It runs its event loop in a thread of its own, so your</span>
+<span class="sd">code can block, sleep or compute while the loop holds the arm and move() plays its trajectory.</span>
+<span class="sd">For asyncio code, NativeFrankaController is the same controller with awaitable methods, on a</span>
+<span class="sd">RobotInterface.</span>
+<span class="sd">&quot;&quot;&quot;</span>
+
+<span class="kn">import</span><span class="w"> </span><span class="nn">asyncio</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">atexit</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">concurrent.futures</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">threading</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">weakref</span>
+
+<span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
+
+<span class="kn">from</span><span class="w"> </span><span class="nn">aiofranka.controller</span><span class="w"> </span><span class="kn">import</span> <span class="n">FrankaController</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">aiofranka.native</span><span class="w"> </span><span class="kn">import</span> <span class="n">NativeFrankaController</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">aiofranka.robot</span><span class="w"> </span><span class="kn">import</span> <span class="n">RobotInterface</span>
+
+<span class="n">HOME</span> <span class="o">=</span> <span class="p">[</span><span class="mf">0.0</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">,</span> <span class="o">-</span><span class="mf">1.57079</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">,</span> <span class="mf">1.57079</span><span class="p">,</span> <span class="o">-</span><span class="mf">0.7853</span><span class="p">]</span>
+
+<span class="c1"># The controller&#39;s attributes that Controller reads and writes on its engine, besides the</span>
+<span class="c1"># parameters of registered control laws.</span>
+<span class="n">_ATTRIBUTES</span> <span class="o">=</span> <span class="nb">frozenset</span><span class="p">({</span>
+    <span class="s2">&quot;kp&quot;</span><span class="p">,</span> <span class="s2">&quot;kd&quot;</span><span class="p">,</span> <span class="s2">&quot;ki&quot;</span><span class="p">,</span> <span class="s2">&quot;ee_kp&quot;</span><span class="p">,</span> <span class="s2">&quot;ee_kd&quot;</span><span class="p">,</span> <span class="s2">&quot;null_kp&quot;</span><span class="p">,</span> <span class="s2">&quot;null_kd&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;q_desired&quot;</span><span class="p">,</span> <span class="s2">&quot;ee_desired&quot;</span><span class="p">,</span> <span class="s2">&quot;torque&quot;</span><span class="p">,</span> <span class="s2">&quot;initial_qpos&quot;</span><span class="p">,</span> <span class="s2">&quot;initial_ee&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;control_transform&quot;</span><span class="p">,</span> <span class="s2">&quot;torque_limit&quot;</span><span class="p">,</span> <span class="s2">&quot;torque_diff_limit&quot;</span><span class="p">,</span> <span class="s2">&quot;clip&quot;</span><span class="p">,</span> <span class="s2">&quot;type&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;last_command&quot;</span><span class="p">,</span> <span class="s2">&quot;error_integral&quot;</span><span class="p">,</span> <span class="s2">&quot;law_memory&quot;</span><span class="p">,</span> <span class="s2">&quot;arrival_tolerance&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;realtime_priority&quot;</span><span class="p">,</span> <span class="s2">&quot;realtime_cpu&quot;</span><span class="p">,</span> <span class="s2">&quot;error_callback&quot;</span><span class="p">,</span>
+<span class="p">})</span>
+
+<span class="c1"># Controllers whose loop runs, to stop when the interpreter exits.</span>
+<span class="n">_started</span> <span class="o">=</span> <span class="n">weakref</span><span class="o">.</span><span class="n">WeakSet</span><span class="p">()</span>
+
+
+<span class="nd">@atexit</span><span class="o">.</span><span class="n">register</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">_stop_started</span><span class="p">():</span>
+    <span class="k">for</span> <span class="n">controller</span> <span class="ow">in</span> <span class="nb">list</span><span class="p">(</span><span class="n">_started</span><span class="p">):</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="n">controller</span><span class="o">.</span><span class="n">stop</span><span class="p">()</span>
+        <span class="k">except</span> <span class="ne">Exception</span><span class="p">:</span>
+            <span class="k">pass</span>
+
+
+<div class="viewcode-block" id="Robot">
+<a class="viewcode-back" href="../../api/franka.html#aiofranka.franka.Robot">[docs]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">Robot</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    A Franka arm: its connection, its MuJoCo model with the tool, and its state.</span>
+
+<span class="sd">    Connecting reads the arm, which needs FCI active (aiofranka.unlock()), and Desk&#39;s active</span>
+<span class="sd">    end-effector profile, which is merged into the model. Nothing moves until a Controller</span>
+<span class="sd">    starts; one Controller at a time drives the arm.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        ip (str | None): The robot&#39;s IP address, or None for a simulated arm in MuJoCo,</span>
+<span class="sd">            shown in a viewer</span>
+<span class="sd">        read_tool (bool): Read Desk&#39;s active end-effector profile (robot.tool), which</span>
+<span class="sd">            Controller.activate() checks configurations against</span>
+
+<span class="sd">    Example:</span>
+<span class="sd">        &gt;&gt;&gt; robot = aiofranka.Robot(&quot;172.16.0.2&quot;)</span>
+<span class="sd">        &gt;&gt;&gt; robot.state[&quot;qpos&quot;]</span>
+<span class="sd">        &gt;&gt;&gt; robot.tool</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+<div class="viewcode-block" id="Robot.__init__">
+<a class="viewcode-back" href="../../api/franka.html#aiofranka.franka.Robot.__init__">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">ip</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">read_tool</span><span class="o">=</span><span class="kc">True</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_setup</span><span class="p">(</span><span class="n">RobotInterface</span><span class="p">(</span><span class="n">ip</span><span class="p">,</span> <span class="n">read_tool</span><span class="o">=</span><span class="n">read_tool</span><span class="p">))</span></div>
+
+
+    <span class="nd">@classmethod</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">_wrap</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">interface</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;A Robot on a RobotInterface that is connected already.&quot;&quot;&quot;</span>
+        <span class="n">robot</span> <span class="o">=</span> <span class="bp">cls</span><span class="o">.</span><span class="fm">__new__</span><span class="p">(</span><span class="bp">cls</span><span class="p">)</span>
+        <span class="n">robot</span><span class="o">.</span><span class="n">_setup</span><span class="p">(</span><span class="n">interface</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">robot</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_setup</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">interface</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_interface</span> <span class="o">=</span> <span class="n">interface</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_controller</span> <span class="o">=</span> <span class="kc">None</span>  <span class="c1"># the Controller that drives the arm, from start() to stop()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_lock</span> <span class="o">=</span> <span class="n">threading</span><span class="o">.</span><span class="n">Lock</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_closed</span> <span class="o">=</span> <span class="kc">False</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">ip</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;The robot&#39;s IP address, or None in simulation.&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_interface</span><span class="o">.</span><span class="n">ip</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">real</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Whether the arm is real; False in simulation.&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_interface</span><span class="o">.</span><span class="n">real</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">model</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;The arm&#39;s MuJoCo model, with the tool merged into its last link.&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_interface</span><span class="o">.</span><span class="n">model</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">tool</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Desk&#39;s active end-effector profile when connecting (an aiofranka.Tool), or None.&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_interface</span><span class="o">.</span><span class="n">tool</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">load</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;The load set with set_load(): mass [kg], com [m] and inertia [kg m^2].&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="nb">dict</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_interface</span><span class="o">.</span><span class="n">load</span><span class="p">)</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">payload</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        The payload the robot compensates, which the model includes: Desk&#39;s end-effector</span>
+<span class="sd">        profile and the load of set_load() (in simulation, the load). Its mass [kg], com in the</span>
+<span class="sd">        flange frame [m] and inertia about the com [kg m^2].</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="nb">dict</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_interface</span><span class="o">.</span><span class="n">payload</span><span class="p">)</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">controller</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;The Controller that drives the arm, or None.&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_controller</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">state</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        The arm&#39;s latest state, a dict of numpy arrays:</span>
+
+<span class="sd">        - qpos, qvel: joint positions [rad] and velocities [rad/s] (7,)</span>
+<span class="sd">        - ee: the flange pose in the base frame (4, 4)</span>
+<span class="sd">        - jac: the flange&#39;s Jacobian, linear rows first (6, 7)</span>
+<span class="sd">        - mm: the joint-space mass matrix (7, 7)</span>
+<span class="sd">        - last_torque: the torque the robot was last commanded [Nm] (7,)</span>
+
+<span class="sd">        While a controller drives the arm, it is what the 1 kHz loop read at its last cycle;</span>
+<span class="sd">        otherwise the arm is read now.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_check_open</span><span class="p">()</span>
+        <span class="n">engine</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_engine</span><span class="p">()</span>
+        <span class="k">if</span> <span class="n">engine</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_interface</span><span class="o">.</span><span class="n">state</span>
+        <span class="n">state</span> <span class="o">=</span> <span class="n">engine</span><span class="o">.</span><span class="n">state</span>
+        <span class="k">if</span> <span class="n">state</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">state</span>
+        <span class="c1"># The loop has not finished its first cycle: the arm as it was read last.</span>
+        <span class="n">interface</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_interface</span>
+        <span class="n">data</span> <span class="o">=</span> <span class="n">interface</span><span class="o">.</span><span class="n">data</span>
+        <span class="k">return</span> <span class="p">{</span><span class="s2">&quot;qpos&quot;</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">data</span><span class="o">.</span><span class="n">qpos</span><span class="p">),</span> <span class="s2">&quot;qvel&quot;</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">data</span><span class="o">.</span><span class="n">qvel</span><span class="p">),</span> <span class="s2">&quot;ee&quot;</span><span class="p">:</span> <span class="n">interface</span><span class="o">.</span><span class="n">_ee</span><span class="p">(),</span>
+                <span class="s2">&quot;jac&quot;</span><span class="p">:</span> <span class="n">interface</span><span class="o">.</span><span class="n">_jacobian</span><span class="p">(),</span> <span class="s2">&quot;mm&quot;</span><span class="p">:</span> <span class="n">interface</span><span class="o">.</span><span class="n">_mass_matrix</span><span class="p">(),</span>
+                <span class="s2">&quot;last_torque&quot;</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">data</span><span class="o">.</span><span class="n">ctrl</span><span class="p">)}</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">robot_state</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        The libfranka state the arm sent last (pylibfranka.RobotState), with every number it</span>
+<span class="sd">        reports: tau_J, O_F_ext_hat_K, control_command_success_rate, ... None in simulation.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_check_open</span><span class="p">()</span>
+        <span class="n">interface</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_interface</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">interface</span><span class="o">.</span><span class="n">real</span><span class="p">:</span>
+            <span class="k">return</span> <span class="kc">None</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_engine</span><span class="p">()</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">interface</span><span class="o">.</span><span class="n">sync_mj</span><span class="p">()</span>  <span class="c1"># read it now; while a loop runs, it keeps it current</span>
+        <span class="k">return</span> <span class="n">interface</span><span class="o">.</span><span class="n">robot_state</span>
+
+<div class="viewcode-block" id="Robot.set_load">
+<a class="viewcode-back" href="../../api/franka.html#aiofranka.franka.Robot.set_load">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">set_load</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">mass</span><span class="p">,</span> <span class="n">com</span><span class="o">=</span><span class="p">(</span><span class="mf">0.0</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">),</span> <span class="n">inertia</span><span class="o">=</span><span class="p">(</span><span class="mf">0.0</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">)):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Set a load on the flange for this connection, e.g. a tool without a Desk profile: the</span>
+<span class="sd">        robot compensates its gravity, and the model includes it. To keep a tool across</span>
+<span class="sd">        connections, save it as a profile with aiofranka.save_tool() instead.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            mass (float): Load mass [kg]; 0 removes the load</span>
+<span class="sd">            com (array-like): Center of mass in the flange frame [m] (3,)</span>
+<span class="sd">            inertia (array-like): Inertia about the center of mass in the flange frame</span>
+<span class="sd">                [kg m^2], (3, 3) or its diagonal (3,)</span>
+
+<span class="sd">        Raises:</span>
+<span class="sd">            RuntimeError: If a controller drives the arm, as the robot rejects a load then</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_check_open</span><span class="p">()</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_controller</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">RuntimeError</span><span class="p">(</span><span class="s2">&quot;set_load() needs the arm without a controller: stop() it first&quot;</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_interface</span><span class="o">.</span><span class="n">set_load</span><span class="p">(</span><span class="n">mass</span><span class="p">,</span> <span class="n">com</span><span class="p">,</span> <span class="n">inertia</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="Robot.close">
+<a class="viewcode-back" href="../../api/franka.html#aiofranka.franka.Robot.close">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">close</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Stop the controller that drives the arm, if any, and disconnect.&quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_closed</span><span class="p">:</span>
+            <span class="k">return</span>
+        <span class="n">controller</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_controller</span>
+        <span class="k">if</span> <span class="n">controller</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">controller</span><span class="o">.</span><span class="n">stop</span><span class="p">()</span>
+        <span class="n">interface</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_interface</span>
+        <span class="k">if</span> <span class="n">interface</span><span class="o">.</span><span class="n">real</span><span class="p">:</span>
+            <span class="n">interface</span><span class="o">.</span><span class="n">robot</span> <span class="o">=</span> <span class="kc">None</span>  <span class="c1"># libfranka disconnects with its Robot</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">viewer</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">interface</span><span class="p">,</span> <span class="s2">&quot;viewer&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">viewer</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="nb">hasattr</span><span class="p">(</span><span class="n">viewer</span><span class="p">,</span> <span class="s2">&quot;close&quot;</span><span class="p">):</span>
+                <span class="n">viewer</span><span class="o">.</span><span class="n">close</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_closed</span> <span class="o">=</span> <span class="kc">True</span></div>
+
+
+    <span class="k">def</span><span class="w"> </span><span class="fm">__enter__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="bp">self</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="fm">__exit__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">*</span><span class="n">exc</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">close</span><span class="p">()</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="fm">__repr__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="n">where</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">ip</span> <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">real</span> <span class="k">else</span> <span class="s2">&quot;simulated&quot;</span>
+        <span class="n">driven</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;, driven by </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">_controller</span><span class="si">!r}</span><span class="s2">&quot;</span> <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_controller</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="k">else</span> <span class="s2">&quot;&quot;</span>
+        <span class="k">return</span> <span class="sa">f</span><span class="s2">&quot;&lt;Robot </span><span class="si">{</span><span class="n">where</span><span class="si">}{</span><span class="n">driven</span><span class="si">}</span><span class="s2">&gt;&quot;</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_check_open</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_closed</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">RuntimeError</span><span class="p">(</span><span class="s2">&quot;The robot is closed&quot;</span><span class="p">)</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_attach</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">controller</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Let controller drive the arm; one controller at a time does.&quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_check_open</span><span class="p">()</span>
+        <span class="k">with</span> <span class="bp">self</span><span class="o">.</span><span class="n">_lock</span><span class="p">:</span>
+            <span class="n">holder</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_controller</span>
+            <span class="k">if</span> <span class="n">holder</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">holder</span> <span class="ow">is</span> <span class="ow">not</span> <span class="n">controller</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="ne">RuntimeError</span><span class="p">(</span><span class="s2">&quot;Another Controller drives this robot: stop() it first&quot;</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_controller</span> <span class="o">=</span> <span class="n">controller</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_detach</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">controller</span><span class="p">):</span>
+        <span class="k">with</span> <span class="bp">self</span><span class="o">.</span><span class="n">_lock</span><span class="p">:</span>
+            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_controller</span> <span class="ow">is</span> <span class="n">controller</span><span class="p">:</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">_controller</span> <span class="o">=</span> <span class="kc">None</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_engine</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;The native controller whose loop drives the arm now, or None.&quot;&quot;&quot;</span>
+        <span class="n">controller</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_controller</span>
+        <span class="k">if</span> <span class="n">controller</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">or</span> <span class="ow">not</span> <span class="n">controller</span><span class="o">.</span><span class="n">running</span><span class="p">:</span>
+            <span class="k">return</span> <span class="kc">None</span>
+        <span class="k">return</span> <span class="n">controller</span><span class="o">.</span><span class="n">_engine</span></div>
+
+
+
+<span class="k">class</span><span class="w"> </span><span class="nc">_Engine</span><span class="p">(</span><span class="n">NativeFrankaController</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Controller&#39;s NativeFrankaController: a loop error is kept for Controller to raise,</span>
+<span class="sd">    instead of exiting the process from Controller&#39;s thread.&quot;&quot;&quot;</span>
+
+    <span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">_run</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="n">error</span> <span class="o">=</span> <span class="k">await</span> <span class="bp">self</span><span class="o">.</span><span class="n">_watch</span><span class="p">()</span>
+        <span class="k">except</span> <span class="n">asyncio</span><span class="o">.</span><span class="n">CancelledError</span><span class="p">:</span>
+            <span class="k">raise</span>
+        <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+            <span class="n">error</span> <span class="o">=</span> <span class="nb">str</span><span class="p">(</span><span class="n">e</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">error</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="vm">__dict__</span><span class="p">[</span><span class="s2">&quot;_failure&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">error</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_report</span><span class="p">(</span><span class="n">error</span><span class="p">)</span>
+            <span class="c1"># The motion has ended; end torque control too, so that the arm can be read again</span>
+            <span class="k">try</span><span class="p">:</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">robot</span><span class="o">.</span><span class="n">stop</span><span class="p">()</span>
+            <span class="k">except</span> <span class="ne">Exception</span><span class="p">:</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">robot</span><span class="o">.</span><span class="n">torque_controller</span> <span class="o">=</span> <span class="kc">None</span>
+
+
+<div class="viewcode-block" id="Controller">
+<a class="viewcode-back" href="../../api/franka.html#aiofranka.franka.Controller">[docs]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">Controller</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Drives a Robot with the native 1 kHz control loop.</span>
+
+<span class="sd">    The loop runs in C++, in a thread that never waits for Python. The control modes</span>
+<span class="sd">    (impedance, pid, osc, torque and control laws), gains, targets and recordings are those</span>
+<span class="sd">    of NativeFrankaController, whose documentation has the details; here they are plain</span>
+<span class="sd">    calls. The controller runs its event loop in a thread of its own, so your code can block,</span>
+<span class="sd">    sleep or compute while the loop holds the arm. A loop error, e.g. a reflex, stops the loop</span>
+<span class="sd">    and is raised by the next call that commands the arm.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        robot (Robot): The arm to drive</span>
+
+<span class="sd">    Attributes:</span>
+<span class="sd">        kp, kd, ki, ee_kp, ee_kd, null_kp, null_kd: Gains, as in NativeFrankaController</span>
+<span class="sd">        q_desired, ee_desired, torque: Targets of the modes; set them with set() to hold a rate</span>
+<span class="sd">        initial_qpos, initial_ee: The arm&#39;s pose at the last switch()</span>
+
+<span class="sd">    Example:</span>
+<span class="sd">        &gt;&gt;&gt; robot = aiofranka.Robot(&quot;172.16.0.2&quot;)</span>
+<span class="sd">        &gt;&gt;&gt; controller = aiofranka.Controller(robot)</span>
+<span class="sd">        &gt;&gt;&gt; controller.start()</span>
+<span class="sd">        &gt;&gt;&gt; controller.move()</span>
+<span class="sd">        &gt;&gt;&gt; controller.switch(&quot;impedance&quot;)</span>
+<span class="sd">        &gt;&gt;&gt; controller.set_freq(50)</span>
+<span class="sd">        &gt;&gt;&gt; for target in targets:</span>
+<span class="sd">        ...     controller.set(&quot;q_desired&quot;, target)</span>
+<span class="sd">        &gt;&gt;&gt; controller.stop()</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+<div class="viewcode-block" id="Controller.__init__">
+<a class="viewcode-back" href="../../api/franka.html#aiofranka.franka.Controller.__init__">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">robot</span><span class="p">):</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">robot</span><span class="p">,</span> <span class="n">Robot</span><span class="p">):</span>
+            <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span><span class="s2">&quot;Controller drives an aiofranka.Robot; &quot;</span>
+                            <span class="s2">&quot;for a RobotInterface, use NativeFrankaController&quot;</span><span class="p">)</span>
+        <span class="n">engine</span> <span class="o">=</span> <span class="n">_Engine</span><span class="p">(</span><span class="n">robot</span><span class="o">.</span><span class="n">_interface</span><span class="p">)</span>
+        <span class="n">engine</span><span class="o">.</span><span class="vm">__dict__</span><span class="p">[</span><span class="s2">&quot;_failure&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="n">attributes</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="vm">__dict__</span>
+        <span class="n">attributes</span><span class="p">[</span><span class="s2">&quot;robot&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">robot</span>
+        <span class="n">attributes</span><span class="p">[</span><span class="s2">&quot;_engine&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">engine</span>
+        <span class="n">attributes</span><span class="p">[</span><span class="s2">&quot;_events&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>  <span class="c1"># the event loop, in _thread, while started</span>
+        <span class="n">attributes</span><span class="p">[</span><span class="s2">&quot;_thread&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span></div>
+
+
+    <span class="c1"># ── Lifecycle ─────────────────────────────────────────────────────────────</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">running</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Whether the 1 kHz loop runs.&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_engine</span><span class="o">.</span><span class="n">running</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">error</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;The error that stopped the loop, e.g. a reflex, or None; start() clears it.&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_engine</span><span class="o">.</span><span class="vm">__dict__</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;_failure&quot;</span><span class="p">)</span>
+
+<div class="viewcode-block" id="Controller.start">
+<a class="viewcode-back" href="../../api/franka.html#aiofranka.franka.Controller.start">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">start</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Take the arm&#39;s torque control and start the 1 kHz loop, holding the arm where it is.</span>
+<span class="sd">        Returns once the loop runs.</span>
+
+<span class="sd">        Raises:</span>
+<span class="sd">            RuntimeError: If another controller drives the robot</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">running</span><span class="p">:</span>
+            <span class="k">return</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_close</span><span class="p">()</span>  <span class="c1"># what a failed loop left</span>
+        <span class="n">robot</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">robot</span>
+        <span class="n">robot</span><span class="o">.</span><span class="n">_attach</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="n">interface</span> <span class="o">=</span> <span class="n">robot</span><span class="o">.</span><span class="n">_interface</span>
+            <span class="k">if</span> <span class="n">interface</span><span class="o">.</span><span class="n">real</span><span class="p">:</span>
+                <span class="n">interface</span><span class="o">.</span><span class="n">sync_mj</span><span class="p">()</span>  <span class="c1"># the arm as it is now</span>
+            <span class="c1"># Hold it there; NativeFrankaController.initialize() would first take the last</span>
+            <span class="c1"># cycle of an earlier session.</span>
+            <span class="n">FrankaController</span><span class="o">.</span><span class="n">initialize</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_engine</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_engine</span><span class="o">.</span><span class="vm">__dict__</span><span class="p">[</span><span class="s2">&quot;_failure&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_open</span><span class="p">()</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_wait</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_engine</span><span class="o">.</span><span class="n">start</span><span class="p">())</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_check</span><span class="p">()</span>  <span class="c1"># the loop may have stopped already</span>
+        <span class="k">except</span> <span class="ne">BaseException</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_close</span><span class="p">()</span>
+            <span class="k">raise</span>
+        <span class="n">_started</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="Controller.stop">
+<a class="viewcode-back" href="../../api/franka.html#aiofranka.franka.Controller.stop">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">stop</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Stop the 1 kHz loop and give the arm&#39;s torque control back. Does nothing if stopped.&quot;&quot;&quot;</span>
+        <span class="n">_started</span><span class="o">.</span><span class="n">discard</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_close</span><span class="p">()</span></div>
+
+
+    <span class="k">def</span><span class="w"> </span><span class="fm">__enter__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">start</span><span class="p">()</span>
+        <span class="k">return</span> <span class="bp">self</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="fm">__exit__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">*</span><span class="n">exc</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">stop</span><span class="p">()</span>
+
+    <span class="c1"># ── Commanding ────────────────────────────────────────────────────────────</span>
+
+<div class="viewcode-block" id="Controller.switch">
+<a class="viewcode-back" href="../../api/franka.html#aiofranka.franka.Controller.switch">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">switch</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">controller_type</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Switch the control mode: &quot;impedance&quot;, &quot;pid&quot;, &quot;osc&quot;, &quot;torque&quot;, or a control law (see</span>
+<span class="sd">        aiofranka.control_law). The targets move to the arm&#39;s current pose.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_check</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_call</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_engine</span><span class="o">.</span><span class="n">switch</span><span class="p">,</span> <span class="n">controller_type</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="Controller.set_freq">
+<a class="viewcode-back" href="../../api/franka.html#aiofranka.franka.Controller.set_freq">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">set_freq</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">freq</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Set the rate that set() holds [Hz], e.g. a policy&#39;s.&quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_engine</span><span class="o">.</span><span class="n">set_freq</span><span class="p">(</span><span class="n">freq</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="Controller.set">
+<a class="viewcode-back" href="../../api/franka.html#aiofranka.franka.Controller.set">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">set</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">attr</span><span class="p">,</span> <span class="n">value</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Set a target (&quot;q_desired&quot;, &quot;ee_desired&quot; or &quot;torque&quot;) or another attribute, then sleep</span>
+<span class="sd">        to hold the rate of set_freq(), as a policy sends its actions: each call returns one</span>
+<span class="sd">        period after the last one&#39;s target time, whatever the caller did in between.</span>
+
+<span class="sd">        The controller&#39;s event loop sets it, as NativeFrankaController.set() does: it wakes up</span>
+<span class="sd">        every millisecond, which keeps the period to about a cycle, where a sleep of the</span>
+<span class="sd">        caller&#39;s could wake up milliseconds late.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            attr (str): Attribute to set</span>
+<span class="sd">            value: Its value, e.g. joint positions [rad] (7,) or a pose (4, 4)</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_check</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_require_running</span><span class="p">(</span><span class="s2">&quot;set()&quot;</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_wait</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_engine</span><span class="o">.</span><span class="n">set</span><span class="p">(</span><span class="n">attr</span><span class="p">,</span> <span class="n">value</span><span class="p">))</span></div>
+
+
+<div class="viewcode-block" id="Controller.move">
+<a class="viewcode-back" href="../../api/franka.html#aiofranka.franka.Controller.move">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">move</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">qpos</span><span class="o">=</span><span class="n">HOME</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Move to joint positions on a smooth, time-optimal trajectory, and hold them. Returns</span>
+<span class="sd">        once every joint is within arrival_tolerance of them. Ctrl+C stops the motion, with</span>
+<span class="sd">        the arm holding its last target.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            qpos (array-like): Joint positions [rad] (7,), by default the home pose</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_check</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_require_running</span><span class="p">(</span><span class="s2">&quot;move()&quot;</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_wait</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_engine</span><span class="o">.</span><span class="n">move</span><span class="p">(</span><span class="nb">list</span><span class="p">(</span><span class="n">qpos</span><span class="p">)))</span></div>
+
+
+<div class="viewcode-block" id="Controller.activate">
+<a class="viewcode-back" href="../../api/franka.html#aiofranka.franka.Controller.activate">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">activate</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">config</span><span class="p">,</span> <span class="n">check_tool</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">check_null_target</span><span class="o">=</span><span class="kc">True</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Apply a controller configuration, a YAML file or a dict: its mode, gains, TCP and</span>
+<span class="sd">        policy rate (see NativeFrankaController.activate()).</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            dict: The configuration</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_check</span><span class="p">()</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_call</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_engine</span><span class="o">.</span><span class="n">activate</span><span class="p">,</span> <span class="n">config</span><span class="p">,</span> <span class="n">check_tool</span><span class="p">,</span> <span class="n">check_null_target</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="Controller.check_tool">
+<a class="viewcode-back" href="../../api/franka.html#aiofranka.franka.Controller.check_tool">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">check_tool</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">config</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Check that the tool a configuration needs is Desk&#39;s active end-effector profile, as</span>
+<span class="sd">        activate() does.</span>
+
+<span class="sd">        Raises:</span>
+<span class="sd">            RuntimeError: If another tool is active, or Desk could not be read</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_engine</span><span class="o">.</span><span class="n">check_tool</span><span class="p">(</span><span class="n">config</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="Controller.set_tcp">
+<a class="viewcode-back" href="../../api/franka.html#aiofranka.franka.Controller.set_tcp">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">set_tcp</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">transform</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Set the point the OSC controls: a translation [m] (3,) or a pose (4, 4) in the flange frame.&quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_check</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_call</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_engine</span><span class="o">.</span><span class="n">set_tcp</span><span class="p">,</span> <span class="n">transform</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="Controller.register_law">
+<a class="viewcode-back" href="../../api/franka.html#aiofranka.franka.Controller.register_law">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">register_law</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">law</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Compile a control law (aiofranka.control_law) and make it a controller type; returns its name.&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_call</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_engine</span><span class="o">.</span><span class="n">register_law</span><span class="p">,</span> <span class="n">law</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="Controller.identify_payload">
+<a class="viewcode-back" href="../../api/franka.html#aiofranka.franka.Controller.identify_payload">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">identify_payload</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">tool_length</span><span class="o">=</span><span class="mf">0.2</span><span class="p">,</span> <span class="n">tool_radius</span><span class="o">=</span><span class="mf">0.1</span><span class="p">,</span> <span class="n">floor</span><span class="o">=</span><span class="mf">0.0</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Identify the mass and center of mass of the tool on the flange: moves the arm through</span>
+<span class="sd">        poses around the current one, about 3 minutes (see aiofranka.payload.identify_payload()).</span>
+<span class="sd">        A controller that is not running is started for it and stopped after. It only</span>
+<span class="sd">        measures: save the result with aiofranka.save_tool().</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            PayloadEstimate: The estimated tool, with standard errors</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_check</span><span class="p">()</span>
+        <span class="n">started</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">running</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">started</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">robot</span><span class="o">.</span><span class="n">_attach</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_open</span><span class="p">()</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_wait</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_engine</span><span class="o">.</span><span class="n">identify_payload</span><span class="p">(</span>
+                <span class="n">tool_length</span><span class="o">=</span><span class="n">tool_length</span><span class="p">,</span> <span class="n">tool_radius</span><span class="o">=</span><span class="n">tool_radius</span><span class="p">,</span> <span class="n">floor</span><span class="o">=</span><span class="n">floor</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">))</span>
+        <span class="k">finally</span><span class="p">:</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="n">started</span><span class="p">:</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">_close</span><span class="p">()</span></div>
+
+
+    <span class="c1"># ── The loop ──────────────────────────────────────────────────────────────</span>
+
+<div class="viewcode-block" id="Controller.record">
+<a class="viewcode-back" href="../../api/franka.html#aiofranka.franka.Controller.record">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">record</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">fields</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">seconds</span><span class="o">=</span><span class="mf">60.0</span><span class="p">,</span> <span class="n">path</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Record every cycle of the loop, from its next one on (see NativeFrankaController.record()).</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            Recording: The rows; stop() it, or use it in a with block</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_call</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_engine</span><span class="o">.</span><span class="n">record</span><span class="p">,</span> <span class="n">fields</span><span class="p">,</span> <span class="n">seconds</span><span class="p">,</span> <span class="n">path</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="Controller.loop_stats">
+<a class="viewcode-back" href="../../api/franka.html#aiofranka.franka.Controller.loop_stats">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">loop_stats</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">reset</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Timing of the loop since start, or since the last call with reset (NativeFrankaController.loop_stats()).&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_engine</span><span class="o">.</span><span class="n">loop_stats</span><span class="p">(</span><span class="n">reset</span><span class="o">=</span><span class="n">reset</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="Controller.step">
+<a class="viewcode-back" href="../../api/franka.html#aiofranka.franka.Controller.step">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">step</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Run one cycle by hand while the loop is not running, e.g. to try a law in simulation.&quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_engine</span><span class="o">.</span><span class="n">step</span><span class="p">()</span></div>
+
+
+    <span class="c1"># ── Attributes ────────────────────────────────────────────────────────────</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="fm">__getattr__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">name</span><span class="p">):</span>
+        <span class="n">engine</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="vm">__dict__</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;_engine&quot;</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">engine</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="p">(</span><span class="n">name</span> <span class="ow">in</span> <span class="n">_ATTRIBUTES</span> <span class="ow">or</span> <span class="n">name</span> <span class="ow">in</span> <span class="n">engine</span><span class="o">.</span><span class="n">_custom</span><span class="p">):</span>
+            <span class="k">return</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">engine</span><span class="p">,</span> <span class="n">name</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">name</span> <span class="o">==</span> <span class="s2">&quot;state&quot;</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">AttributeError</span><span class="p">(</span><span class="s2">&quot;Controller has no state: read the arm&#39;s, robot.state&quot;</span><span class="p">)</span>
+        <span class="k">raise</span> <span class="ne">AttributeError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="nb">type</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span><span class="o">.</span><span class="vm">__name__</span><span class="si">!r}</span><span class="s2"> object has no attribute </span><span class="si">{</span><span class="n">name</span><span class="si">!r}</span><span class="s2">&quot;</span><span class="p">)</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="fm">__setattr__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">name</span><span class="p">,</span> <span class="n">value</span><span class="p">):</span>
+        <span class="n">engine</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="vm">__dict__</span><span class="p">[</span><span class="s2">&quot;_engine&quot;</span><span class="p">]</span>
+        <span class="k">if</span> <span class="n">name</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">_ATTRIBUTES</span> <span class="ow">and</span> <span class="n">name</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">engine</span><span class="o">.</span><span class="n">_custom</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">AttributeError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Controller has no attribute </span><span class="si">{</span><span class="n">name</span><span class="si">!r}</span><span class="s2"> to set; its attributes are &quot;</span>
+                                 <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="s1">&#39;, &#39;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="nb">sorted</span><span class="p">(</span><span class="n">_ATTRIBUTES</span><span class="p">))</span><span class="si">}</span><span class="s2"> and control laws&#39; parameters&quot;</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_check</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_assign</span><span class="p">(</span><span class="n">name</span><span class="p">,</span> <span class="n">value</span><span class="p">)</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="fm">__repr__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="n">state</span> <span class="o">=</span> <span class="s2">&quot;running&quot;</span> <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">running</span> <span class="k">else</span> <span class="s2">&quot;stopped&quot;</span>
+        <span class="k">return</span> <span class="sa">f</span><span class="s2">&quot;&lt;Controller </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">_engine</span><span class="o">.</span><span class="n">type</span><span class="si">}</span><span class="s2">, </span><span class="si">{</span><span class="n">state</span><span class="si">}</span><span class="s2">&gt;&quot;</span>
+
+    <span class="c1"># ── Internals ─────────────────────────────────────────────────────────────</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_assign</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">name</span><span class="p">,</span> <span class="n">value</span><span class="p">):</span>
+        <span class="n">engine</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_engine</span>
+        <span class="k">if</span> <span class="n">name</span> <span class="ow">in</span> <span class="n">engine</span><span class="o">.</span><span class="n">_layout</span> <span class="ow">or</span> <span class="n">name</span> <span class="ow">in</span> <span class="n">engine</span><span class="o">.</span><span class="n">_custom</span><span class="p">:</span>
+            <span class="nb">setattr</span><span class="p">(</span><span class="n">engine</span><span class="p">,</span> <span class="n">name</span><span class="p">,</span> <span class="n">value</span><span class="p">)</span>  <span class="c1"># the loop&#39;s memory, which it copies under a lock</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_call</span><span class="p">(</span><span class="nb">setattr</span><span class="p">,</span> <span class="n">engine</span><span class="p">,</span> <span class="n">name</span><span class="p">,</span> <span class="n">value</span><span class="p">)</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_check</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="n">error</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_engine</span><span class="o">.</span><span class="vm">__dict__</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;_failure&quot;</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">error</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">RuntimeError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;The control loop stopped: </span><span class="si">{</span><span class="n">error</span><span class="si">}</span><span class="s2">. Recover the robot &quot;</span>
+                               <span class="s2">&quot;(aiofranka unlock) and start() the controller again&quot;</span><span class="p">)</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_require_running</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">what</span><span class="p">):</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">running</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">RuntimeError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">what</span><span class="si">}</span><span class="s2"> needs the loop: start() the controller first&quot;</span><span class="p">)</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_open</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Start the event loop thread.&quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_events</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">return</span>
+        <span class="n">loop</span> <span class="o">=</span> <span class="n">asyncio</span><span class="o">.</span><span class="n">new_event_loop</span><span class="p">()</span>
+        <span class="n">thread</span> <span class="o">=</span> <span class="n">threading</span><span class="o">.</span><span class="n">Thread</span><span class="p">(</span><span class="n">target</span><span class="o">=</span><span class="n">_serve</span><span class="p">,</span> <span class="n">args</span><span class="o">=</span><span class="p">(</span><span class="n">loop</span><span class="p">,),</span> <span class="n">name</span><span class="o">=</span><span class="s2">&quot;aiofranka-controller&quot;</span><span class="p">,</span> <span class="n">daemon</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="vm">__dict__</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="n">_events</span><span class="o">=</span><span class="n">loop</span><span class="p">,</span> <span class="n">_thread</span><span class="o">=</span><span class="n">thread</span><span class="p">)</span>
+        <span class="n">thread</span><span class="o">.</span><span class="n">start</span><span class="p">()</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_close</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Stop the loop and torque control, end the event loop thread and release the robot.&quot;&quot;&quot;</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_events</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="k">try</span><span class="p">:</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">_wait</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_shutdown</span><span class="p">())</span>
+                <span class="k">finally</span><span class="p">:</span>
+                    <span class="n">loop</span><span class="p">,</span> <span class="n">thread</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_events</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_thread</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="vm">__dict__</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="n">_events</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">_thread</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span>
+                    <span class="n">loop</span><span class="o">.</span><span class="n">call_soon_threadsafe</span><span class="p">(</span><span class="n">loop</span><span class="o">.</span><span class="n">stop</span><span class="p">)</span>
+                    <span class="n">thread</span><span class="o">.</span><span class="n">join</span><span class="p">()</span>
+                    <span class="n">loop</span><span class="o">.</span><span class="n">close</span><span class="p">()</span>
+        <span class="k">finally</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">robot</span><span class="o">.</span><span class="n">_detach</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span>
+
+    <span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">_shutdown</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="n">engine</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_engine</span>
+        <span class="n">engine</span><span class="o">.</span><span class="n">running</span> <span class="o">=</span> <span class="kc">False</span>  <span class="c1"># asks the loop to stop</span>
+        <span class="n">task</span> <span class="o">=</span> <span class="n">engine</span><span class="o">.</span><span class="n">task</span>
+        <span class="k">if</span> <span class="n">task</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="ow">not</span> <span class="n">task</span><span class="o">.</span><span class="n">done</span><span class="p">():</span>
+            <span class="k">await</span> <span class="n">task</span>  <span class="c1"># its watcher joins the loop and mirrors its last cycle</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="n">engine</span><span class="o">.</span><span class="n">robot</span><span class="o">.</span><span class="n">stop</span><span class="p">()</span>  <span class="c1"># ends torque control</span>
+        <span class="k">except</span> <span class="ne">Exception</span><span class="p">:</span>
+            <span class="n">engine</span><span class="o">.</span><span class="n">robot</span><span class="o">.</span><span class="n">torque_controller</span> <span class="o">=</span> <span class="kc">None</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="n">engine</span><span class="o">.</span><span class="vm">__dict__</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;_failure&quot;</span><span class="p">):</span>
+                <span class="k">raise</span>  <span class="c1"># after a loop error, the motion has ended already</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_call</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">function</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Call function in the event loop thread while it runs, otherwise here.&quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_events</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">or</span> <span class="n">threading</span><span class="o">.</span><span class="n">current_thread</span><span class="p">()</span> <span class="ow">is</span> <span class="bp">self</span><span class="o">.</span><span class="n">_thread</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">function</span><span class="p">(</span><span class="o">*</span><span class="n">args</span><span class="p">)</span>
+
+        <span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">call</span><span class="p">():</span>
+            <span class="k">return</span> <span class="n">function</span><span class="p">(</span><span class="o">*</span><span class="n">args</span><span class="p">)</span>
+
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_wait</span><span class="p">(</span><span class="n">call</span><span class="p">())</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_wait</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">coroutine</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Run coroutine in the event loop thread and return its result.&quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="n">threading</span><span class="o">.</span><span class="n">current_thread</span><span class="p">()</span> <span class="ow">is</span> <span class="bp">self</span><span class="o">.</span><span class="n">_thread</span><span class="p">:</span>
+            <span class="n">coroutine</span><span class="o">.</span><span class="n">close</span><span class="p">()</span>
+            <span class="k">raise</span> <span class="ne">RuntimeError</span><span class="p">(</span><span class="s2">&quot;This Controller method cannot run in the controller&#39;s own thread, &quot;</span>
+                               <span class="s2">&quot;e.g. from error_callback; call it from your code&quot;</span><span class="p">)</span>
+        <span class="n">future</span> <span class="o">=</span> <span class="n">asyncio</span><span class="o">.</span><span class="n">run_coroutine_threadsafe</span><span class="p">(</span><span class="n">coroutine</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_events</span><span class="p">)</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="k">while</span> <span class="kc">True</span><span class="p">:</span>
+                <span class="k">try</span><span class="p">:</span>
+                    <span class="c1"># Waking up every 50 ms takes Ctrl+C, which may reach another thread</span>
+                    <span class="k">return</span> <span class="n">future</span><span class="o">.</span><span class="n">result</span><span class="p">(</span><span class="n">timeout</span><span class="o">=</span><span class="mf">0.05</span><span class="p">)</span>
+                <span class="k">except</span> <span class="n">concurrent</span><span class="o">.</span><span class="n">futures</span><span class="o">.</span><span class="n">TimeoutError</span><span class="p">:</span>
+                    <span class="k">if</span> <span class="n">future</span><span class="o">.</span><span class="n">done</span><span class="p">():</span>
+                        <span class="k">return</span> <span class="n">future</span><span class="o">.</span><span class="n">result</span><span class="p">()</span>  <span class="c1"># it raised a TimeoutError of its own</span>
+        <span class="k">except</span> <span class="ne">BaseException</span><span class="p">:</span>
+            <span class="n">future</span><span class="o">.</span><span class="n">cancel</span><span class="p">()</span>  <span class="c1"># e.g. Ctrl+C in move(): the arm holds its last target</span>
+            <span class="k">raise</span></div>
+
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_serve</span><span class="p">(</span><span class="n">loop</span><span class="p">):</span>
+    <span class="n">asyncio</span><span class="o">.</span><span class="n">set_event_loop</span><span class="p">(</span><span class="n">loop</span><span class="p">)</span>
+    <span class="n">loop</span><span class="o">.</span><span class="n">run_forever</span><span class="p">()</span>
+</pre></div>
+
+           </div>
+          </div>
+          <footer>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2025, MIT Improbable AI Lab.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

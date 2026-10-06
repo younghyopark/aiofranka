@@ -1,0 +1,291 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="./">
+<head>
+  <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Native Control Loop &mdash; aiofranka 0.9.0 documentation</title>
+      <link rel="stylesheet" type="text/css" href="_static/pygments.css?v=b86133f3" />
+      <link rel="stylesheet" type="text/css" href="_static/css/theme.css?v=9edc463e" />
+
+  
+      <script src="_static/jquery.js?v=5d32c60e"></script>
+      <script src="_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="_static/documentation_options.js?v=39bb1c6d"></script>
+      <script src="_static/doctools.js?v=fd6eb6e6"></script>
+      <script src="_static/sphinx_highlight.js?v=6ffebe34"></script>
+    <script src="_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Search" href="search.html" />
+    <link rel="next" title="CLI Reference" href="cli.html" />
+    <link rel="prev" title="Controllers" href="controllers.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="index.html" class="icon icon-home">
+            aiofranka
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">Getting Started</span></p>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="installation.html">Installation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="quickstart.html">Quick Start</a></li>
+<li class="toctree-l1"><a class="reference internal" href="controllers.html">Controllers</a></li>
+<li class="toctree-l1 current"><a class="current reference internal" href="#">Native Control Loop</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="#how-it-compares">How it compares</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#building">Building</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#recording-every-cycle">Recording every cycle</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#custom-control-laws">Custom control laws</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="cli.html">CLI Reference</a></li>
+<li class="toctree-l1"><a class="reference internal" href="async_mode.html">Async Mode Guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="examples.html">Examples</a></li>
+<li class="toctree-l1"><a class="reference internal" href="troubleshooting.html">Troubleshooting</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">API Reference</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="api/franka.html">Robot and Controller</a></li>
+<li class="toctree-l1"><a class="reference internal" href="api/native.html">NativeFrankaController</a></li>
+<li class="toctree-l1"><a class="reference internal" href="api/controller.html">FrankaController</a></li>
+<li class="toctree-l1"><a class="reference internal" href="api/remote.html">FrankaRemoteController (Server Mode)</a></li>
+<li class="toctree-l1"><a class="reference internal" href="api/robot.html">Robot Interface</a></li>
+<li class="toctree-l1"><a class="reference internal" href="api/payload.html">Payload Identification and Tools</a></li>
+<li class="toctree-l1"><a class="reference internal" href="api/config.html">Controller Configurations</a></li>
+<li class="toctree-l1"><a class="reference internal" href="api/server.html">Server Functions</a></li>
+<li class="toctree-l1"><a class="reference internal" href="api/gripper.html">GripperController</a></li>
+<li class="toctree-l1"><a class="reference internal" href="api/utilities.html">Async Utilities</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="index.html">aiofranka</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="index.html" class="icon icon-home" aria-label="Home"></a></li>
+      <li class="breadcrumb-item active">Native Control Loop</li>
+      <li class="wy-breadcrumbs-aside">
+            <a href="_sources/native.rst.txt" rel="nofollow"> View page source</a>
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <section id="native-control-loop">
+<h1>Native Control Loop<a class="headerlink" href="#native-control-loop" title="Link to this heading"></a></h1>
+<p>aiofranka’s 1 kHz control loop runs in C++, in a thread that never waits for Python.
+<code class="docutils literal notranslate"><span class="pre">Controller</span></code> runs it in your process with plain calls, and <code class="docutils literal notranslate"><span class="pre">NativeFrankaController</span></code> with
+awaitable ones, for asyncio code.</p>
+<p>The legacy <code class="docutils literal notranslate"><span class="pre">FrankaController</span></code> runs the loop on the asyncio event loop, in Python. Anything
+else that runs there delays the next torque command: a planner, loading a model, garbage
+collection, a thread holding the GIL. When commands are late, the robot stops with
+<code class="docutils literal notranslate"><span class="pre">communication_constraints_violation</span></code>. The native controllers have <code class="docutils literal notranslate"><span class="pre">FrankaController</span></code>’s
+methods and attributes, so porting legacy code means swapping the class:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span><span class="w"> </span><span class="nn">aiofranka</span>
+
+<span class="n">controller</span> <span class="o">=</span> <span class="n">aiofranka</span><span class="o">.</span><span class="n">Controller</span><span class="p">(</span><span class="n">aiofranka</span><span class="o">.</span><span class="n">Robot</span><span class="p">(</span><span class="s2">&quot;172.16.0.2&quot;</span><span class="p">))</span>
+<span class="n">controller</span><span class="o">.</span><span class="n">start</span><span class="p">()</span>
+<span class="n">controller</span><span class="o">.</span><span class="n">switch</span><span class="p">(</span><span class="s2">&quot;osc&quot;</span><span class="p">)</span>
+<span class="n">controller</span><span class="o">.</span><span class="n">set</span><span class="p">(</span><span class="s2">&quot;ee_desired&quot;</span><span class="p">,</span> <span class="n">target</span><span class="p">)</span>
+</pre></div>
+</div>
+<p>or, keeping the <code class="docutils literal notranslate"><span class="pre">await</span></code>s, <code class="docutils literal notranslate"><span class="pre">NativeFrankaController(RobotInterface(ip))</span></code> for
+<code class="docutils literal notranslate"><span class="pre">FrankaController(RobotInterface(ip))</span></code>.</p>
+<p>Server mode runs the native loop too: <code class="docutils literal notranslate"><span class="pre">FrankaRemoteController</span></code>, <code class="docutils literal notranslate"><span class="pre">aiofranka</span> <span class="pre">start-server</span></code> and
+<code class="docutils literal notranslate"><span class="pre">aiofranka.start()</span></code> start the server with <code class="docutils literal notranslate"><span class="pre">NativeServerController</span></code>, and <code class="docutils literal notranslate"><span class="pre">aiofranka</span> <span class="pre">home</span></code>,
+<code class="docutils literal notranslate"><span class="pre">aiofranka</span> <span class="pre">gravcomp</span></code> and <code class="docutils literal notranslate"><span class="pre">aiofranka</span> <span class="pre">tool</span> <span class="pre">identify</span></code> run <code class="docutils literal notranslate"><span class="pre">NativeFrankaController</span></code>. Where the
+native loop is not built, the server, <code class="docutils literal notranslate"><span class="pre">home</span></code> and <code class="docutils literal notranslate"><span class="pre">gravcomp</span></code> fall back to the Python loop
+with a warning. <code class="docutils literal notranslate"><span class="pre">aiofranka</span> <span class="pre">start-server</span> <span class="pre">--python</span></code>, <code class="docutils literal notranslate"><span class="pre">aiofranka.start(native=False)</span></code> and
+<code class="docutils literal notranslate"><span class="pre">FrankaRemoteController(native=False)</span></code> run the legacy Python loop.</p>
+<nav class="contents local" id="table-of-contents">
+<p class="topic-title">Table of Contents</p>
+<ul class="simple">
+<li><p><a class="reference internal" href="#how-it-compares" id="id1">How it compares</a></p></li>
+<li><p><a class="reference internal" href="#building" id="id2">Building</a></p></li>
+<li><p><a class="reference internal" href="#recording-every-cycle" id="id3">Recording every cycle</a></p></li>
+<li><p><a class="reference internal" href="#custom-control-laws" id="id4">Custom control laws</a></p></li>
+</ul>
+</nav>
+<section id="how-it-compares">
+<h2><a class="toc-backref" href="#id1" role="doc-backlink">How it compares</a><a class="headerlink" href="#how-it-compares" title="Link to this heading"></a></h2>
+<p>The impedance, pid, osc and torque laws are ports of <code class="docutils literal notranslate"><span class="pre">FrankaController</span></code>’s. Stepped in
+lockstep from the same state, impedance, pid and torque mode send bit-identical torques,
+and the OSC agrees to 1e-12 Nm.</p>
+<p>On a simulated robot driven through libfranka’s <code class="docutils literal notranslate"><span class="pre">readOnce()</span></code>/<code class="docutils literal notranslate"><span class="pre">writeOnce()</span></code>, the longest
+gap between two torque commands was:</p>
+<table class="docutils align-default">
+<thead>
+<tr class="row-odd"><th class="head"><p>While Python…</p></th>
+<th class="head"><p><code class="docutils literal notranslate"><span class="pre">FrankaController</span></code></p></th>
+<th class="head"><p><code class="docutils literal notranslate"><span class="pre">NativeFrankaController</span></code></p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p>idles</p></td>
+<td><p>1.3 ms</p></td>
+<td><p>1.2 ms</p></td>
+</tr>
+<tr class="row-odd"><td><p>blocks the event loop for 300 ms</p></td>
+<td><p>302 ms</p></td>
+<td><p>1.3 ms</p></td>
+</tr>
+<tr class="row-even"><td><p>runs a thread that holds the GIL for 300 ms</p></td>
+<td><p>18.8 ms</p></td>
+<td><p>1.2 ms</p></td>
+</tr>
+</tbody>
+</table>
+<p>What changes:</p>
+<ul class="simple">
+<li><p>A subclass’s <code class="docutils literal notranslate"><span class="pre">step()</span></code> would never run, so the native controllers refuse one: write it
+as a control law, and log every cycle with <code class="docutils literal notranslate"><span class="pre">record()</span></code> (both below).</p></li>
+<li><p>Attributes the loop reads (<code class="docutils literal notranslate"><span class="pre">kp</span></code>, <code class="docutils literal notranslate"><span class="pre">q_desired</span></code>, <code class="docutils literal notranslate"><span class="pre">ee_desired</span></code>, …) are views of its
+memory. Assigning one copies the value in, and the loop takes it whole at its next cycle.</p></li>
+<li><p>While the loop runs, <code class="docutils literal notranslate"><span class="pre">robot.state</span></code> is what it read at its last cycle. With
+<code class="docutils literal notranslate"><span class="pre">NativeFrankaController</span></code>, the <code class="docutils literal notranslate"><span class="pre">RobotInterface</span></code>’s <code class="docutils literal notranslate"><span class="pre">robot.data</span></code> and <code class="docutils literal notranslate"><span class="pre">robot.robot_state</span></code>
+follow it, updated from the event loop about every millisecond. In simulation, the loop
+owns the simulated arm.</p></li>
+<li><p>On Linux, the loop’s thread runs at SCHED_FIFO priority 80, which needs an rtprio limit
+(<code class="docutils literal notranslate"><span class="pre">ulimit</span> <span class="pre">-r</span></code>) of at least that. Set <code class="docutils literal notranslate"><span class="pre">controller.realtime_priority</span> <span class="pre">=</span> <span class="pre">0</span></code> before
+<code class="docutils literal notranslate"><span class="pre">start()</span></code> for normal priority.</p></li>
+<li><p>The thread starts on the CPUs of the thread that calls <code class="docutils literal notranslate"><span class="pre">start()</span></code>. Set
+<code class="docutils literal notranslate"><span class="pre">controller.realtime_cpu</span></code> before <code class="docutils literal notranslate"><span class="pre">start()</span></code> to pin it to a CPU of its own, and keep
+Python’s threads at normal priority: another SCHED_FIFO thread of the same priority on
+that CPU would hold the loop off until it yields.</p></li>
+</ul>
+</section>
+<section id="building">
+<h2><a class="toc-backref" href="#id2" role="doc-backlink">Building</a><a class="headerlink" href="#building" title="Link to this heading"></a></h2>
+<p>The loop is the compiled extension <code class="docutils literal notranslate"><span class="pre">aiofranka._native</span></code>. The wheels for macOS on Apple
+Silicon (CPython 3.10 to 3.14) and Linux x86_64 (CPython 3.10 to 3.12) include it; elsewhere,
+or from a git checkout, it is built with a C++17 compiler. For a development install:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>pip<span class="w"> </span>install<span class="w"> </span><span class="s2">&quot;pybind11&gt;=3.1,&lt;3.2&quot;</span>
+pip<span class="w"> </span>install<span class="w"> </span>--no-build-isolation<span class="w"> </span>-e<span class="w"> </span>.
+</pre></div>
+</div>
+<p>It is not linked against libfranka: it uses the libfranka that pylibfranka loaded, and must
+be rebuilt for another libfranka minor version.</p>
+</section>
+<section id="recording-every-cycle">
+<h2><a class="toc-backref" href="#id3" role="doc-backlink">Recording every cycle</a><a class="headerlink" href="#recording-every-cycle" title="Link to this heading"></a></h2>
+<p><code class="docutils literal notranslate"><span class="pre">controller.record()</span></code> logs every cycle of the loop. After sending the torques, the loop
+writes the chosen fields into a buffer in C++ without waiting for Python, and the
+controller moves them to Python about every 10 ms, so a blocked event loop loses nothing:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="k">with</span> <span class="n">controller</span><span class="o">.</span><span class="n">record</span><span class="p">([</span><span class="s2">&quot;time&quot;</span><span class="p">,</span> <span class="s2">&quot;q&quot;</span><span class="p">,</span> <span class="s2">&quot;dq&quot;</span><span class="p">,</span> <span class="s2">&quot;tau&quot;</span><span class="p">,</span> <span class="s2">&quot;tau_J_d&quot;</span><span class="p">],</span> <span class="n">path</span><span class="o">=</span><span class="s2">&quot;control.npz&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">recording</span><span class="p">:</span>
+    <span class="n">run_policy</span><span class="p">(</span><span class="n">controller</span><span class="p">)</span>
+<span class="n">data</span> <span class="o">=</span> <span class="n">recording</span><span class="o">.</span><span class="n">data</span><span class="p">()</span>  <span class="c1"># {&quot;time&quot;: (n,), &quot;q&quot;: (n, 7), ...}, one row per cycle</span>
+</pre></div>
+</div>
+<p>The fields are those of the cycle (<code class="docutils literal notranslate"><span class="pre">cycle</span></code>, <code class="docutils literal notranslate"><span class="pre">time</span></code>, <code class="docutils literal notranslate"><span class="pre">wall_time</span></code>, <code class="docutils literal notranslate"><span class="pre">busy</span></code>, <code class="docutils literal notranslate"><span class="pre">q</span></code>,
+<code class="docutils literal notranslate"><span class="pre">dq</span></code>, <code class="docutils literal notranslate"><span class="pre">ee</span></code>, <code class="docutils literal notranslate"><span class="pre">tcp</span></code>, <code class="docutils literal notranslate"><span class="pre">jac</span></code>, <code class="docutils literal notranslate"><span class="pre">mm</span></code>, <code class="docutils literal notranslate"><span class="pre">last_torque</span></code>, <code class="docutils literal notranslate"><span class="pre">tau</span></code>, <code class="docutils literal notranslate"><span class="pre">robot_mode</span></code>), the
+controller’s attributes as the cycle used them (<code class="docutils literal notranslate"><span class="pre">q_desired</span></code>, <code class="docutils literal notranslate"><span class="pre">ee_desired</span></code>, <code class="docutils literal notranslate"><span class="pre">kp</span></code>, …,
+and the parameters of registered control laws), and every number of the robot state
+(<code class="docutils literal notranslate"><span class="pre">tau_J</span></code>, <code class="docutils literal notranslate"><span class="pre">tau_J_d</span></code>, <code class="docutils literal notranslate"><span class="pre">tau_ext_hat_filtered</span></code>, <code class="docutils literal notranslate"><span class="pre">O_F_ext_hat_K</span></code>,
+<code class="docutils literal notranslate"><span class="pre">control_command_success_rate</span></code>, …; NaN in simulation). <code class="docutils literal notranslate"><span class="pre">record()</span></code> without fields
+takes <code class="docutils literal notranslate"><span class="pre">aiofranka.native.RECORD_FIELDS</span></code>.</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">tau</span></code> is the torque sent, after the rate limit and clip. The robot echoes each command
+it got in the <code class="docutils literal notranslate"><span class="pre">tau_J_d</span></code> of its next state, rounded to float32, so the rows show which
+commands arrived.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">wall_time</span></code> is the host’s <code class="docutils literal notranslate"><span class="pre">time.time()</span></code> when the robot state arrived, and <code class="docutils literal notranslate"><span class="pre">busy</span></code> the
+seconds from then to the command.</p></li>
+<li><p>With a <code class="docutils literal notranslate"><span class="pre">path</span></code>, <code class="docutils literal notranslate"><span class="pre">stop()</span></code> saves the rows there, as does a loop that stops with an error
+before the process exits. <code class="docutils literal notranslate"><span class="pre">recording.save(path)</span></code> saves the rows so far.</p></li>
+<li><p>The buffer holds <code class="docutils literal notranslate"><span class="pre">seconds</span></code> of cycles (default 60). If Python does not take the rows for
+longer, the loop drops new ones and <code class="docutils literal notranslate"><span class="pre">recording.dropped</span></code> counts them.</p></li>
+</ul>
+</section>
+<section id="custom-control-laws">
+<h2><a class="toc-backref" href="#id4" role="doc-backlink">Custom control laws</a><a class="headerlink" href="#custom-control-laws" title="Link to this heading"></a></h2>
+<p>Write a new law in Python. aiofranka compiles it with Numba
+(<code class="docutils literal notranslate"><span class="pre">pip</span> <span class="pre">install</span> <span class="pre">&quot;aiofranka[native]&quot;</span></code>), and the loop calls it every millisecond without
+Python:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">aiofranka</span><span class="w"> </span><span class="kn">import</span> <span class="n">control_law</span>
+
+<span class="nd">@control_law</span><span class="p">(</span><span class="n">params</span><span class="o">=</span><span class="p">{</span><span class="s2">&quot;stiffness&quot;</span><span class="p">:</span> <span class="mi">7</span><span class="p">,</span> <span class="s2">&quot;damping&quot;</span><span class="p">:</span> <span class="mi">7</span><span class="p">},</span> <span class="n">memory</span><span class="o">=</span><span class="p">{</span><span class="s2">&quot;integral&quot;</span><span class="p">:</span> <span class="mi">7</span><span class="p">})</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">pi_damping</span><span class="p">(</span><span class="n">s</span><span class="p">,</span> <span class="n">p</span><span class="p">,</span> <span class="n">m</span><span class="p">,</span> <span class="n">tau</span><span class="p">):</span>
+    <span class="n">error</span> <span class="o">=</span> <span class="n">p</span><span class="o">.</span><span class="n">q_desired</span> <span class="o">-</span> <span class="n">s</span><span class="o">.</span><span class="n">qpos</span>
+    <span class="n">m</span><span class="o">.</span><span class="n">integral</span><span class="p">[:]</span> <span class="o">+=</span> <span class="n">error</span> <span class="o">*</span> <span class="n">s</span><span class="o">.</span><span class="n">dt</span>
+    <span class="n">tau</span><span class="p">[:]</span> <span class="o">=</span> <span class="n">p</span><span class="o">.</span><span class="n">stiffness</span> <span class="o">*</span> <span class="n">error</span> <span class="o">+</span> <span class="mf">2.0</span> <span class="o">*</span> <span class="n">m</span><span class="o">.</span><span class="n">integral</span> <span class="o">-</span> <span class="n">p</span><span class="o">.</span><span class="n">damping</span> <span class="o">*</span> <span class="n">s</span><span class="o">.</span><span class="n">qvel</span>
+
+<span class="n">controller</span><span class="o">.</span><span class="n">switch</span><span class="p">(</span><span class="n">pi_damping</span><span class="p">)</span>            <span class="c1"># compiles it, a few seconds the first time</span>
+<span class="n">controller</span><span class="o">.</span><span class="n">stiffness</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">full</span><span class="p">(</span><span class="mi">7</span><span class="p">,</span> <span class="mf">60.0</span><span class="p">)</span>  <span class="c1"># its params are controller attributes, zero at first</span>
+<span class="n">controller</span><span class="o">.</span><span class="n">damping</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">full</span><span class="p">(</span><span class="mi">7</span><span class="p">,</span> <span class="mf">4.0</span><span class="p">)</span>
+<span class="n">controller</span><span class="o">.</span><span class="n">set</span><span class="p">(</span><span class="s2">&quot;q_desired&quot;</span><span class="p">,</span> <span class="n">target</span><span class="p">)</span>
+</pre></div>
+</div>
+<p>A law gets:</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">s</span></code>, what the loop read at this cycle: <code class="docutils literal notranslate"><span class="pre">qpos</span></code>, <code class="docutils literal notranslate"><span class="pre">qvel</span></code>, <code class="docutils literal notranslate"><span class="pre">ee</span></code> (the flange pose,
+4x4), <code class="docutils literal notranslate"><span class="pre">jac</span></code> (6x7, linear rows first), <code class="docutils literal notranslate"><span class="pre">mm</span></code> (7x7), <code class="docutils literal notranslate"><span class="pre">last_torque</span></code>, and <code class="docutils literal notranslate"><span class="pre">cycle</span></code>,
+<code class="docutils literal notranslate"><span class="pre">time</span></code> and <code class="docutils literal notranslate"><span class="pre">dt</span></code></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">p</span></code>, the controller’s attributes (<code class="docutils literal notranslate"><span class="pre">kp</span></code>, <code class="docutils literal notranslate"><span class="pre">q_desired</span></code>, <code class="docutils literal notranslate"><span class="pre">ee_desired</span></code>, …) and the
+law’s own <code class="docutils literal notranslate"><span class="pre">params</span></code></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">m</span></code>, the law’s <code class="docutils literal notranslate"><span class="pre">memory</span></code>, zeroed when <code class="docutils literal notranslate"><span class="pre">switch()</span></code> selects the law</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">tau</span></code>, the 7 torques to fill [Nm]</p></li>
+</ul>
+<p>Laws use numpy and math only (Numba’s nopython mode). With <code class="docutils literal notranslate"><span class="pre">clip</span></code> (the default), the loop
+rate-limits and clips their torques like the built-in laws. Return a nonzero integer to stop
+the loop with an error. Try a law in simulation first: <code class="docutils literal notranslate"><span class="pre">controller.step()</span></code> runs one cycle
+at a time. <code class="docutils literal notranslate"><span class="pre">examples/08_native_custom_law.py</span></code> holds the arm with a PID law.</p>
+</section>
+</section>
+
+
+           </div>
+          </div>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="controllers.html" class="btn btn-neutral float-left" title="Controllers" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="cli.html" class="btn btn-neutral float-right" title="CLI Reference" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2025, MIT Improbable AI Lab.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

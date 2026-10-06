@@ -1,0 +1,917 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="../">
+<head>
+  <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Payload Identification and Tools &mdash; aiofranka 0.9.0 documentation</title>
+      <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=b86133f3" />
+      <link rel="stylesheet" type="text/css" href="../_static/css/theme.css?v=9edc463e" />
+
+  
+      <script src="../_static/jquery.js?v=5d32c60e"></script>
+      <script src="../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="../_static/documentation_options.js?v=39bb1c6d"></script>
+      <script src="../_static/doctools.js?v=fd6eb6e6"></script>
+      <script src="../_static/sphinx_highlight.js?v=6ffebe34"></script>
+    <script src="../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="next" title="Controller Configurations" href="config.html" />
+    <link rel="prev" title="Robot Interface" href="robot.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../index.html" class="icon icon-home">
+            aiofranka
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">Getting Started</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../installation.html">Installation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../quickstart.html">Quick Start</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../controllers.html">Controllers</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../native.html">Native Control Loop</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../cli.html">CLI Reference</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../async_mode.html">Async Mode Guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../examples.html">Examples</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../troubleshooting.html">Troubleshooting</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">API Reference</span></p>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="franka.html">Robot and Controller</a></li>
+<li class="toctree-l1"><a class="reference internal" href="native.html">NativeFrankaController</a></li>
+<li class="toctree-l1"><a class="reference internal" href="controller.html">FrankaController</a></li>
+<li class="toctree-l1"><a class="reference internal" href="remote.html">FrankaRemoteController (Server Mode)</a></li>
+<li class="toctree-l1"><a class="reference internal" href="robot.html">Robot Interface</a></li>
+<li class="toctree-l1 current"><a class="current reference internal" href="#">Payload Identification and Tools</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="#aiofranka.payload.payload_regressor"><code class="docutils literal notranslate"><span class="pre">payload_regressor()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="#aiofranka.payload.PayloadEstimate"><code class="docutils literal notranslate"><span class="pre">PayloadEstimate</span></code></a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#aiofranka.payload.PayloadEstimate.mass"><code class="docutils literal notranslate"><span class="pre">PayloadEstimate.mass</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#aiofranka.payload.PayloadEstimate.com"><code class="docutils literal notranslate"><span class="pre">PayloadEstimate.com</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#aiofranka.payload.PayloadEstimate.mass_std"><code class="docutils literal notranslate"><span class="pre">PayloadEstimate.mass_std</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#aiofranka.payload.PayloadEstimate.com_std"><code class="docutils literal notranslate"><span class="pre">PayloadEstimate.com_std</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#aiofranka.payload.PayloadEstimate.previous"><code class="docutils literal notranslate"><span class="pre">PayloadEstimate.previous</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#aiofranka.payload.PayloadEstimate.bias"><code class="docutils literal notranslate"><span class="pre">PayloadEstimate.bias</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#aiofranka.payload.PayloadEstimate.rms_before"><code class="docutils literal notranslate"><span class="pre">PayloadEstimate.rms_before</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#aiofranka.payload.PayloadEstimate.rms_after"><code class="docutils literal notranslate"><span class="pre">PayloadEstimate.rms_after</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#aiofranka.payload.PayloadEstimate.condition"><code class="docutils literal notranslate"><span class="pre">PayloadEstimate.condition</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#aiofranka.payload.PayloadEstimate.qpos"><code class="docutils literal notranslate"><span class="pre">PayloadEstimate.qpos</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#aiofranka.payload.PayloadEstimate.residuals"><code class="docutils literal notranslate"><span class="pre">PayloadEstimate.residuals</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#id0"><code class="docutils literal notranslate"><span class="pre">PayloadEstimate.mass</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#id1"><code class="docutils literal notranslate"><span class="pre">PayloadEstimate.com</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#id2"><code class="docutils literal notranslate"><span class="pre">PayloadEstimate.mass_std</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#id3"><code class="docutils literal notranslate"><span class="pre">PayloadEstimate.com_std</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#id4"><code class="docutils literal notranslate"><span class="pre">PayloadEstimate.previous</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#id5"><code class="docutils literal notranslate"><span class="pre">PayloadEstimate.bias</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#id6"><code class="docutils literal notranslate"><span class="pre">PayloadEstimate.rms_before</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#id7"><code class="docutils literal notranslate"><span class="pre">PayloadEstimate.rms_after</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#id8"><code class="docutils literal notranslate"><span class="pre">PayloadEstimate.condition</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#id9"><code class="docutils literal notranslate"><span class="pre">PayloadEstimate.qpos</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#id10"><code class="docutils literal notranslate"><span class="pre">PayloadEstimate.residuals</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#aiofranka.payload.PayloadEstimate.__init__"><code class="docutils literal notranslate"><span class="pre">PayloadEstimate.__init__()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="#aiofranka.payload.fit_payload"><code class="docutils literal notranslate"><span class="pre">fit_payload()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="#aiofranka.payload.identify_payload"><code class="docutils literal notranslate"><span class="pre">identify_payload()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="#aiofranka.tools.Tool"><code class="docutils literal notranslate"><span class="pre">Tool</span></code></a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#aiofranka.tools.Tool.name"><code class="docutils literal notranslate"><span class="pre">Tool.name</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#aiofranka.tools.Tool.mass"><code class="docutils literal notranslate"><span class="pre">Tool.mass</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#aiofranka.tools.Tool.com"><code class="docutils literal notranslate"><span class="pre">Tool.com</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#aiofranka.tools.Tool.inertia"><code class="docutils literal notranslate"><span class="pre">Tool.inertia</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#aiofranka.tools.Tool.translation"><code class="docutils literal notranslate"><span class="pre">Tool.translation</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#aiofranka.tools.Tool.rotation"><code class="docutils literal notranslate"><span class="pre">Tool.rotation</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#aiofranka.tools.Tool.device"><code class="docutils literal notranslate"><span class="pre">Tool.device</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#aiofranka.tools.Tool.active"><code class="docutils literal notranslate"><span class="pre">Tool.active</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#aiofranka.tools.Tool.id"><code class="docutils literal notranslate"><span class="pre">Tool.id</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#id11"><code class="docutils literal notranslate"><span class="pre">Tool.name</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#id12"><code class="docutils literal notranslate"><span class="pre">Tool.mass</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#id13"><code class="docutils literal notranslate"><span class="pre">Tool.com</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#id14"><code class="docutils literal notranslate"><span class="pre">Tool.inertia</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#id15"><code class="docutils literal notranslate"><span class="pre">Tool.translation</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#id16"><code class="docutils literal notranslate"><span class="pre">Tool.rotation</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#id17"><code class="docutils literal notranslate"><span class="pre">Tool.device</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#id18"><code class="docutils literal notranslate"><span class="pre">Tool.active</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#id19"><code class="docutils literal notranslate"><span class="pre">Tool.id</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#aiofranka.tools.Tool.__init__"><code class="docutils literal notranslate"><span class="pre">Tool.__init__()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="#aiofranka.tools.list_tools"><code class="docutils literal notranslate"><span class="pre">list_tools()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="#aiofranka.tools.active_tool"><code class="docutils literal notranslate"><span class="pre">active_tool()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="#aiofranka.tools.save_tool"><code class="docutils literal notranslate"><span class="pre">save_tool()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="#aiofranka.tools.load_tool"><code class="docutils literal notranslate"><span class="pre">load_tool()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="#aiofranka.tools.unload_tool"><code class="docutils literal notranslate"><span class="pre">unload_tool()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="#aiofranka.tools.remove_tool"><code class="docutils literal notranslate"><span class="pre">remove_tool()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="config.html">Controller Configurations</a></li>
+<li class="toctree-l1"><a class="reference internal" href="server.html">Server Functions</a></li>
+<li class="toctree-l1"><a class="reference internal" href="gripper.html">GripperController</a></li>
+<li class="toctree-l1"><a class="reference internal" href="utilities.html">Async Utilities</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../index.html">aiofranka</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../index.html" class="icon icon-home" aria-label="Home"></a></li>
+      <li class="breadcrumb-item active">Payload Identification and Tools</li>
+      <li class="wy-breadcrumbs-aside">
+            <a href="../_sources/api/payload.rst.txt" rel="nofollow"> View page source</a>
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <section id="module-aiofranka.payload">
+<span id="payload-identification-and-tools"></span><h1>Payload Identification and Tools<a class="headerlink" href="#module-aiofranka.payload" title="Link to this heading"></a></h1>
+<p>Identification of the tool attached to the flange.</p>
+<p>The robot compensates the gravity of the arm and of the payload: the end effector
+configured in Desk plus the load set with RobotInterface.set_load(). If the
+payload does not match the tool, the arm drifts in torque control, e.g. with zero
+torques. identify_payload() estimates the mass and center of mass of the tool from
+the joint torques at rest in a set of poses, starting from any payload setting,
+e.g. none.</p>
+<p>At rest, the measured joint torques minus the gravity torques of the robot model,
+tau_ext_hat_filtered, are the gravity torques of the part of the load the robot
+does not know about, plus stiction. Some joint friction acts past the torque
+sensors: at rest, they also see part of the torque with which the controller holds
+the joint against stiction, which on an FR3 was a few tenths of a Nm, flipping
+sign with the side the joint came from. So identify_payload() approaches each pose
+from both sides and averages. The gravity torques are linear in the mass m and the
+first moment m * c of the unknown part:</p>
+<blockquote>
+<div><p>tau = g * [J_v^T e_z | -J_w^T [e_z]x R] &#64; [m, m * c]</p>
+</div></blockquote>
+<p>where J_v and J_w are the linear and angular Jacobian and R the orientation of the
+flange in the base frame, and c is the center of mass in the flange frame. With
+poses in which the flange points in different directions, least squares gives m
+and c. The inertia does not change the gravity torques, so it cannot be identified
+at rest. It does not matter for the robot’s gravity compensation either.</p>
+<dl class="py function">
+<dt class="sig sig-object py" id="aiofranka.payload.payload_regressor">
+<span class="sig-prename descclassname"><span class="pre">aiofranka.payload.</span></span><span class="sig-name descname"><span class="pre">payload_regressor</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">qpos</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">kinematics</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/aiofranka/payload.html#payload_regressor"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#aiofranka.payload.payload_regressor" title="Link to this definition"></a></dt>
+<dd><p>Regressor of the gravity torques of a load on the flange.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>qpos</strong> (<em>array-like</em>) – Joint positions [rad] (7,)</p></li>
+<li><p><strong>kinematics</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#tuple" title="(in Python v3.14)"><em>tuple</em></a><em> | </em><em>None</em>) – MuJoCo model, data and flange site id to
+compute it with (default: a model of the FR3)</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p><dl class="simple">
+<dt>Matrix Y (7, 4) such that Y &#64; [m, m * cx, m * cy, m * cz] are</dt><dd><p>the joint torques [Nm] that hold a load of mass m [kg] with center of
+mass c [m] in the flange frame against gravity.</p>
+</dd>
+</dl>
+</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>np.ndarray</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="aiofranka.payload.PayloadEstimate">
+<span class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></span><span class="sig-prename descclassname"><span class="pre">aiofranka.payload.</span></span><span class="sig-name descname"><span class="pre">PayloadEstimate</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">mass</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">com</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">mass_std</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">com_std</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">previous</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">bias</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">rms_before</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">rms_after</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">condition</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">qpos</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">residuals</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/aiofranka/payload.html#PayloadEstimate"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#aiofranka.payload.PayloadEstimate" title="Link to this definition"></a></dt>
+<dd><p>Tool on the flange estimated by identify_payload() or fit_payload().</p>
+<p>The estimate is the whole tool: the payload that was set during the
+measurements plus the correction the measurements found.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>mass</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/functions.html#float" title="(in Python v3.14)"><em>float</em></a>)</p></li>
+<li><p><strong>com</strong> (<a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v2.5)"><em>ndarray</em></a>)</p></li>
+<li><p><strong>mass_std</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/functions.html#float" title="(in Python v3.14)"><em>float</em></a>)</p></li>
+<li><p><strong>com_std</strong> (<a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v2.5)"><em>ndarray</em></a>)</p></li>
+<li><p><strong>previous</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#dict" title="(in Python v3.14)"><em>dict</em></a>)</p></li>
+<li><p><strong>bias</strong> (<a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v2.5)"><em>ndarray</em></a>)</p></li>
+<li><p><strong>rms_before</strong> (<a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v2.5)"><em>ndarray</em></a>)</p></li>
+<li><p><strong>rms_after</strong> (<a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v2.5)"><em>ndarray</em></a>)</p></li>
+<li><p><strong>condition</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/functions.html#float" title="(in Python v3.14)"><em>float</em></a>)</p></li>
+<li><p><strong>qpos</strong> (<a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v2.5)"><em>ndarray</em></a>)</p></li>
+<li><p><strong>residuals</strong> (<a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v2.5)"><em>ndarray</em></a>)</p></li>
+</ul>
+</dd>
+</dl>
+<dl class="py attribute">
+<dt class="sig sig-object py" id="aiofranka.payload.PayloadEstimate.mass">
+<span class="sig-name descname"><span class="pre">mass</span></span><a class="headerlink" href="#aiofranka.payload.PayloadEstimate.mass" title="Link to this definition"></a></dt>
+<dd><p>Tool mass [kg]</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/builtins/functions.html#float" title="(in Python v3.14)">float</a></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="aiofranka.payload.PayloadEstimate.com">
+<span class="sig-name descname"><span class="pre">com</span></span><a class="headerlink" href="#aiofranka.payload.PayloadEstimate.com" title="Link to this definition"></a></dt>
+<dd><p>Center of mass in the flange frame [m] (3,)</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>np.ndarray</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="aiofranka.payload.PayloadEstimate.mass_std">
+<span class="sig-name descname"><span class="pre">mass_std</span></span><a class="headerlink" href="#aiofranka.payload.PayloadEstimate.mass_std" title="Link to this definition"></a></dt>
+<dd><p>Standard error of the mass [kg]</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/builtins/functions.html#float" title="(in Python v3.14)">float</a></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="aiofranka.payload.PayloadEstimate.com_std">
+<span class="sig-name descname"><span class="pre">com_std</span></span><a class="headerlink" href="#aiofranka.payload.PayloadEstimate.com_std" title="Link to this definition"></a></dt>
+<dd><p>Standard error of the center of mass [m] (3,)</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>np.ndarray</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="aiofranka.payload.PayloadEstimate.previous">
+<span class="sig-name descname"><span class="pre">previous</span></span><a class="headerlink" href="#aiofranka.payload.PayloadEstimate.previous" title="Link to this definition"></a></dt>
+<dd><p>Payload that was set during the measurements, with
+“mass” and “com”</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#dict" title="(in Python v3.14)">dict</a></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="aiofranka.payload.PayloadEstimate.bias">
+<span class="sig-name descname"><span class="pre">bias</span></span><a class="headerlink" href="#aiofranka.payload.PayloadEstimate.bias" title="Link to this definition"></a></dt>
+<dd><p>Torque offsets per joint [Nm] (7,), e.g. from the
+torque sensors. The payload cannot compensate them.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>np.ndarray</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="aiofranka.payload.PayloadEstimate.rms_before">
+<span class="sig-name descname"><span class="pre">rms_before</span></span><a class="headerlink" href="#aiofranka.payload.PayloadEstimate.rms_before" title="Link to this definition"></a></dt>
+<dd><p>RMS of the residual torques at rest with the
+previous payload [Nm] (7,)</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>np.ndarray</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="aiofranka.payload.PayloadEstimate.rms_after">
+<span class="sig-name descname"><span class="pre">rms_after</span></span><a class="headerlink" href="#aiofranka.payload.PayloadEstimate.rms_after" title="Link to this definition"></a></dt>
+<dd><p>RMS of the residual torques at rest predicted with
+this tool [Nm] (7,). It includes the offsets in bias.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>np.ndarray</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="aiofranka.payload.PayloadEstimate.condition">
+<span class="sig-name descname"><span class="pre">condition</span></span><a class="headerlink" href="#aiofranka.payload.PayloadEstimate.condition" title="Link to this definition"></a></dt>
+<dd><p>Condition number of the least-squares problem. Large
+values, e.g. &gt; 100, mean the poses do not tell the parameters apart.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/builtins/functions.html#float" title="(in Python v3.14)">float</a></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="aiofranka.payload.PayloadEstimate.qpos">
+<span class="sig-name descname"><span class="pre">qpos</span></span><a class="headerlink" href="#aiofranka.payload.PayloadEstimate.qpos" title="Link to this definition"></a></dt>
+<dd><p>Joint positions of the measurements [rad] (n, 7)</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>np.ndarray</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="aiofranka.payload.PayloadEstimate.residuals">
+<span class="sig-name descname"><span class="pre">residuals</span></span><a class="headerlink" href="#aiofranka.payload.PayloadEstimate.residuals" title="Link to this definition"></a></dt>
+<dd><p>Measured residual torques at rest [Nm] (n, 7)</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>np.ndarray</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="id0">
+<span class="sig-name descname"><span class="pre">mass</span></span><span class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/builtins/functions.html#float" title="(in Python v3.14)"><span class="pre">float</span></a></span><a class="headerlink" href="#id0" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="id1">
+<span class="sig-name descname"><span class="pre">com</span></span><span class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v2.5)"><span class="pre">ndarray</span></a></span><a class="headerlink" href="#id1" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="id2">
+<span class="sig-name descname"><span class="pre">mass_std</span></span><span class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/builtins/functions.html#float" title="(in Python v3.14)"><span class="pre">float</span></a></span><a class="headerlink" href="#id2" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="id3">
+<span class="sig-name descname"><span class="pre">com_std</span></span><span class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v2.5)"><span class="pre">ndarray</span></a></span><a class="headerlink" href="#id3" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="id4">
+<span class="sig-name descname"><span class="pre">previous</span></span><span class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#dict" title="(in Python v3.14)"><span class="pre">dict</span></a></span><a class="headerlink" href="#id4" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="id5">
+<span class="sig-name descname"><span class="pre">bias</span></span><span class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v2.5)"><span class="pre">ndarray</span></a></span><a class="headerlink" href="#id5" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="id6">
+<span class="sig-name descname"><span class="pre">rms_before</span></span><span class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v2.5)"><span class="pre">ndarray</span></a></span><a class="headerlink" href="#id6" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="id7">
+<span class="sig-name descname"><span class="pre">rms_after</span></span><span class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v2.5)"><span class="pre">ndarray</span></a></span><a class="headerlink" href="#id7" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="id8">
+<span class="sig-name descname"><span class="pre">condition</span></span><span class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/builtins/functions.html#float" title="(in Python v3.14)"><span class="pre">float</span></a></span><a class="headerlink" href="#id8" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="id9">
+<span class="sig-name descname"><span class="pre">qpos</span></span><span class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v2.5)"><span class="pre">ndarray</span></a></span><a class="headerlink" href="#id9" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="id10">
+<span class="sig-name descname"><span class="pre">residuals</span></span><span class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v2.5)"><span class="pre">ndarray</span></a></span><a class="headerlink" href="#id10" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="aiofranka.payload.PayloadEstimate.__init__">
+<span class="sig-name descname"><span class="pre">__init__</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">mass</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">com</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">mass_std</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">com_std</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">previous</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">bias</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">rms_before</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">rms_after</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">condition</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">qpos</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">residuals</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#aiofranka.payload.PayloadEstimate.__init__" title="Link to this definition"></a></dt>
+<dd><dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>mass</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/functions.html#float" title="(in Python v3.14)"><em>float</em></a>)</p></li>
+<li><p><strong>com</strong> (<a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v2.5)"><em>ndarray</em></a>)</p></li>
+<li><p><strong>mass_std</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/functions.html#float" title="(in Python v3.14)"><em>float</em></a>)</p></li>
+<li><p><strong>com_std</strong> (<a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v2.5)"><em>ndarray</em></a>)</p></li>
+<li><p><strong>previous</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#dict" title="(in Python v3.14)"><em>dict</em></a>)</p></li>
+<li><p><strong>bias</strong> (<a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v2.5)"><em>ndarray</em></a>)</p></li>
+<li><p><strong>rms_before</strong> (<a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v2.5)"><em>ndarray</em></a>)</p></li>
+<li><p><strong>rms_after</strong> (<a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v2.5)"><em>ndarray</em></a>)</p></li>
+<li><p><strong>condition</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/functions.html#float" title="(in Python v3.14)"><em>float</em></a>)</p></li>
+<li><p><strong>qpos</strong> (<a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v2.5)"><em>ndarray</em></a>)</p></li>
+<li><p><strong>residuals</strong> (<a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v2.5)"><em>ndarray</em></a>)</p></li>
+</ul>
+</dd>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p>None</p>
+</dd>
+</dl>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="aiofranka.payload.fit_payload">
+<span class="sig-prename descclassname"><span class="pre">aiofranka.payload.</span></span><span class="sig-name descname"><span class="pre">fit_payload</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">qpos</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">residuals</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">previous</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">fit_bias</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">kinematics</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/aiofranka/payload.html#fit_payload"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#aiofranka.payload.fit_payload" title="Link to this definition"></a></dt>
+<dd><p>Estimate the tool on the flange from residual torques at rest.</p>
+<p>Solves for the mass and first moment of the unmodeled part of the tool, and
+with fit_bias a constant torque offset per joint, by least squares. A second
+pass weights the joints by their residual noise, so that model errors of the
+shoulder joints do not swamp the wrist joints, which see the center of mass.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>qpos</strong> (<em>array-like</em>) – Joint positions [rad] (n, 7)</p></li>
+<li><p><strong>residuals</strong> (<em>array-like</em>) – Residual torques at rest [Nm] (n, 7): the
+measured joint torques minus the gravity torques of the arm and the
+previous payload, e.g. tau_ext_hat_filtered</p></li>
+<li><p><strong>previous</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#dict" title="(in Python v3.14)"><em>dict</em></a><em> | </em><em>None</em>) – Payload that was set during the measurements,
+with “mass” [kg] and “com” [m] (default: none)</p></li>
+<li><p><strong>fit_bias</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/functions.html#bool" title="(in Python v3.14)"><em>bool</em></a>) – Estimate a torque offset per joint (default: True)</p></li>
+<li><p><strong>kinematics</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#tuple" title="(in Python v3.14)"><em>tuple</em></a><em> | </em><em>None</em>) – See payload_regressor()</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>Estimated tool, i.e. previous plus the correction</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference internal" href="#aiofranka.payload.PayloadEstimate" title="aiofranka.payload.PayloadEstimate">PayloadEstimate</a></p>
+</dd>
+<dt class="field-even">Raises<span class="colon">:</span></dt>
+<dd class="field-even"><p><a class="reference external" href="https://docs.python.org/3/builtins/exceptions.html#ValueError" title="(in Python v3.14)"><strong>ValueError</strong></a> – If there are too few poses for the parameters</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="aiofranka.payload.identify_payload">
+<span class="property"><span class="k"><span class="pre">async</span></span><span class="w"> </span></span><span class="sig-prename descclassname"><span class="pre">aiofranka.payload.</span></span><span class="sig-name descname"><span class="pre">identify_payload</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">controller</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">tool_length</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0.2</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">tool_radius</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0.1</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">floor</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">clearance</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0.05</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">n_poses</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">16</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">speed</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0.5</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">settle</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1.5</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">duration</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">fit_bias</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">verbose</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/aiofranka/payload.html#identify_payload"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#aiofranka.payload.identify_payload" title="Link to this definition"></a></dt>
+<dd><p>Identify the mass and center of mass of the tool on the flange.</p>
+<p>Plans n_poses poses around the current joint positions, in which the flange
+points in different directions, and moves through them in joint impedance
+control, approaching each from both sides. It measures the residual joint
+torques at rest in each and fits the tool with fit_payload(). It only measures:
+save the result as an end-effector profile in Desk with aiofranka.save_tool()
+and activate it with aiofranka.load_tool(). It starts from the payload the robot
+compensates, e.g. none, so running it again with the new profile active checks
+the result: the correction should be close to zero.</p>
+<p>The poses and the paths between them are checked for collisions of the arm, a
+cylinder around the tool and the floor. Planning computes for a few tenths of
+a second, which would stall a running 1 kHz control loop and make the robot
+abort, so it plans while no control loop runs: a running controller is stopped
+for it, while the robot holds still, and started again.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>controller</strong> (<a class="reference internal" href="controller.html#aiofranka.controller.FrankaController" title="aiofranka.controller.FrankaController"><em>FrankaController</em></a>) – Controller, started or not. One that was
+not started is started for the identification and stopped afterwards.</p></li>
+<li><p><strong>tool_length</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/functions.html#float" title="(in Python v3.14)"><em>float</em></a>) – Length of the tool from the flange along its z-axis
+[m] (default: 0.2)</p></li>
+<li><p><strong>tool_radius</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/functions.html#float" title="(in Python v3.14)"><em>float</em></a>) – Radius of the tool around the flange z-axis [m]
+(default: 0.1)</p></li>
+<li><p><strong>floor</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/functions.html#float" title="(in Python v3.14)"><em>float</em></a>) – Height of the floor or table in the base frame [m]
+(default: 0.0, the mounting plane of the robot)</p></li>
+<li><p><strong>clearance</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/functions.html#float" title="(in Python v3.14)"><em>float</em></a>) – Minimum distance of the tool from the arm, and of the
+arm and tool from the floor [m] (default: 0.05)</p></li>
+<li><p><strong>n_poses</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/functions.html#int" title="(in Python v3.14)"><em>int</em></a>) – Number of poses (default: 16)</p></li>
+<li><p><strong>speed</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/functions.html#float" title="(in Python v3.14)"><em>float</em></a>) – Peak joint speed of the motions [rad/s] (default: 0.5)</p></li>
+<li><p><strong>settle</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/functions.html#float" title="(in Python v3.14)"><em>float</em></a>) – Time to wait in each pose before measuring [s] (default:
+1.5). tau_ext_hat_filtered lags by about 0.3 s.</p></li>
+<li><p><strong>duration</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/functions.html#float" title="(in Python v3.14)"><em>float</em></a>) – Time to average the torques over in each pose [s]
+(default: 1)</p></li>
+<li><p><strong>fit_bias</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/functions.html#bool" title="(in Python v3.14)"><em>bool</em></a>) – Estimate a torque offset per joint (default: True)</p></li>
+<li><p><strong>verbose</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/functions.html#bool" title="(in Python v3.14)"><em>bool</em></a>) – Show a progress bar and the result (default: True)</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>Estimated tool</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference internal" href="#aiofranka.payload.PayloadEstimate" title="aiofranka.payload.PayloadEstimate">PayloadEstimate</a></p>
+</dd>
+<dt class="field-even">Raises<span class="colon">:</span></dt>
+<dd class="field-even"><p><a class="reference external" href="https://docs.python.org/3/builtins/exceptions.html#ValueError" title="(in Python v3.14)"><strong>ValueError</strong></a> – If too few poses around the current joint positions are clear;
+    move the arm to an open pose</p>
+</dd>
+</dl>
+<dl class="simple">
+<dt>Caveats:</dt><dd><ul class="simple">
+<li><p>Takes about 3 minutes. Start in an open pose, keep other obstacles out of
+reach, and stay close to the e-stop.</p></li>
+<li><p>Afterwards, a running controller is in impedance mode at the start pose.</p></li>
+</ul>
+</dd>
+</dl>
+</dd></dl>
+
+<p id="module-aiofranka.tools">Tools on the flange, kept as end-effector profiles in Desk.</p>
+<p>Desk keeps named end-effector profiles (Settings &gt; End Effector): the mass, center
+of mass and inertia of the tool on the flange, and its tool center point. The robot
+compensates the gravity of the active profile, and RobotInterface merges it into
+the MuJoCo model when it connects. These functions manage the profiles through the
+admin API that the Desk web UI uses, so Desk stays the one place that knows which
+tool is mounted.</p>
+<p class="rubric">Example</p>
+<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">estimate</span> <span class="o">=</span> <span class="k">await</span> <span class="n">controller</span><span class="o">.</span><span class="n">identify_payload</span><span class="p">()</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="k">await</span> <span class="n">controller</span><span class="o">.</span><span class="n">stop</span><span class="p">()</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">aiofranka</span><span class="o">.</span><span class="n">save_tool</span><span class="p">(</span><span class="s2">&quot;gripper&quot;</span><span class="p">,</span> <span class="n">estimate</span><span class="o">.</span><span class="n">mass</span><span class="p">,</span> <span class="n">estimate</span><span class="o">.</span><span class="n">com</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">aiofranka</span><span class="o">.</span><span class="n">load_tool</span><span class="p">(</span><span class="s2">&quot;gripper&quot;</span><span class="p">)</span>
+</pre></div>
+</div>
+<dl class="py class">
+<dt class="sig sig-object py" id="aiofranka.tools.Tool">
+<span class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></span><span class="sig-prename descclassname"><span class="pre">aiofranka.tools.</span></span><span class="sig-name descname"><span class="pre">Tool</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">name</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">mass</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">com</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">inertia</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">translation</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">rotation</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">device</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'ee-no-gripper'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">active</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">id</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/aiofranka/tools.html#Tool"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#aiofranka.tools.Tool" title="Link to this definition"></a></dt>
+<dd><p>An end-effector profile in Desk.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>name</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a>)</p></li>
+<li><p><strong>mass</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/functions.html#float" title="(in Python v3.14)"><em>float</em></a>)</p></li>
+<li><p><strong>com</strong> (<a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v2.5)"><em>ndarray</em></a>)</p></li>
+<li><p><strong>inertia</strong> (<a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v2.5)"><em>ndarray</em></a>)</p></li>
+<li><p><strong>translation</strong> (<a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v2.5)"><em>ndarray</em></a>)</p></li>
+<li><p><strong>rotation</strong> (<a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v2.5)"><em>ndarray</em></a>)</p></li>
+<li><p><strong>device</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a>)</p></li>
+<li><p><strong>active</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/functions.html#bool" title="(in Python v3.14)"><em>bool</em></a>)</p></li>
+<li><p><strong>id</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a>)</p></li>
+</ul>
+</dd>
+</dl>
+<dl class="py attribute">
+<dt class="sig sig-object py" id="aiofranka.tools.Tool.name">
+<span class="sig-name descname"><span class="pre">name</span></span><a class="headerlink" href="#aiofranka.tools.Tool.name" title="Link to this definition"></a></dt>
+<dd><p>Name of the profile</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#str" title="(in Python v3.14)">str</a></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="aiofranka.tools.Tool.mass">
+<span class="sig-name descname"><span class="pre">mass</span></span><a class="headerlink" href="#aiofranka.tools.Tool.mass" title="Link to this definition"></a></dt>
+<dd><p>Mass [kg]</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/builtins/functions.html#float" title="(in Python v3.14)">float</a></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="aiofranka.tools.Tool.com">
+<span class="sig-name descname"><span class="pre">com</span></span><a class="headerlink" href="#aiofranka.tools.Tool.com" title="Link to this definition"></a></dt>
+<dd><p>Center of mass in the flange frame [m] (3,)</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>np.ndarray</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="aiofranka.tools.Tool.inertia">
+<span class="sig-name descname"><span class="pre">inertia</span></span><a class="headerlink" href="#aiofranka.tools.Tool.inertia" title="Link to this definition"></a></dt>
+<dd><p>Inertia about the center of mass in the flange
+frame [kg m^2] (3, 3)</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>np.ndarray</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="aiofranka.tools.Tool.translation">
+<span class="sig-name descname"><span class="pre">translation</span></span><a class="headerlink" href="#aiofranka.tools.Tool.translation" title="Link to this definition"></a></dt>
+<dd><p>Translation from the flange to the tool center
+point [m] (3,)</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>np.ndarray</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="aiofranka.tools.Tool.rotation">
+<span class="sig-name descname"><span class="pre">rotation</span></span><a class="headerlink" href="#aiofranka.tools.Tool.rotation" title="Link to this definition"></a></dt>
+<dd><p>Rotation from the flange to the tool center point
+as roll, pitch, yaw [rad] (3,)</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>np.ndarray</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="aiofranka.tools.Tool.device">
+<span class="sig-name descname"><span class="pre">device</span></span><a class="headerlink" href="#aiofranka.tools.Tool.device" title="Link to this definition"></a></dt>
+<dd><p>Desk device, “ee-no-gripper” (Generic Device) or
+“ee-gripper” (Franka Hand)</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#str" title="(in Python v3.14)">str</a></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="aiofranka.tools.Tool.active">
+<span class="sig-name descname"><span class="pre">active</span></span><a class="headerlink" href="#aiofranka.tools.Tool.active" title="Link to this definition"></a></dt>
+<dd><p>Whether the robot uses this profile</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/builtins/functions.html#bool" title="(in Python v3.14)">bool</a></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="aiofranka.tools.Tool.id">
+<span class="sig-name descname"><span class="pre">id</span></span><a class="headerlink" href="#aiofranka.tools.Tool.id" title="Link to this definition"></a></dt>
+<dd><p>Id of the profile in Desk</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#str" title="(in Python v3.14)">str</a> | None</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="id11">
+<span class="sig-name descname"><span class="pre">name</span></span><span class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#str" title="(in Python v3.14)"><span class="pre">str</span></a></span><a class="headerlink" href="#id11" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="id12">
+<span class="sig-name descname"><span class="pre">mass</span></span><span class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/builtins/functions.html#float" title="(in Python v3.14)"><span class="pre">float</span></a></span><a class="headerlink" href="#id12" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="id13">
+<span class="sig-name descname"><span class="pre">com</span></span><span class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v2.5)"><span class="pre">ndarray</span></a></span><a class="headerlink" href="#id13" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="id14">
+<span class="sig-name descname"><span class="pre">inertia</span></span><span class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v2.5)"><span class="pre">ndarray</span></a></span><a class="headerlink" href="#id14" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="id15">
+<span class="sig-name descname"><span class="pre">translation</span></span><span class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v2.5)"><span class="pre">ndarray</span></a></span><a class="headerlink" href="#id15" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="id16">
+<span class="sig-name descname"><span class="pre">rotation</span></span><span class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v2.5)"><span class="pre">ndarray</span></a></span><a class="headerlink" href="#id16" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="id17">
+<span class="sig-name descname"><span class="pre">device</span></span><span class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#str" title="(in Python v3.14)"><span class="pre">str</span></a></span><span class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">'ee-no-gripper'</span></span><a class="headerlink" href="#id17" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="id18">
+<span class="sig-name descname"><span class="pre">active</span></span><span class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/builtins/functions.html#bool" title="(in Python v3.14)"><span class="pre">bool</span></a></span><span class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">False</span></span><a class="headerlink" href="#id18" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="id19">
+<span class="sig-name descname"><span class="pre">id</span></span><span class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#str" title="(in Python v3.14)"><span class="pre">str</span></a></span><span class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">None</span></span><a class="headerlink" href="#id19" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="aiofranka.tools.Tool.__init__">
+<span class="sig-name descname"><span class="pre">__init__</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">name</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">mass</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">com</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">inertia</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">translation</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">rotation</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">device</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'ee-no-gripper'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">active</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">id</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#aiofranka.tools.Tool.__init__" title="Link to this definition"></a></dt>
+<dd><dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>name</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a>)</p></li>
+<li><p><strong>mass</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/functions.html#float" title="(in Python v3.14)"><em>float</em></a>)</p></li>
+<li><p><strong>com</strong> (<a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v2.5)"><em>ndarray</em></a>)</p></li>
+<li><p><strong>inertia</strong> (<a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v2.5)"><em>ndarray</em></a>)</p></li>
+<li><p><strong>translation</strong> (<a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v2.5)"><em>ndarray</em></a>)</p></li>
+<li><p><strong>rotation</strong> (<a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v2.5)"><em>ndarray</em></a>)</p></li>
+<li><p><strong>device</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a>)</p></li>
+<li><p><strong>active</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/functions.html#bool" title="(in Python v3.14)"><em>bool</em></a>)</p></li>
+<li><p><strong>id</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a>)</p></li>
+</ul>
+</dd>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p>None</p>
+</dd>
+</dl>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="aiofranka.tools.list_tools">
+<span class="sig-prename descclassname"><span class="pre">aiofranka.tools.</span></span><span class="sig-name descname"><span class="pre">list_tools</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">ip</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">username</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">password</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">protocol</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'https'</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/aiofranka/tools.html#list_tools"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#aiofranka.tools.list_tools" title="Link to this definition"></a></dt>
+<dd><p>The end-effector profiles in Desk.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>ip</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a><em> | </em><em>None</em>) – Robot IP (default: from config or 172.16.0.2)</p></li>
+<li><p><strong>username</strong> – Desk credentials (default: from config)</p></li>
+<li><p><strong>password</strong> – Desk credentials (default: from config)</p></li>
+<li><p><strong>protocol</strong> – Desk credentials (default: from config)</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>The tools by name, in Desk’s order</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#dict" title="(in Python v3.14)">dict</a></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="aiofranka.tools.active_tool">
+<span class="sig-prename descclassname"><span class="pre">aiofranka.tools.</span></span><span class="sig-name descname"><span class="pre">active_tool</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">ip</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">username</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">password</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">protocol</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'https'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">timeout</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/aiofranka/tools.html#active_tool"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#aiofranka.tools.active_tool" title="Link to this definition"></a></dt>
+<dd><p>The end-effector profile active in Desk, the tool the robot compensates.</p>
+<p>Only reads: it never takes the control token.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>ip</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a><em> | </em><em>None</em>) – Robot IP (default: from config or 172.16.0.2)</p></li>
+<li><p><strong>username</strong> – Desk credentials (default: from config)</p></li>
+<li><p><strong>password</strong> – Desk credentials (default: from config)</p></li>
+<li><p><strong>protocol</strong> – Desk credentials (default: from config)</p></li>
+<li><p><strong>timeout</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/functions.html#float" title="(in Python v3.14)"><em>float</em></a><em> | </em><em>None</em>) – Seconds each request to Desk may take (default: 30)</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>The active profile</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference internal" href="#aiofranka.tools.Tool" title="aiofranka.tools.Tool">Tool</a></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="aiofranka.tools.save_tool">
+<span class="sig-prename descclassname"><span class="pre">aiofranka.tools.</span></span><span class="sig-name descname"><span class="pre">save_tool</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">name</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">mass</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">com</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">inertia</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">translation</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">rotation</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">ip</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">username</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">password</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">protocol</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'https'</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/aiofranka/tools.html#save_tool"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#aiofranka.tools.save_tool" title="Link to this definition"></a></dt>
+<dd><p>Save a tool as an end-effector profile in Desk.</p>
+<p>Updates the profile with that name, keeping what is not given, or creates one
+for a Generic Device. Does not activate it; see load_tool().</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>name</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a>) – Name of the profile</p></li>
+<li><p><strong>mass</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/functions.html#float" title="(in Python v3.14)"><em>float</em></a>) – Mass [kg]</p></li>
+<li><p><strong>com</strong> (<em>array-like</em>) – Center of mass in the flange frame [m] (3,)</p></li>
+<li><p><strong>inertia</strong> (<em>array-like</em><em> | </em><em>None</em>) – Inertia about the center of mass in the
+flange frame [kg m^2], as a (3, 3) tensor or its diagonal (3,).
+Default: keep the profile’s, or for a new one that of a solid sphere
+of radius DEFAULT_RADIUS, since the robot needs some inertia.</p></li>
+<li><p><strong>translation</strong> (<em>array-like</em><em> | </em><em>None</em>) – Translation from the flange to the tool
+center point [m] (3,) (default: keep the profile’s, or zero)</p></li>
+<li><p><strong>rotation</strong> (<em>array-like</em><em> | </em><em>None</em>) – Rotation from the flange to the tool center
+point as roll, pitch, yaw [rad] (3,) (default: keep the profile’s, or
+zero)</p></li>
+<li><p><strong>ip</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a><em> | </em><em>None</em>) – Robot IP (default: from config or 172.16.0.2)</p></li>
+<li><p><strong>username</strong> – Desk credentials (default: from config)</p></li>
+<li><p><strong>password</strong> – Desk credentials (default: from config)</p></li>
+<li><p><strong>protocol</strong> – Desk credentials (default: from config)</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>The saved tool</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference internal" href="#aiofranka.tools.Tool" title="aiofranka.tools.Tool">Tool</a></p>
+</dd>
+<dt class="field-even">Raises<span class="colon">:</span></dt>
+<dd class="field-even"><p><a class="reference external" href="https://docs.python.org/3/builtins/exceptions.html#ValueError" title="(in Python v3.14)"><strong>ValueError</strong></a> – If Desk or the robot would reject the tool</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="aiofranka.tools.load_tool">
+<span class="sig-prename descclassname"><span class="pre">aiofranka.tools.</span></span><span class="sig-name descname"><span class="pre">load_tool</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">name</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">ip</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">username</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">password</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">protocol</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'https'</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/aiofranka/tools.html#load_tool"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#aiofranka.tools.load_tool" title="Link to this definition"></a></dt>
+<dd><p>Activate an end-effector profile in Desk, so the robot compensates that tool.</p>
+<p>Desk keeps it active across connections and reboots. RobotInterface merges it
+into the MuJoCo model when it connects, so connect after loading.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>name</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a>) – Name of the profile</p></li>
+<li><p><strong>ip</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a><em> | </em><em>None</em>) – Robot IP (default: from config or 172.16.0.2)</p></li>
+<li><p><strong>username</strong> – Desk credentials (default: from config)</p></li>
+<li><p><strong>password</strong> – Desk credentials (default: from config)</p></li>
+<li><p><strong>protocol</strong> – Desk credentials (default: from config)</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>The loaded tool</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference internal" href="#aiofranka.tools.Tool" title="aiofranka.tools.Tool">Tool</a></p>
+</dd>
+<dt class="field-even">Raises<span class="colon">:</span></dt>
+<dd class="field-even"><p><a class="reference external" href="https://docs.python.org/3/builtins/exceptions.html#KeyError" title="(in Python v3.14)"><strong>KeyError</strong></a> – If Desk has no profile, or several, with that name</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="aiofranka.tools.unload_tool">
+<span class="sig-prename descclassname"><span class="pre">aiofranka.tools.</span></span><span class="sig-name descname"><span class="pre">unload_tool</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">ip</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">username</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">password</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">protocol</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'https'</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/aiofranka/tools.html#unload_tool"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#aiofranka.tools.unload_tool" title="Link to this definition"></a></dt>
+<dd><p>Activate Desk’s built-in profile without an end effector (“No End Effector”).</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>ip</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a><em> | </em><em>None</em>) – Robot IP (default: from config or 172.16.0.2)</p></li>
+<li><p><strong>username</strong> – Desk credentials (default: from config)</p></li>
+<li><p><strong>password</strong> – Desk credentials (default: from config)</p></li>
+<li><p><strong>protocol</strong> – Desk credentials (default: from config)</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>The built-in profile, now active</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference internal" href="#aiofranka.tools.Tool" title="aiofranka.tools.Tool">Tool</a></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="aiofranka.tools.remove_tool">
+<span class="sig-prename descclassname"><span class="pre">aiofranka.tools.</span></span><span class="sig-name descname"><span class="pre">remove_tool</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">name</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">ip</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">username</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">password</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">protocol</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'https'</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/aiofranka/tools.html#remove_tool"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#aiofranka.tools.remove_tool" title="Link to this definition"></a></dt>
+<dd><p>Delete an end-effector profile from Desk.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Raises<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><a class="reference external" href="https://docs.python.org/3/builtins/exceptions.html#KeyError" title="(in Python v3.14)"><strong>KeyError</strong></a> – If Desk has no profile, or several, with that name</p></li>
+<li><p><a class="reference external" href="https://docs.python.org/3/builtins/exceptions.html#ValueError" title="(in Python v3.14)"><strong>ValueError</strong></a> – If the profile is built in or active</p></li>
+</ul>
+</dd>
+</dl>
+</dd></dl>
+
+</section>
+
+
+           </div>
+          </div>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="robot.html" class="btn btn-neutral float-left" title="Robot Interface" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="config.html" class="btn btn-neutral float-right" title="Controller Configurations" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2025, MIT Improbable AI Lab.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

@@ -1,0 +1,448 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="./">
+<head>
+  <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Troubleshooting &mdash; aiofranka 0.9.0 documentation</title>
+      <link rel="stylesheet" type="text/css" href="_static/pygments.css?v=b86133f3" />
+      <link rel="stylesheet" type="text/css" href="_static/css/theme.css?v=9edc463e" />
+
+  
+      <script src="_static/jquery.js?v=5d32c60e"></script>
+      <script src="_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="_static/documentation_options.js?v=39bb1c6d"></script>
+      <script src="_static/doctools.js?v=fd6eb6e6"></script>
+      <script src="_static/sphinx_highlight.js?v=6ffebe34"></script>
+    <script src="_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Search" href="search.html" />
+    <link rel="next" title="Robot and Controller" href="api/franka.html" />
+    <link rel="prev" title="Examples" href="examples.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="index.html" class="icon icon-home">
+            aiofranka
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">Getting Started</span></p>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="installation.html">Installation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="quickstart.html">Quick Start</a></li>
+<li class="toctree-l1"><a class="reference internal" href="controllers.html">Controllers</a></li>
+<li class="toctree-l1"><a class="reference internal" href="native.html">Native Control Loop</a></li>
+<li class="toctree-l1"><a class="reference internal" href="cli.html">CLI Reference</a></li>
+<li class="toctree-l1"><a class="reference internal" href="async_mode.html">Async Mode Guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="examples.html">Examples</a></li>
+<li class="toctree-l1 current"><a class="current reference internal" href="#">Troubleshooting</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="#connection-issues">Connection Issues</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#error-robot-is-not-ready">Error: “Robot is not ready”</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#cannot-connect-to-robot">Cannot Connect to Robot</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#server-not-responding">Server Not Responding</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="#robot-behavior-issues">Robot Behavior Issues</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#robot-triggers-safety-stop">Robot Triggers Safety Stop</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#jerky-or-oscillating-motion">Jerky or Oscillating Motion</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#robot-doesn-t-move">Robot Doesn’t Move</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="#control-loop-issues">Control Loop Issues</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#communication-constraints-violation">Communication Constraints Violation</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#low-control-frequency">Low Control Frequency</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="#osc-issues">OSC Issues</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#osc-unstable-or-oscillates">OSC Unstable or Oscillates</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#osc-doesn-t-reach-target">OSC Doesn’t Reach Target</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="#programming-issues">Programming Issues</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#typeerror-coroutine-object-is-not-iterable">TypeError: ‘coroutine’ object is not iterable</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#runtimeerror-this-event-loop-is-already-running">RuntimeError: This event loop is already running</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="#getting-help">Getting Help</a></li>
+</ul>
+</li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">API Reference</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="api/franka.html">Robot and Controller</a></li>
+<li class="toctree-l1"><a class="reference internal" href="api/native.html">NativeFrankaController</a></li>
+<li class="toctree-l1"><a class="reference internal" href="api/controller.html">FrankaController</a></li>
+<li class="toctree-l1"><a class="reference internal" href="api/remote.html">FrankaRemoteController (Server Mode)</a></li>
+<li class="toctree-l1"><a class="reference internal" href="api/robot.html">Robot Interface</a></li>
+<li class="toctree-l1"><a class="reference internal" href="api/payload.html">Payload Identification and Tools</a></li>
+<li class="toctree-l1"><a class="reference internal" href="api/config.html">Controller Configurations</a></li>
+<li class="toctree-l1"><a class="reference internal" href="api/server.html">Server Functions</a></li>
+<li class="toctree-l1"><a class="reference internal" href="api/gripper.html">GripperController</a></li>
+<li class="toctree-l1"><a class="reference internal" href="api/utilities.html">Async Utilities</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="index.html">aiofranka</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="index.html" class="icon icon-home" aria-label="Home"></a></li>
+      <li class="breadcrumb-item active">Troubleshooting</li>
+      <li class="wy-breadcrumbs-aside">
+            <a href="_sources/troubleshooting.rst.txt" rel="nofollow"> View page source</a>
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <section id="troubleshooting">
+<h1>Troubleshooting<a class="headerlink" href="#troubleshooting" title="Link to this heading"></a></h1>
+<p>This page covers common issues and their solutions.</p>
+<section id="connection-issues">
+<h2>Connection Issues<a class="headerlink" href="#connection-issues" title="Link to this heading"></a></h2>
+<section id="error-robot-is-not-ready">
+<h3>Error: “Robot is not ready”<a class="headerlink" href="#error-robot-is-not-ready" title="Link to this heading"></a></h3>
+<p><strong>Symptoms:</strong></p>
+<p>Connecting with <code class="docutils literal notranslate"><span class="pre">aiofranka.Robot(ip)</span></code> fails, or, in the legacy server mode,
+<code class="docutils literal notranslate"><span class="pre">controller.start()</span></code> prints a status summary and exits:</p>
+<div class="highlight-text notranslate"><div class="highlight"><pre><span></span>Joints ........... locked
+FCI .............. inactive
+
+Robot is not ready. Unlock first:
+</pre></div>
+</div>
+<p><strong>Solution:</strong></p>
+<p>Unlock the robot before connecting:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span><span class="w"> </span><span class="nn">aiofranka</span>
+
+<span class="n">aiofranka</span><span class="o">.</span><span class="n">unlock</span><span class="p">()</span>                       <span class="c1"># unlock joints + activate FCI</span>
+<span class="n">robot</span> <span class="o">=</span> <span class="n">aiofranka</span><span class="o">.</span><span class="n">Robot</span><span class="p">(</span><span class="s2">&quot;172.16.0.2&quot;</span><span class="p">)</span>    <span class="c1"># now this connects</span>
+</pre></div>
+</div>
+<p>Or from the CLI:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>aiofranka<span class="w"> </span>unlock
+</pre></div>
+</div>
+</section>
+<section id="cannot-connect-to-robot">
+<h3>Cannot Connect to Robot<a class="headerlink" href="#cannot-connect-to-robot" title="Link to this heading"></a></h3>
+<p><strong>Symptoms:</strong></p>
+<div class="highlight-text notranslate"><div class="highlight"><pre><span></span>ConnectionError: Unable to connect to robot
+</pre></div>
+</div>
+<p><strong>Diagnosis:</strong></p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="c1"># Test network connection</span>
+ping<span class="w"> </span><span class="m">172</span>.16.0.2
+
+<span class="c1"># Should show &lt; 1ms latency</span>
+</pre></div>
+</div>
+<p><strong>Solutions:</strong></p>
+<ol class="arabic">
+<li><p><strong>Check physical connection</strong> — Ethernet cable connected? LED on robot’s network port lit?</p></li>
+<li><p><strong>Check IP configuration</strong> — Correct IP? Subnet mask correct (typically 255.255.255.0)?</p></li>
+<li><p><strong>Check firewall</strong></p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>sudo<span class="w"> </span>ufw<span class="w"> </span>allow<span class="w"> </span>from<span class="w"> </span><span class="m">172</span>.16.0.0/24
+</pre></div>
+</div>
+</li>
+<li><p><strong>Check robot state</strong> — Robot powered on? No error lights? Can you access Franka Desk GUI in browser?</p></li>
+</ol>
+</section>
+<section id="server-not-responding">
+<h3>Server Not Responding<a class="headerlink" href="#server-not-responding" title="Link to this heading"></a></h3>
+<p><strong>Symptoms:</strong></p>
+<div class="highlight-text notranslate"><div class="highlight"><pre><span></span>ConnectionError: Server not responding (timeout). Check if server is running.
+</pre></div>
+</div>
+<p><strong>Solutions:</strong></p>
+<ol class="arabic">
+<li><p>Check if the server subprocess is still alive:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="nb">print</span><span class="p">(</span><span class="n">controller</span><span class="o">.</span><span class="n">running</span><span class="p">)</span>  <span class="c1"># True if server is responsive</span>
+</pre></div>
+</div>
+</li>
+<li><p>Check server logs:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>aiofranka<span class="w"> </span>log<span class="w"> </span>-n<span class="w"> </span><span class="m">50</span>
+</pre></div>
+</div>
+</li>
+<li><p>The server may have crashed due to a control loop error. Check for error messages:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="c1"># This will raise RuntimeError with the error message if server errored</span>
+<span class="n">state</span> <span class="o">=</span> <span class="n">controller</span><span class="o">.</span><span class="n">state</span>
+</pre></div>
+</div>
+</li>
+</ol>
+</section>
+</section>
+<section id="robot-behavior-issues">
+<h2>Robot Behavior Issues<a class="headerlink" href="#robot-behavior-issues" title="Link to this heading"></a></h2>
+<section id="robot-triggers-safety-stop">
+<h3>Robot Triggers Safety Stop<a class="headerlink" href="#robot-triggers-safety-stop" title="Link to this heading"></a></h3>
+<p><strong>Symptoms:</strong> Robot suddenly stops moving, yellow lights flash.</p>
+<p><strong>Common Causes:</strong></p>
+<ol class="arabic">
+<li><p><strong>Torque Rate Too High</strong> — Lower gains or ensure smooth commands:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">controller</span><span class="o">.</span><span class="n">kp</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">ones</span><span class="p">(</span><span class="mi">7</span><span class="p">)</span> <span class="o">*</span> <span class="mf">40.0</span>   <span class="c1"># Lower stiffness</span>
+<span class="n">controller</span><span class="o">.</span><span class="n">kd</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">ones</span><span class="p">(</span><span class="mi">7</span><span class="p">)</span> <span class="o">*</span> <span class="mf">6.0</span>    <span class="c1"># More damping</span>
+</pre></div>
+</div>
+</li>
+<li><p><strong>Discontinuous Commands</strong> — Use smooth trajectories:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="c1"># Bad: jump to far target</span>
+<span class="n">controller</span><span class="o">.</span><span class="n">set</span><span class="p">(</span><span class="s2">&quot;q_desired&quot;</span><span class="p">,</span> <span class="n">far_target</span><span class="p">)</span>
+
+<span class="c1"># Good: use trajectory generation</span>
+<span class="n">controller</span><span class="o">.</span><span class="n">move</span><span class="p">(</span><span class="n">far_target</span><span class="p">)</span>
+</pre></div>
+</div>
+</li>
+<li><p><strong>Collision Detected</strong> — Clear workspace, check for obstacles</p></li>
+<li><p><strong>Communication Constraints Violation</strong> — Torque commands reached the robot late, e.g. a blocking call starved the legacy <code class="docutils literal notranslate"><span class="pre">FrankaController</span></code>’s loop. See <a class="reference internal" href="#communication-constraints-violation">Communication Constraints Violation</a> below.</p></li>
+</ol>
+<p><strong>Recovery:</strong></p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="c1"># Recover safety errors and re-unlock</span>
+aiofranka<span class="w"> </span>unlock
+</pre></div>
+</div>
+</section>
+<section id="jerky-or-oscillating-motion">
+<h3>Jerky or Oscillating Motion<a class="headerlink" href="#jerky-or-oscillating-motion" title="Link to this heading"></a></h3>
+<p><strong>Causes &amp; Solutions:</strong></p>
+<ol class="arabic">
+<li><p><strong>No Rate Limiting:</strong></p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="c1"># Always set frequency before control loop</span>
+<span class="n">controller</span><span class="o">.</span><span class="n">set_freq</span><span class="p">(</span><span class="mi">50</span><span class="p">)</span>
+</pre></div>
+</div>
+</li>
+<li><p><strong>Low Damping:</strong></p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">controller</span><span class="o">.</span><span class="n">kd</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">ones</span><span class="p">(</span><span class="mi">7</span><span class="p">)</span> <span class="o">*</span> <span class="mf">6.0</span>
+</pre></div>
+</div>
+</li>
+<li><p><strong>High Gains:</strong></p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">controller</span><span class="o">.</span><span class="n">kp</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">ones</span><span class="p">(</span><span class="mi">7</span><span class="p">)</span> <span class="o">*</span> <span class="mf">40.0</span>  <span class="c1"># Try lower</span>
+</pre></div>
+</div>
+</li>
+<li><p><strong>Discontinuous Targets</strong> — Use smooth functions:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">delta</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">sin</span><span class="p">(</span><span class="n">cnt</span> <span class="o">/</span> <span class="mf">50.0</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">pi</span><span class="p">)</span> <span class="o">*</span> <span class="mf">0.1</span>
+</pre></div>
+</div>
+</li>
+</ol>
+</section>
+<section id="robot-doesn-t-move">
+<h3>Robot Doesn’t Move<a class="headerlink" href="#robot-doesn-t-move" title="Link to this heading"></a></h3>
+<p><strong>Diagnosis:</strong></p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Running: </span><span class="si">{</span><span class="n">controller</span><span class="o">.</span><span class="n">running</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+<span class="n">state</span> <span class="o">=</span> <span class="n">controller</span><span class="o">.</span><span class="n">state</span>
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Current position: </span><span class="si">{</span><span class="n">state</span><span class="p">[</span><span class="s1">&#39;qpos&#39;</span><span class="p">]</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Desired position: </span><span class="si">{</span><span class="n">controller</span><span class="o">.</span><span class="n">q_desired</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+<span class="n">diff</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">norm</span><span class="p">(</span><span class="n">controller</span><span class="o">.</span><span class="n">q_desired</span> <span class="o">-</span> <span class="n">state</span><span class="p">[</span><span class="s1">&#39;qpos&#39;</span><span class="p">])</span>
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Distance to target: </span><span class="si">{</span><span class="n">diff</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+</pre></div>
+</div>
+<p><strong>Common Issues:</strong></p>
+<ol class="arabic simple">
+<li><p><strong>Forgot to call start()</strong> — <code class="docutils literal notranslate"><span class="pre">controller.start()</span></code> must be called first</p></li>
+<li><p><strong>Wrong controller type</strong> — Sending <code class="docutils literal notranslate"><span class="pre">q_desired</span></code> but in OSC mode? Use <code class="docutils literal notranslate"><span class="pre">controller.switch(&quot;impedance&quot;)</span></code></p></li>
+<li><p><strong>Target equals current</strong> — Check the distance to target</p></li>
+<li><p><strong>Gains too low</strong> — Increase <code class="docutils literal notranslate"><span class="pre">kp</span></code></p></li>
+</ol>
+</section>
+</section>
+<section id="control-loop-issues">
+<h2>Control Loop Issues<a class="headerlink" href="#control-loop-issues" title="Link to this heading"></a></h2>
+<section id="communication-constraints-violation">
+<h3>Communication Constraints Violation<a class="headerlink" href="#communication-constraints-violation" title="Link to this heading"></a></h3>
+<p><strong>Symptoms:</strong> Robot aborts motion with <code class="docutils literal notranslate"><span class="pre">communication_constraints_violation</span></code> error.</p>
+<p><strong>Cause:</strong> Torque commands reached the robot late. With the legacy Python loop
+(<code class="docutils literal notranslate"><span class="pre">FrankaController</span></code>, <code class="docutils literal notranslate"><span class="pre">aiofranka</span> <span class="pre">start-server</span> <span class="pre">--python</span></code>), a blocking call in your code
+starved it. The native loop does not wait for Python, so with it the cause is the system: a
+saturated CPU, the network, or a loop thread without real-time priority.</p>
+<p><strong>Solutions:</strong></p>
+<ul class="simple">
+<li><p>Use the native loop: <code class="docutils literal notranslate"><span class="pre">Controller</span></code>, or <code class="docutils literal notranslate"><span class="pre">NativeFrankaController</span></code> in asyncio code</p></li>
+<li><p>With the legacy <code class="docutils literal notranslate"><span class="pre">FrankaController</span></code>, follow the <a class="reference internal" href="async_mode.html"><span class="doc">Async Mode Guide</span></a> guide to avoid blocking the
+event loop</p></li>
+<li><p>With the native loop, use wired Ethernet, keep a core free for the robot NIC’s interrupts, and
+give the loop’s thread its SCHED_FIFO priority (see <a class="reference internal" href="native.html"><span class="doc">Native Control Loop</span></a>). <code class="docutils literal notranslate"><span class="pre">aiofranka</span> <span class="pre">rt-benchmark</span></code>
+measures the loop (see <a class="reference internal" href="cli.html"><span class="doc">CLI Reference</span></a>).</p></li>
+</ul>
+</section>
+<section id="low-control-frequency">
+<h3>Low Control Frequency<a class="headerlink" href="#low-control-frequency" title="Link to this heading"></a></h3>
+<p><strong>Symptoms:</strong> <code class="docutils literal notranslate"><span class="pre">test_connection()</span></code> shows frequency &lt; 990 Hz or high jitter.</p>
+<p><strong>Solutions:</strong></p>
+<ul class="simple">
+<li><p>Use a wired Ethernet connection (not WiFi)</p></li>
+<li><p>Reduce system load (close unnecessary programs)</p></li>
+<li><p>Consider a real-time Linux kernel</p></li>
+<li><p>Run <code class="docutils literal notranslate"><span class="pre">aiofranka</span> <span class="pre">rt-benchmark</span></code> to measure the loop on this machine</p></li>
+</ul>
+</section>
+</section>
+<section id="osc-issues">
+<h2>OSC Issues<a class="headerlink" href="#osc-issues" title="Link to this heading"></a></h2>
+<section id="osc-unstable-or-oscillates">
+<h3>OSC Unstable or Oscillates<a class="headerlink" href="#osc-unstable-or-oscillates" title="Link to this heading"></a></h3>
+<p><strong>Causes:</strong></p>
+<ol class="arabic">
+<li><p><strong>Near singularity:</strong></p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">jac</span> <span class="o">=</span> <span class="n">controller</span><span class="o">.</span><span class="n">state</span><span class="p">[</span><span class="s1">&#39;jac&#39;</span><span class="p">]</span>
+<span class="n">cond</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">cond</span><span class="p">(</span><span class="n">jac</span><span class="p">)</span>
+<span class="k">if</span> <span class="n">cond</span> <span class="o">&gt;</span> <span class="mi">100</span><span class="p">:</span>
+    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Warning: Poor conditioning: </span><span class="si">{</span><span class="n">cond</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+</pre></div>
+</div>
+</li>
+<li><p><strong>Gains too high:</strong></p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">controller</span><span class="o">.</span><span class="n">ee_kp</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="mi">200</span><span class="p">,</span> <span class="mi">200</span><span class="p">,</span> <span class="mi">200</span><span class="p">,</span> <span class="mi">600</span><span class="p">,</span> <span class="mi">600</span><span class="p">,</span> <span class="mi">600</span><span class="p">])</span>
+<span class="n">controller</span><span class="o">.</span><span class="n">ee_kd</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">ones</span><span class="p">(</span><span class="mi">6</span><span class="p">)</span> <span class="o">*</span> <span class="mf">8.0</span>
+</pre></div>
+</div>
+</li>
+<li><p><strong>Null-space conflict:</strong></p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">controller</span><span class="o">.</span><span class="n">null_kp</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">ones</span><span class="p">(</span><span class="mi">7</span><span class="p">)</span> <span class="o">*</span> <span class="mf">5.0</span>
+<span class="n">controller</span><span class="o">.</span><span class="n">null_kd</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">ones</span><span class="p">(</span><span class="mi">7</span><span class="p">)</span> <span class="o">*</span> <span class="mf">1.0</span>
+</pre></div>
+</div>
+</li>
+</ol>
+</section>
+<section id="osc-doesn-t-reach-target">
+<h3>OSC Doesn’t Reach Target<a class="headerlink" href="#osc-doesn-t-reach-target" title="Link to this heading"></a></h3>
+<p><strong>Diagnosis:</strong></p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">state</span> <span class="o">=</span> <span class="n">controller</span><span class="o">.</span><span class="n">state</span>
+<span class="n">ee_current</span> <span class="o">=</span> <span class="n">state</span><span class="p">[</span><span class="s1">&#39;ee&#39;</span><span class="p">]</span>
+<span class="n">ee_desired</span> <span class="o">=</span> <span class="n">controller</span><span class="o">.</span><span class="n">ee_desired</span>
+
+<span class="n">pos_error</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">norm</span><span class="p">(</span><span class="n">ee_desired</span><span class="p">[:</span><span class="mi">3</span><span class="p">,</span> <span class="mi">3</span><span class="p">]</span> <span class="o">-</span> <span class="n">ee_current</span><span class="p">[:</span><span class="mi">3</span><span class="p">,</span> <span class="mi">3</span><span class="p">])</span>
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Position error: </span><span class="si">{</span><span class="n">pos_error</span><span class="w"> </span><span class="o">*</span><span class="w"> </span><span class="mi">1000</span><span class="si">:</span><span class="s2">.1f</span><span class="si">}</span><span class="s2"> mm&quot;</span><span class="p">)</span>
+</pre></div>
+</div>
+<p><strong>Causes:</strong></p>
+<ol class="arabic simple">
+<li><p>Target unreachable (outside workspace)</p></li>
+<li><p>Null-space pulling away — adjust <code class="docutils literal notranslate"><span class="pre">null_kp</span></code> / <code class="docutils literal notranslate"><span class="pre">null_kd</span></code></p></li>
+<li><p>Singularity — move via intermediate poses</p></li>
+</ol>
+</section>
+</section>
+<section id="programming-issues">
+<h2>Programming Issues<a class="headerlink" href="#programming-issues" title="Link to this heading"></a></h2>
+<section id="typeerror-coroutine-object-is-not-iterable">
+<h3>TypeError: ‘coroutine’ object is not iterable<a class="headerlink" href="#typeerror-coroutine-object-is-not-iterable" title="Link to this heading"></a></h3>
+<p><strong>Cause:</strong> Forgot to <code class="docutils literal notranslate"><span class="pre">await</span></code> an async function.</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="c1"># Wrong (NativeFrankaController)</span>
+<span class="n">controller</span><span class="o">.</span><span class="n">start</span><span class="p">()</span>
+
+<span class="c1"># Correct (NativeFrankaController)</span>
+<span class="k">await</span> <span class="n">controller</span><span class="o">.</span><span class="n">start</span><span class="p">()</span>
+</pre></div>
+</div>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>This only applies to <code class="docutils literal notranslate"><span class="pre">NativeFrankaController</span></code>. <code class="docutils literal notranslate"><span class="pre">Controller</span></code>’s calls are plain.</p>
+</div>
+</section>
+<section id="runtimeerror-this-event-loop-is-already-running">
+<h3>RuntimeError: This event loop is already running<a class="headerlink" href="#runtimeerror-this-event-loop-is-already-running" title="Link to this heading"></a></h3>
+<p><strong>Cause:</strong> Using <code class="docutils literal notranslate"><span class="pre">asyncio.run()</span></code> inside an async function.</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="c1"># Wrong</span>
+<span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">my_function</span><span class="p">():</span>
+    <span class="n">asyncio</span><span class="o">.</span><span class="n">run</span><span class="p">(</span><span class="n">controller</span><span class="o">.</span><span class="n">start</span><span class="p">())</span>
+
+<span class="c1"># Correct</span>
+<span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">my_function</span><span class="p">():</span>
+    <span class="k">await</span> <span class="n">controller</span><span class="o">.</span><span class="n">start</span><span class="p">()</span>
+</pre></div>
+</div>
+</section>
+</section>
+<section id="getting-help">
+<h2>Getting Help<a class="headerlink" href="#getting-help" title="Link to this heading"></a></h2>
+<p>Before asking for help:</p>
+<ol class="arabic simple">
+<li><p>Check this guide — is your issue covered?</p></li>
+<li><p>Test in simulation — does it work with <code class="docutils literal notranslate"><span class="pre">aiofranka.Robot(None)</span></code>?</p></li>
+<li><p>Review the examples in <a class="reference internal" href="examples.html"><span class="doc">Examples</span></a></p></li>
+<li><p>Check server logs: <code class="docutils literal notranslate"><span class="pre">aiofranka</span> <span class="pre">log</span> <span class="pre">-n</span> <span class="pre">50</span></code></p></li>
+<li><p>Simplify — does a minimal example reproduce the issue?</p></li>
+</ol>
+<p>When asking for help, include:</p>
+<ol class="arabic simple">
+<li><p><strong>aiofranka version</strong>: <code class="docutils literal notranslate"><span class="pre">pip</span> <span class="pre">show</span> <span class="pre">aiofranka</span></code></p></li>
+<li><p><strong>Operating system and Python version</strong></p></li>
+<li><p><strong>Minimal code</strong> that reproduces the issue</p></li>
+<li><p><strong>Full error message</strong> from terminal</p></li>
+<li><p><strong>Which controller you use</strong>: <code class="docutils literal notranslate"><span class="pre">Controller</span></code>, <code class="docutils literal notranslate"><span class="pre">NativeFrankaController</span></code>, or a legacy one</p></li>
+</ol>
+<p>Where to ask:</p>
+<ul class="simple">
+<li><p><strong>GitHub Issues</strong>: <a class="reference external" href="https://github.com/younghyopark/aiofranka/issues">https://github.com/younghyopark/aiofranka/issues</a></p></li>
+</ul>
+</section>
+</section>
+
+
+           </div>
+          </div>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="examples.html" class="btn btn-neutral float-left" title="Examples" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="api/franka.html" class="btn btn-neutral float-right" title="Robot and Controller" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2025, MIT Improbable AI Lab.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

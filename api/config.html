@@ -1,0 +1,319 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="../">
+<head>
+  <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Controller Configurations &mdash; aiofranka 0.9.0 documentation</title>
+      <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=b86133f3" />
+      <link rel="stylesheet" type="text/css" href="../_static/css/theme.css?v=9edc463e" />
+
+  
+      <script src="../_static/jquery.js?v=5d32c60e"></script>
+      <script src="../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="../_static/documentation_options.js?v=39bb1c6d"></script>
+      <script src="../_static/doctools.js?v=fd6eb6e6"></script>
+      <script src="../_static/sphinx_highlight.js?v=6ffebe34"></script>
+    <script src="../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="next" title="Server Functions" href="server.html" />
+    <link rel="prev" title="Payload Identification and Tools" href="payload.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../index.html" class="icon icon-home">
+            aiofranka
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">Getting Started</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../installation.html">Installation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../quickstart.html">Quick Start</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../controllers.html">Controllers</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../native.html">Native Control Loop</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../cli.html">CLI Reference</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../async_mode.html">Async Mode Guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../examples.html">Examples</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../troubleshooting.html">Troubleshooting</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">API Reference</span></p>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="franka.html">Robot and Controller</a></li>
+<li class="toctree-l1"><a class="reference internal" href="native.html">NativeFrankaController</a></li>
+<li class="toctree-l1"><a class="reference internal" href="controller.html">FrankaController</a></li>
+<li class="toctree-l1"><a class="reference internal" href="remote.html">FrankaRemoteController (Server Mode)</a></li>
+<li class="toctree-l1"><a class="reference internal" href="robot.html">Robot Interface</a></li>
+<li class="toctree-l1"><a class="reference internal" href="payload.html">Payload Identification and Tools</a></li>
+<li class="toctree-l1 current"><a class="current reference internal" href="#">Controller Configurations</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="#aiofranka.config.load_config"><code class="docutils literal notranslate"><span class="pre">load_config()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="#aiofranka.config.tcp_transform"><code class="docutils literal notranslate"><span class="pre">tcp_transform()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="#aiofranka.config.to_yaml"><code class="docutils literal notranslate"><span class="pre">to_yaml()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="#aiofranka.config.same_controller"><code class="docutils literal notranslate"><span class="pre">same_controller()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="#aiofranka.config.sim_entry"><code class="docutils literal notranslate"><span class="pre">sim_entry()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="#aiofranka.config.save_sim"><code class="docutils literal notranslate"><span class="pre">save_sim()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="#aiofranka.config.add_recording"><code class="docutils literal notranslate"><span class="pre">add_recording()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="#aiofranka.config.latest_recording"><code class="docutils literal notranslate"><span class="pre">latest_recording()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="server.html">Server Functions</a></li>
+<li class="toctree-l1"><a class="reference internal" href="gripper.html">GripperController</a></li>
+<li class="toctree-l1"><a class="reference internal" href="utilities.html">Async Utilities</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../index.html">aiofranka</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../index.html" class="icon icon-home" aria-label="Home"></a></li>
+      <li class="breadcrumb-item active">Controller Configurations</li>
+      <li class="wy-breadcrumbs-aside">
+            <a href="../_sources/api/config.rst.txt" rel="nofollow"> View page source</a>
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <section id="module-aiofranka.config">
+<span id="controller-configurations"></span><h1>Controller Configurations<a class="headerlink" href="#module-aiofranka.config" title="Link to this heading"></a></h1>
+<p>Controller configurations: how a policy drives the robot, in one YAML file.</p>
+<p>A file names the controller mode, its gains, the policy rate and the tool it is for:</p>
+<blockquote>
+<div><p>mode: osc
+tool: test panda hand               # Desk end-effector profile, or none (optional)
+ee_kp: [100, 100, 100, 30, 30, 30]  # x, y, z, then rotation [1/s^2], or one value for all
+ee_kd: 20                           # [1/s]; the OSC multiplies both by the task-space</p>
+<blockquote>
+<div><p># inertia, so ee_kp = w^2, ee_kd = 2 zeta w</p>
+</div></blockquote>
+<p>null_kp: 9                          # null space [Nm/rad], one value or one per joint (default 1)
+null_kd: 6                          # [Nm s/rad] (default 1)
+null_target: home                   # 7 joint positions [rad], home, or current (the default): the</p>
+<blockquote>
+<div><p># joint positions when activated, as switch(“osc”) keeps</p>
+</div></blockquote>
+<dl class="simple">
+<dt>tcp: [0, 0, 0.1034]                 # TCP in the flange frame: a translation [m] or a 4x4 pose</dt><dd><p># (default: the flange)</p>
+</dd>
+</dl>
+<p>frequency: 50                       # policy rate [Hz], the rate of controller.set()</p>
+</div></blockquote>
+<p>or</p>
+<blockquote>
+<div><p>mode: impedance
+tool: none
+kp: [64, 64, 64, 64, 32, 32, 32]    # [Nm/rad], one value or one per joint
+kd: [16, 16, 16, 16, 8, 8, 8]       # [Nm s/rad]
+frequency: 50</p>
+</div></blockquote>
+<p>controller.activate(“osc.yaml”) applies it, and refuses if the tool is not the end
+effector active in Desk (none is Desk’s “No End Effector”; leave tool out to skip the
+check), or if the arm is not at the null_target of an OSC configuration that sets one
+(await controller.move(config[“null_target”]) first). The system identification examples collect with it (–activate) and add what they
+fit to its sim section, one entry per physics step: the gains and joint parameters with
+which a simulation that runs the controller every physics step on fr3.xml’s motors, with
+the payload the fit assumed, responds as the robot did. The collectors also list the
+recordings they made on the robot, newest last, which is what the fitters fit by default.</p>
+<blockquote>
+<div><p>recordings:
+- {path: ../examples/sysid_data/osc_sysid_&lt;date&gt;.npz, date: …, tool: …}</p>
+<p>sim:
+- physics_dt: 0.005</p>
+<blockquote>
+<div><p>ee_kp: […]
+…
+armature: […]
+damping: […]
+frictionloss: […]
+payload: {mass: …, com: […], inertia: […]}</p>
+</div></blockquote>
+</div></blockquote>
+<dl class="py function">
+<dt class="sig sig-object py" id="aiofranka.config.load_config">
+<span class="sig-prename descclassname"><span class="pre">aiofranka.config.</span></span><span class="sig-name descname"><span class="pre">load_config</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">source</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/aiofranka/config.html#load_config"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#aiofranka.config.load_config" title="Link to this definition"></a></dt>
+<dd><p>Read and check a controller configuration.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>source</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a><em> | </em><em>Path</em><em> | </em><a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#dict" title="(in Python v3.14)"><em>dict</em></a>) – YAML file, or its contents</p>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>mode, frequency [Hz], recordings and sim (the lists the sysid examples write),
+plus kp and kd (7,)
+for impedance, or ee_kp and ee_kd (6,), null_kp and null_kd (7,), null_target (7,)
+or None for the joint positions at activation, and tcp (4, 4) for osc, and tool and
+name if given</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#dict" title="(in Python v3.14)">dict</a></p>
+</dd>
+<dt class="field-even">Raises<span class="colon">:</span></dt>
+<dd class="field-even"><p><a class="reference external" href="https://docs.python.org/3/builtins/exceptions.html#ValueError" title="(in Python v3.14)"><strong>ValueError</strong></a> – If the file is not valid YAML, or the configuration is incomplete, has
+    unknown keys or wrong values</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="aiofranka.config.tcp_transform">
+<span class="sig-prename descclassname"><span class="pre">aiofranka.config.</span></span><span class="sig-name descname"><span class="pre">tcp_transform</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">value</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/aiofranka/config.html#tcp_transform"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#aiofranka.config.tcp_transform" title="Link to this definition"></a></dt>
+<dd><p>A TCP pose in the flange frame, from a translation (3,), 16 values row by row, or a 4x4 pose.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Raises<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/builtins/exceptions.html#ValueError" title="(in Python v3.14)"><strong>ValueError</strong></a> – If it is none of these, or its rotation is not a rotation</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="aiofranka.config.to_yaml">
+<span class="sig-prename descclassname"><span class="pre">aiofranka.config.</span></span><span class="sig-name descname"><span class="pre">to_yaml</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">config</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/aiofranka/config.html#to_yaml"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#aiofranka.config.to_yaml" title="Link to this definition"></a></dt>
+<dd><p>The configuration as plain values, as written in a file (without recordings and sim).</p>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="aiofranka.config.same_controller">
+<span class="sig-prename descclassname"><span class="pre">aiofranka.config.</span></span><span class="sig-name descname"><span class="pre">same_controller</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">a</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">b</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/aiofranka/config.html#same_controller"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#aiofranka.config.same_controller" title="Link to this definition"></a></dt>
+<dd><p>Whether two configurations drive the robot the same way, with the same tool (sim and name aside).</p>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="aiofranka.config.sim_entry">
+<span class="sig-prename descclassname"><span class="pre">aiofranka.config.</span></span><span class="sig-name descname"><span class="pre">sim_entry</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">config</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">physics_dt</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/aiofranka/config.html#sim_entry"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#aiofranka.config.sim_entry" title="Link to this definition"></a></dt>
+<dd><p>The fitted simulation parameters for a physics step, as arrays.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>config</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a><em> | </em><em>Path</em><em> | </em><a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#dict" title="(in Python v3.14)"><em>dict</em></a>) – Configuration, or its file</p></li>
+<li><p><strong>physics_dt</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/functions.html#float" title="(in Python v3.14)"><em>float</em></a>) – Physics step of the simulation [s]</p></li>
+</ul>
+</dd>
+<dt class="field-even">Raises<span class="colon">:</span></dt>
+<dd class="field-even"><p><a class="reference external" href="https://docs.python.org/3/builtins/exceptions.html#KeyError" title="(in Python v3.14)"><strong>KeyError</strong></a> – If the configuration has no entry for that physics step</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="aiofranka.config.save_sim">
+<span class="sig-prename descclassname"><span class="pre">aiofranka.config.</span></span><span class="sig-name descname"><span class="pre">save_sim</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">path</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">entry</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">controller</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/aiofranka/config.html#save_sim"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#aiofranka.config.save_sim" title="Link to this definition"></a></dt>
+<dd><p>Add a fitted entry to the sim section of a configuration file, replacing one with
+the same physics_dt.</p>
+<p>The rest of the file stays as written, comments included; the recordings and sim
+sections move to its end. The new file is checked before it replaces the old one, so
+a failure leaves the file as it was.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>path</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a><em> | </em><em>Path</em>) – Configuration file</p></li>
+<li><p><strong>entry</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#dict" title="(in Python v3.14)"><em>dict</em></a>) – physics_dt [s] and the fitted values (arrays or lists)</p></li>
+<li><p><strong>controller</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a><em> | </em><em>Path</em><em> | </em><a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#dict" title="(in Python v3.14)"><em>dict</em></a><em> | </em><em>None</em>) – If given, the configuration the fit is for;
+the file must still describe the same controller</p></li>
+</ul>
+</dd>
+<dt class="field-even">Raises<span class="colon">:</span></dt>
+<dd class="field-even"><ul class="simple">
+<li><p><a class="reference external" href="https://docs.python.org/3/builtins/exceptions.html#ValueError" title="(in Python v3.14)"><strong>ValueError</strong></a> – If the file is not a valid configuration, or no longer describes controller</p></li>
+<li><p><a class="reference external" href="https://docs.python.org/3/builtins/exceptions.html#RuntimeError" title="(in Python v3.14)"><strong>RuntimeError</strong></a> – If the sim section could not be rewritten without changing the rest</p></li>
+</ul>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="aiofranka.config.add_recording">
+<span class="sig-prename descclassname"><span class="pre">aiofranka.config.</span></span><span class="sig-name descname"><span class="pre">add_recording</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">path</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">recording</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">controller</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/aiofranka/config.html#add_recording"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#aiofranka.config.add_recording" title="Link to this definition"></a></dt>
+<dd><p>Add a recording collected with a configuration to its recordings section, newest last.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>path</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a><em> | </em><em>Path</em>) – Configuration file</p></li>
+<li><p><strong>recording</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#dict" title="(in Python v3.14)"><em>dict</em></a>) – path of the recording (kept relative to the file’s folder when
+it is under the same root) and what else to note, e.g. date and tool</p></li>
+<li><p><strong>controller</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a><em> | </em><em>Path</em><em> | </em><a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#dict" title="(in Python v3.14)"><em>dict</em></a><em> | </em><em>None</em>) – If given, the configuration the recording
+was collected with; the file must still describe the same controller</p></li>
+</ul>
+</dd>
+<dt class="field-even">Raises<span class="colon">:</span></dt>
+<dd class="field-even"><p><a class="reference external" href="https://docs.python.org/3/builtins/exceptions.html#ValueError" title="(in Python v3.14)"><strong>ValueError</strong></a><strong>, </strong><a class="reference external" href="https://docs.python.org/3/builtins/exceptions.html#RuntimeError" title="(in Python v3.14)"><strong>RuntimeError</strong></a> – As save_sim()</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="aiofranka.config.latest_recording">
+<span class="sig-prename descclassname"><span class="pre">aiofranka.config.</span></span><span class="sig-name descname"><span class="pre">latest_recording</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">path</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/aiofranka/config.html#latest_recording"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#aiofranka.config.latest_recording" title="Link to this definition"></a></dt>
+<dd><p>The newest recording in a configuration file’s recordings section, or None.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>path</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a><em> | </em><em>Path</em>) – Configuration file</p>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>The recording, with a relative path resolved against the file’s folder</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>Path | None</p>
+</dd>
+</dl>
+</dd></dl>
+
+</section>
+
+
+           </div>
+          </div>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="payload.html" class="btn btn-neutral float-left" title="Payload Identification and Tools" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="server.html" class="btn btn-neutral float-right" title="Server Functions" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2025, MIT Improbable AI Lab.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>
