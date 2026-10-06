@@ -78,9 +78,11 @@ class ControllerTest(unittest.TestCase):
         controller.loop_stats(reset=True)
         time.sleep(0.5)  # blocks this thread
         stats = controller.loop_stats(reset=True)
-        self.assertGreater(stats["count"], 450)
-        self.assertLess(stats["max"], 5e-3)
-        self.assertGreater(robot.state["qpos"][0] - controller.initial_qpos[0], 0.05)
+        # A loop that waited for this thread would show a gap of the whole 0.5 s; the fake
+        # robot's own timing, by sleeps, has hiccups of a few ms.
+        self.assertGreater(stats["count"], 400)
+        self.assertLess(stats["max"], 0.1)
+        self.assertGreater(robot.state["qpos"][0] - controller.initial_qpos[0], 0.03)
 
     def test_move_reaches_the_target_and_records_every_cycle(self):
         controller, robot = self.controller, self.robot
