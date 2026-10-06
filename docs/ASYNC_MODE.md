@@ -1,8 +1,8 @@
 # Async Mode Guide
 
-> **Using server mode (`FrankaRemoteController`)?** You can skip this entire document. The 1kHz loop runs in a separate process, so your script can't starve it.
+> **Using `Controller` (the default)?** You can skip this entire document. Its calls are plain, and its event loop runs in a thread of its own, where your code can't block it.
 
-In async mode, `controller.start()` starts the 1 kHz loop, and your script runs on the asyncio event loop next to it. `NativeFrankaController`'s loop runs in C++ and keeps sending torques whatever the event loop does, so blocking the event loop does not stop the robot. It delays what runs there: your next `set()`, a `move()` (which streams its trajectory from the event loop), and the copy of the loop's state into `robot.data` and `robot.robot_state`. This guide keeps the event loop responsive.
+This guide is for asyncio code with `NativeFrankaController`. There, `controller.start()` starts the 1 kHz loop, and your script runs on the asyncio event loop next to it. `NativeFrankaController`'s loop runs in C++ and keeps sending torques whatever the event loop does, so blocking the event loop does not stop the robot. It delays what runs there: your next `set()`, a `move()` (which streams its trajectory from the event loop), and the copy of the loop's state into `robot.data` and `robot.robot_state`. This guide keeps the event loop responsive.
 
 With the legacy `FrankaController`, whose 1 kHz loop itself runs on the event loop, the rules below are required.
 

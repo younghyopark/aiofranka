@@ -3,7 +3,7 @@ What the system identification collectors share, 04_collect_joint_sysid.py and
 06_collect_osc_sysid.py.
 
 They play 13 s blocks of targets around base poses at a configuration's policy rate, as a
-policy would, and record every 1 kHz control cycle with NativeFrankaController.record():
+policy would, and record every 1 kHz control cycle with Controller.record():
 
     hold 0.5 s | 2 steps, 3 s | multisine 0.17-3 Hz, 6 s | slow ramps, 3 s | hold 0.5 s
 
@@ -15,7 +15,6 @@ they were set.
 from __future__ import annotations
 
 import argparse
-import asyncio
 import datetime
 import hashlib
 import json
@@ -167,7 +166,7 @@ def hold(controller):
     controller.kp, controller.kd = MOVE_KP, MOVE_KD
 
 
-async def move_to(controller, target):
+def move_to(controller, target):
     """Move along a straight line in joint space, quintic in time, then settle."""
     hold(controller)
     start = np.array(controller.q_desired)
@@ -175,12 +174,12 @@ async def move_to(controller, target):
     started = time.perf_counter()
     while (s := min((time.perf_counter() - started) / duration, 1.0)) < 1.0:
         controller.q_desired = start + s ** 3 * (10 - 15 * s + 6 * s ** 2) * (target - start)
-        await asyncio.sleep(0.01)
+        time.sleep(0.01)
     controller.q_desired = target
-    await asyncio.sleep(SETTLE)
+    time.sleep(SETTLE)
 
 
-async def play(controller, attr, targets, fields, played):
+def play(controller, attr, targets, fields, played):
     """
     Set attr to the targets one by one at the policy rate (activate() sets it for set()),
     recording every cycle. Adds the recording and the row each target was set at to played
@@ -192,10 +191,10 @@ async def play(controller, attr, targets, fields, played):
     with recording:
         for target in targets:
             starts.append(recording.rows)
-            await controller.set(attr, target)
+            controller.set(attr, target)
 
 
-async def collect(controller, blocks, play_block, home):
+def collect(controller, blocks, play_block, home):
     """
     Start the loop, run play_block(index, block) for each block, move back to home and stop
     the loop. Ctrl+C, a Stop or an error holds the arm where it is first.
@@ -203,34 +202,26 @@ async def collect(controller, blocks, play_block, home):
     Returns:
         str: Why it ended early, or None
     """
-    errors = []
-    controller.error_callback = errors.append  # the loop ended with an error, e.g. a reflex
     started = time.perf_counter()
-    await controller.start()
+    controller.start()
     reason = None
     try:
         for index, block in enumerate(blocks):
             print(f"  [{index + 1}/{len(blocks)}] {block.pose}   ({(time.perf_counter() - started) / 60:.1f} min)")
-            await play_block(index, block)
+            play_block(index, block)
         print("  Moving back")
-        await move_to(controller, home)
-    except (asyncio.CancelledError, Exception) as stopped:
-        if errors:
-            reason = f"control loop error: {errors[0]}"
+        move_to(controller, home)
+    except (KeyboardInterrupt, Exception) as stopped:
+        if controller.error is not None:  # the loop ended with an error, e.g. a reflex
+            reason = f"control loop error: {controller.error}"
         else:
-            if not isinstance(stopped, (asyncio.CancelledError, Stop)):
+            if not isinstance(stopped, (KeyboardInterrupt, Stop)):
                 traceback.print_exc()
-            reason = "interrupted" if isinstance(stopped, asyncio.CancelledError) else str(stopped)
+            reason = "interrupted" if isinstance(stopped, KeyboardInterrupt) else str(stopped)
             hold(controller)
-            await asyncio.sleep(0.5)
+            time.sleep(0.5)
     finally:
-        if errors:
-            # The loop has ended, and its task, which stop() would wait for, exits the process.
-            controller.robot.stop()
-            if controller.task.done() and not controller.task.cancelled():
-                controller.task.exception()  # seen, so asyncio does not print it again at exit
-        else:
-            await controller.stop()
+        controller.stop()
     return reason
 
 

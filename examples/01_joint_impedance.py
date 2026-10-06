@@ -3,25 +3,23 @@
 from __future__ import annotations
 
 import argparse
-import asyncio
 
 import numpy as np
 
-from aiofranka import NativeFrankaController, RobotInterface
+from aiofranka import Controller, Robot
 
 
-async def main() -> int:
+def main() -> int:
     parser = argparse.ArgumentParser(
         description="Run joint impedance on the robot at IP, or omit IP to run MuJoCo."
     )
     parser.add_argument("ip", nargs="?")
     args = parser.parse_args()
 
-    controller = NativeFrankaController(RobotInterface(args.ip))
-    await controller.start()
-    try:
+    robot = Robot(args.ip)
+    with Controller(robot) as controller:  # start() here, stop() at the end (or Ctrl+C)
         print("Moving to initial position...")
-        await controller.move()
+        controller.move()
 
         controller.switch("impedance")
         controller.kp = np.ones(7) * 80.0
@@ -30,11 +28,9 @@ async def main() -> int:
 
         q0 = controller.initial_qpos.copy()
         while True:
-            await controller.set("q_desired", q0)
-    finally:
-        await controller.stop()
+            controller.set("q_desired", q0)
     return 0
 
 
 if __name__ == "__main__":
-    raise SystemExit(asyncio.run(main()))
+    raise SystemExit(main())

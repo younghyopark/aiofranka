@@ -75,8 +75,8 @@ self-test status, end-effector configuration) and server status if running.
 start-server
 ------------
 
-Runs the control server in the background for clients such as ``FrankaRemoteController``
-(``--foreground`` keeps it in the terminal). It unlocks the robot (``--no-unlock`` skips that),
+Runs the control server of the legacy server mode in the background (``--foreground`` keeps
+it in the terminal). It unlocks the robot (``--no-unlock`` skips that),
 moves it home (``--no-home`` skips that) and runs the 1 kHz loop in C++
 (``NativeServerController``). ``--python`` runs the legacy Python loop instead.
 

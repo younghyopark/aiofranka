@@ -54,67 +54,16 @@ Other Macs need pylibfranka built from source, see the [libfranka macOS instruct
 
 ## Quick Start
 
-There are two ways to use aiofranka. Both run the 1 kHz control loop in C++, in a thread that never waits for Python, so nothing in your script can delay a torque command (see [Native Control Loop](#native-control-loop)).
-
-### Option A: Async mode
-
-Run the control loop in your process with `NativeFrankaController`, from an asyncio script.
-
-- **Single script**: no separate server process
-- **Direct access**: no IPC, and the controller's attributes are the loop's memory
-- **Everything native**: custom control laws compiled into the loop, and a log of every cycle with `record()`
-
-```python
-import asyncio
-import numpy as np
-from aiofranka import RobotInterface, NativeFrankaController
-
-async def main():
-    robot = RobotInterface("172.16.0.2")
-    controller = NativeFrankaController(robot)
-
-    await controller.start()
-    await controller.move([0, 0, 0.0, -1.57079, 0, 1.57079, -0.7853])
-
-    controller.switch("impedance")
-    controller.kp = np.ones(7) * 80.0
-    controller.kd = np.ones(7) * 4.0
-    controller.set_freq(50)
-
-    for cnt in range(100):
-        delta = np.sin(cnt / 50.0 * np.pi) * 0.1
-        init = controller.initial_qpos
-        await controller.set("q_desired", delta + init)
-
-    await controller.stop()
-
-if __name__ == "__main__":
-    asyncio.run(main())
-```
-
-Pass `None` instead of the IP to run the same script on a simulated robot in MuJoCo. `examples/` has more.
-
-### Option B: Server mode
-
-Run the control loop in a subprocess with `FrankaRemoteController`. Your scripts use a plain sync API, no `async`/`await` needed.
-
-- **No `async`/`await`**: plain Python scripts, easy to integrate with existing codebases
-- **Process-isolated**: the loop and your script do not share a process
-- **Automatic lifecycle**: the server subprocess starts with your script and stops when it exits
+Unlock the robot first (`aiofranka unlock`, or `aiofranka.unlock()` from Python), then:
 
 ```python
 import numpy as np
 import aiofranka
-from aiofranka import FrankaRemoteController
 
-# 1. Unlock the robot (opens brakes + activates FCI)
-aiofranka.unlock()
+robot = aiofranka.Robot("172.16.0.2")       # None: a simulated arm in MuJoCo
+controller = aiofranka.Controller(robot)
 
-# 2. Create controller and start server subprocess
-controller = FrankaRemoteController()
-controller.start()
-
-# 3. Use the robot
+controller.start()                           # takes torque control, starts the 1 kHz loop
 controller.move([0, 0, 0.0, -1.57079, 0, 1.57079, -0.7853])
 
 controller.switch("impedance")
@@ -123,20 +72,37 @@ controller.kd = np.ones(7) * 4.0
 controller.set_freq(50)
 
 for cnt in range(100):
-    state = controller.state
     delta = np.sin(cnt / 50.0 * np.pi) * 0.1
-    controller.set("q_desired", delta + controller.initial_qpos)
+    controller.set("q_desired", controller.initial_qpos + delta)   # sleeps to hold 50 Hz
 
-# 4. Stop server and lock robot
-controller.stop()
-aiofranka.lock()
+print(robot.state["qpos"])
+controller.stop()                            # gives torque control back
 ```
 
-The server subprocess terminates automatically when your script exits (Ctrl+C, crash, etc.), so it won't leave orphaned processes. `controller.start()` checks that the robot is unlocked and FCI is active before launching — if not, it prints a status summary and exits cleanly.
+`Robot` is the arm: its connection, its MuJoCo model with the tool, and its state, whoever drives it. `Controller` drives it. Its 1 kHz loop runs in C++, in a thread that never waits for Python, and its methods are plain calls: your script can block, sleep or run a policy without delaying a torque command. One controller drives a robot at a time, and `with aiofranka.Controller(robot) as controller:` starts and stops it. `examples/` has more.
 
-### Legacy: the Python loop
+### asyncio code
 
-Earlier versions ran the 1 kHz loop in Python: `FrankaController` on the asyncio event loop, the server with `aiofranka start-server --python` (or `aiofranka.start(native=False)`, `FrankaRemoteController(native=False)`), and `FrankaRemoteControllerV2` in a Python thread. They keep working, with the same API, but are soft-deprecated: anything else that runs in Python can delay their torque commands, so any blocking call over about 1 ms can stop the robot with `communication_constraints_violation` (see the [Async Mode Guide](docs/ASYNC_MODE.md)). New code should use the native loop. To port, swap `FrankaController` for `NativeFrankaController`; a subclass that overrides `step()` becomes a [control law](#custom-control-laws).
+`NativeFrankaController` is the same controller with awaitable methods, for programs built on asyncio:
+
+```python
+controller = aiofranka.NativeFrankaController(aiofranka.RobotInterface("172.16.0.2"))
+await controller.start()
+await controller.move()
+await controller.set("q_desired", target)
+await controller.stop()
+```
+
+A blocked event loop does not delay its torque commands either, but it holds `set()`, `move()` and the copy of the state into `robot.data` until it runs again (see the [Async Mode Guide](docs/ASYNC_MODE.md)).
+
+### Legacy
+
+Earlier versions had two other ways, which keep working but are soft-deprecated:
+
+- Server mode, `FrankaRemoteController`: a sync API with the loop in a subprocess and every command an IPC round trip, without `record()`, control laws, `set_tcp()`, `activate()` or `identify_payload()`. `Controller` gives the same plain calls without a second process.
+- The Python loop: `FrankaController` on the asyncio event loop, the server with `aiofranka start-server --python` (or `aiofranka.start(native=False)`, `FrankaRemoteController(native=False)`), and `FrankaRemoteControllerV2` in a Python thread. Anything else that runs in Python can delay their torque commands, so any blocking call over about 1 ms can stop the robot with `communication_constraints_violation`.
+
+To port, replace `FrankaController(RobotInterface(ip))` or `FrankaRemoteController(ip)` with `Controller(Robot(ip))` and drop the `await`s; a subclass that overrides `step()` becomes a [control law](#custom-control-laws).
 
 ## CLI Reference
 
@@ -203,7 +169,7 @@ aiofranka status
 
 ### `start-server`
 
-Runs the control server in the background for clients such as `FrankaRemoteController` (`--foreground` keeps it in the terminal). It unlocks the robot (`--no-unlock` skips that), moves it home (`--no-home` skips that) and runs the 1 kHz loop in C++ (`NativeServerController`). `--python` runs the legacy Python loop instead.
+Runs the control server of the legacy server mode in the background (`--foreground` keeps it in the terminal). It unlocks the robot (`--no-unlock` skips that), moves it home (`--no-home` skips that) and runs the 1 kHz loop in C++ (`NativeServerController`). `--python` runs the legacy Python loop instead.
 
 ```bash
 aiofranka start-server              # the native loop
@@ -254,10 +220,10 @@ aiofranka tool remove gripper     # delete a profile
 
 The inertia and the TCP cannot be identified this way; set them in the Desk web UI if needed. Tools lighter than about 200 g are better weighed: the center of mass then comes out only to about a centimeter.
 
-From Python, with a `NativeFrankaController`:
+From Python:
 
 ```python
-estimate = await controller.identify_payload(tool_length=0.2)   # moves the robot
+estimate = controller.identify_payload(tool_length=0.2)   # moves the robot
 aiofranka.save_tool("gripper", estimate.mass, estimate.com)
 aiofranka.load_tool("gripper")
 ```
@@ -317,19 +283,14 @@ Most commands accept these flags:
 
 ## Core Concepts
 
-### Async Mode vs Server Mode
+### Robot and Controller
 
-|                          | Async mode                          | Server mode                        |
-|--------------------------|-------------------------------------|------------------------------------|
-| **Class**                | `NativeFrankaController`            | `FrankaRemoteController`           |
-| **API style**            | `async`/`await`                     | Synchronous (plain Python)         |
-| **1kHz loop runs in**    | A C++ thread in your process        | A C++ thread in a subprocess (auto-managed) |
-| **Blocking calls OK?**   | Yes for the robot; they delay your next target | Yes                     |
-| **State reads**          | Direct attribute access             | Shared memory (zero-copy)          |
-| **Commands**             | Direct method calls                 | ZMQ IPC (msgpack)                  |
-| **Setup**                | Single script                       | `unlock()` + `ctrl.start()`        |
-| **Only here**            | `set_tcp()`, `activate()`, `identify_payload()`, control laws, `record()` | —  |
-| **Best for**             | Most scripts, policies, custom control laws | Code without asyncio       |
+|              | `Robot`: the arm | `Controller`: how it is driven |
+|--------------|------------------|--------------------------------|
+| **Lifecycle** | `Robot(ip)` connects, `close()` disconnects; `Robot(None)` is MuJoCo | `start()` takes torque control and starts the 1 kHz loop; `stop()` gives it back |
+| **State**    | `robot.state`, whether or not a controller runs; `robot.robot_state`, libfranka's | Gains, targets, mode (`controller.type`), `loop_stats()` |
+| **Model**    | The MuJoCo model with the tool (`robot.tool`), `set_load()` | The point the OSC controls, `set_tcp()` |
+| **Behavior** | — | `switch()`, control laws, `activate(config)`, `move()`, `set()`/`set_freq()`, `record()`, `identify_payload()` |
 
 ### Rate Limiting
 
@@ -346,10 +307,10 @@ for i in range(100):
 
 ### State Access
 
-Robot state is continuously updated at 1kHz and accessible via `controller.state`:
+The arm's state is `robot.state`: while a controller drives the arm, what its 1 kHz loop read at its last cycle; otherwise the arm is read when you ask.
 
 ```python
-state = controller.state  # Thread-safe access
+state = robot.state
 # Contains: qpos, qvel, ee, jac, mm, last_torque
 print(f"Joint positions: {state['qpos']}")
 print(f"End-effector pose: {state['ee']}")  # 4x4 homogeneous transform
@@ -386,7 +347,7 @@ desired_ee[:3, 3] = [0.4, 0.0, 0.5]  # Position
 controller.set("ee_desired", desired_ee)
 ```
 
-By default, the OSC controls the flange. To control a point on the tool instead, set the tool center point (TCP) as a translation or a 4x4 pose in the flange frame (async mode):
+By default, the OSC controls the flange. To control a point on the tool instead, set the tool center point (TCP) as a translation or a 4x4 pose in the flange frame:
 
 ```python
 controller.switch("osc")
@@ -401,19 +362,9 @@ The flange frame has its origin at the center of the flange face and z pointing 
 
 ## Native Control Loop
 
-The legacy `FrankaController` runs its 1 kHz loop on the asyncio event loop, so anything else that runs there delays the next torque command: a planner, loading a model, garbage collection, a thread holding the GIL. When commands are late, the robot stops with `communication_constraints_violation`. `NativeFrankaController` runs the same loop in C++, in a thread that never waits for Python. It has `FrankaController`'s constructor, methods and attributes, so porting legacy code means swapping the class:
+`Controller` runs aiofranka's 1 kHz loop in C++, in a thread that never waits for Python; `NativeFrankaController` is the same loop with awaitable methods. The legacy `FrankaController` runs the loop on the asyncio event loop, so anything else that runs there delays the next torque command: a planner, loading a model, garbage collection, a thread holding the GIL. When commands are late, the robot stops with `communication_constraints_violation`.
 
-```python
-from aiofranka import NativeFrankaController, RobotInterface
-
-robot = RobotInterface("172.16.0.2")
-controller = NativeFrankaController(robot)  # instead of FrankaController(robot)
-await controller.start()
-controller.switch("osc")
-await controller.set("ee_desired", target)
-```
-
-Server mode runs it too: `FrankaRemoteController`, `aiofranka start-server` and `aiofranka.start()` start the server with `NativeServerController`, and `aiofranka home`, `aiofranka gravcomp` and `aiofranka tool identify` run `NativeFrankaController`. Where the native loop is not built, the server, `home` and `gravcomp` fall back to the Python loop with a warning.
+Server mode runs the native loop too: `FrankaRemoteController`, `aiofranka start-server` and `aiofranka.start()` start the server with `NativeServerController`, and `aiofranka home`, `aiofranka gravcomp` and `aiofranka tool identify` run `NativeFrankaController`. Where the native loop is not built, the server, `home` and `gravcomp` fall back to the Python loop with a warning.
 
 Its impedance, pid, osc and torque laws are ports of `FrankaController`'s. Stepped in lockstep from the same state, impedance, pid and torque mode send bit-identical torques, and the OSC agrees to 1e-12 Nm. On a simulated robot driven through libfranka's `readOnce()`/`writeOnce()`, the longest gap between two torque commands was:
 
@@ -425,9 +376,9 @@ Its impedance, pid, osc and torque laws are ports of `FrankaController`'s. Stepp
 
 What changes:
 
-- A subclass's `step()` would never run, so `NativeFrankaController` refuses one: write it as a control law, and log every cycle with `record()` (both below).
+- A subclass's `step()` would never run, so the native controllers refuse one: write it as a control law, and log every cycle with `record()` (both below).
 - Attributes the loop reads (`kp`, `q_desired`, `ee_desired`, ...) are views of its memory. Assigning one copies the value in, and the loop takes it whole at its next cycle.
-- While the loop runs, `robot.data` and `robot.robot_state` follow it, updated from the event loop about every millisecond. In simulation, the loop owns the simulated arm.
+- While the loop runs, `robot.state` is what it read at its last cycle. With `NativeFrankaController`, the `RobotInterface`'s `robot.data` and `robot.robot_state` follow it, updated from the event loop about every millisecond. In simulation, the loop owns the simulated arm.
 - On Linux, the loop's thread runs at SCHED_FIFO priority 80, which needs an rtprio limit (`ulimit -r`) of at least that. Set `controller.realtime_priority = 0` before `start()` for normal priority.
 - The thread starts on the CPUs of the thread that calls `start()`. Set `controller.realtime_cpu` before `start()` to pin it to a CPU of its own, and keep Python's threads at normal priority: another SCHED_FIFO thread of the same priority on that CPU would hold the loop off until it yields.
 
@@ -448,7 +399,7 @@ It uses pylibfranka's libfranka and must be rebuilt for another libfranka minor 
 
 ```python
 with controller.record(["time", "q", "dq", "tau", "tau_J_d"], path="control.npz") as recording:
-    await run_policy(controller)
+    run_policy(controller)
 data = recording.data()  # {"time": (n,), "q": (n, 7), ...}, one row per cycle
 ```
 
@@ -475,7 +426,7 @@ def pi_damping(s, p, m, tau):
 controller.switch(pi_damping)            # compiles it, a few seconds the first time
 controller.stiffness = np.full(7, 60.0)  # its params are controller attributes, zero at first
 controller.damping = np.full(7, 4.0)
-await controller.set("q_desired", target)
+controller.set("q_desired", target)
 ```
 
 Laws use numpy and math only (Numba's nopython mode). With `clip` (the default), the loop rate-limits and clips their torques like the built-in laws. Return a nonzero integer to stop the loop with an error. Try a law in simulation first: `controller.step()` runs one cycle at a time.

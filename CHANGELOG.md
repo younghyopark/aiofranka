@@ -8,6 +8,8 @@
 
 ### Changes
 
+- `NativeFrankaController` stays as the controller for asyncio code. Server mode (`FrankaRemoteController`) is soft-deprecated like the Python loop: it keeps working, but `Controller` gives the same plain calls in your process, with every feature.
+- The README, the docs and the examples use `Robot` and `Controller`, the system identification collectors 04 and 06 too. Their recordings keep their format, and their targets change every policy period to the cycle, as with `NativeFrankaController`: `Controller.set()` paces on the controller's event loop, which wakes up every millisecond. Ctrl+C there saves the rows so far and exits without a traceback.
 - `Robot.payload` is the payload the robot compensates, `Controller.error` the error that stopped the loop, and `Controller.check_tool()` checks a configuration's tool against Desk, as for `NativeFrankaController`.
 
 ## 0.8.0 - 2026-10-06

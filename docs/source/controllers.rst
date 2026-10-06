@@ -2,8 +2,9 @@ Controllers
 ===========
 
 aiofranka supports four control modes, each suited for different applications.
-All modes work in async mode (``NativeFrankaController``) and server mode
-(``FrankaRemoteController``), both on the native loop, and with the legacy ``FrankaController``.
+All modes work with ``Controller``, and with ``NativeFrankaController``, the same controller
+for asyncio code, whose calls take an ``await``. The legacy ``FrankaController`` and server
+mode have them too.
 
 .. contents:: Table of Contents
    :local:
@@ -30,8 +31,8 @@ where:
 
 Torque rate limiting is applied when ``controller.clip = True`` (default).
 
-Usage (async mode)
-~~~~~~~~~~~~~~~~~~
+Usage
+~~~~~
 
 .. code-block:: python
 
@@ -42,21 +43,7 @@ Usage (async mode)
 
    for i in range(200):
        target = compute_target(i)
-       await controller.set("q_desired", target)
-
-Usage (server mode)
-~~~~~~~~~~~~~~~~~~~
-
-.. code-block:: python
-
-   controller.switch("impedance")
-   controller.kp = np.ones(7) * 80.0
-   controller.kd = np.ones(7) * 4.0
-   controller.set_freq(50)
-
-   for i in range(200):
-       target = compute_target(i)
-       controller.set("q_desired", target)
+       controller.set("q_desired", target)  # await it with NativeFrankaController
 
 **Best for**: Joint-space trajectories, compliant behavior, system identification.
 
@@ -90,7 +77,7 @@ Usage
 
    for i in range(200):
        target = compute_target(i)
-       await controller.set("q_desired", target)  # without await in server mode
+       controller.set("q_desired", target)
 
 **Best for**: Tasks requiring zero steady-state error, precise positioning.
 
@@ -139,7 +126,7 @@ Usage
    desired_ee[:3, :3] = rotation_matrix  # 3x3 rotation
    desired_ee[:3, 3] = [x, y, z]         # position
 
-   await controller.set("ee_desired", desired_ee)  # without await in server mode
+   controller.set("ee_desired", desired_ee)
 
 End-Effector Pose Format
 ~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -239,12 +226,12 @@ You can switch between controllers at runtime:
    # Start with impedance
    controller.switch("impedance")
    controller.kp = np.ones(7) * 80.0
-   await controller.set("q_desired", target1)
+   controller.set("q_desired", target1)
 
    # Switch to OSC
    controller.switch("osc")
    controller.ee_kp = np.array([300, 300, 300, 1000, 1000, 1000])
-   await controller.set("ee_desired", target2)
+   controller.set("ee_desired", target2)
 
    # Switch to PID
    controller.switch("pid")
@@ -300,7 +287,7 @@ first:
 .. code-block:: python
 
    config = aiofranka.load_config("configs/pocky/lv1_osc.yaml")
-   await controller.move(config["null_target"])  # also puts the TCP where the policy starts
+   controller.move(config["null_target"])  # also puts the TCP where the policy starts
    controller.activate(config)
 
 A joint impedance file has ``mode: impedance``, ``kp`` and ``kd``. The ``configs/`` folder of the
@@ -333,12 +320,12 @@ The ``move()`` method generates a smooth, time-optimal, jerk-limited trajectory 
 .. code-block:: python
 
    # Move to home position
-   await controller.move()
+   controller.move()
 
    # Move to custom position
-   await controller.move([0, -0.785, 0, -2.356, 0, 1.571, 0.785])
+   controller.move([0, -0.785, 0, -2.356, 0, 1.571, 0.785])
 
-In server mode, call ``controller.move(...)`` without ``await``.
+With ``NativeFrankaController``, ``await controller.move(...)``.
 
 ``move()`` temporarily switches to impedance control. Trajectory limits are:
 
@@ -364,8 +351,8 @@ e.g. "No End Effector". Save the result as a profile and activate it:
 
    import aiofranka
 
-   controller = aiofranka.NativeFrankaController(aiofranka.RobotInterface("172.16.0.2"))
-   estimate = await controller.identify_payload(tool_length=0.25)   # moves the robot
+   controller = aiofranka.Controller(aiofranka.Robot("172.16.0.2"))
+   estimate = controller.identify_payload(tool_length=0.25)   # moves the robot
    aiofranka.save_tool("gripper", estimate.mass, estimate.com)       # create or update the profile
    aiofranka.load_tool("gripper")                                     # activate it
 

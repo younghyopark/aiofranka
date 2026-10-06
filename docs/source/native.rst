@@ -1,26 +1,29 @@
 Native Control Loop
 ===================
 
-aiofranka's 1 kHz control loop runs in C++, in a thread that never waits for Python:
-``NativeFrankaController`` runs it in your process, and server mode in its subprocess.
+aiofranka's 1 kHz control loop runs in C++, in a thread that never waits for Python.
+``Controller`` runs it in your process with plain calls, and ``NativeFrankaController`` with
+awaitable ones, for asyncio code.
 
 The legacy ``FrankaController`` runs the loop on the asyncio event loop, in Python. Anything
 else that runs there delays the next torque command: a planner, loading a model, garbage
 collection, a thread holding the GIL. When commands are late, the robot stops with
-``communication_constraints_violation``. ``NativeFrankaController`` has ``FrankaController``'s
-constructor, methods and attributes, so porting legacy code means swapping the class:
+``communication_constraints_violation``. The native controllers have ``FrankaController``'s
+methods and attributes, so porting legacy code means swapping the class:
 
 .. code-block:: python
 
-   from aiofranka import NativeFrankaController, RobotInterface
+   import aiofranka
 
-   robot = RobotInterface("172.16.0.2")
-   controller = NativeFrankaController(robot)  # instead of FrankaController(robot)
-   await controller.start()
+   controller = aiofranka.Controller(aiofranka.Robot("172.16.0.2"))
+   controller.start()
    controller.switch("osc")
-   await controller.set("ee_desired", target)
+   controller.set("ee_desired", target)
 
-Server mode runs it too: ``FrankaRemoteController``, ``aiofranka start-server`` and
+or, keeping the ``await``\ s, ``NativeFrankaController(RobotInterface(ip))`` for
+``FrankaController(RobotInterface(ip))``.
+
+Server mode runs the native loop too: ``FrankaRemoteController``, ``aiofranka start-server`` and
 ``aiofranka.start()`` start the server with ``NativeServerController``, and ``aiofranka home``,
 ``aiofranka gravcomp`` and ``aiofranka tool identify`` run ``NativeFrankaController``. Where the
 native loop is not built, the server, ``home`` and ``gravcomp`` fall back to the Python loop
@@ -60,12 +63,14 @@ gap between two torque commands was:
 
 What changes:
 
-- A subclass's ``step()`` would never run, so ``NativeFrankaController`` refuses one: write
-  it as a control law, and log every cycle with ``record()`` (both below).
+- A subclass's ``step()`` would never run, so the native controllers refuse one: write it
+  as a control law, and log every cycle with ``record()`` (both below).
 - Attributes the loop reads (``kp``, ``q_desired``, ``ee_desired``, ...) are views of its
   memory. Assigning one copies the value in, and the loop takes it whole at its next cycle.
-- While the loop runs, ``robot.data`` and ``robot.robot_state`` follow it, updated from the
-  event loop about every millisecond. In simulation, the loop owns the simulated arm.
+- While the loop runs, ``robot.state`` is what it read at its last cycle. With
+  ``NativeFrankaController``, the ``RobotInterface``'s ``robot.data`` and ``robot.robot_state``
+  follow it, updated from the event loop about every millisecond. In simulation, the loop
+  owns the simulated arm.
 - On Linux, the loop's thread runs at SCHED_FIFO priority 80, which needs an rtprio limit
   (``ulimit -r``) of at least that. Set ``controller.realtime_priority = 0`` before
   ``start()`` for normal priority.
@@ -101,7 +106,7 @@ controller moves them to Python about every 10 ms, so a blocked event loop loses
 .. code-block:: python
 
    with controller.record(["time", "q", "dq", "tau", "tau_J_d"], path="control.npz") as recording:
-       await run_policy(controller)
+       run_policy(controller)
    data = recording.data()  # {"time": (n,), "q": (n, 7), ...}, one row per cycle
 
 The fields are those of the cycle (``cycle``, ``time``, ``wall_time``, ``busy``, ``q``,
@@ -143,7 +148,7 @@ Python:
    controller.switch(pi_damping)            # compiles it, a few seconds the first time
    controller.stiffness = np.full(7, 60.0)  # its params are controller attributes, zero at first
    controller.damping = np.full(7, 4.0)
-   await controller.set("q_desired", target)
+   controller.set("q_desired", target)
 
 A law gets:
 

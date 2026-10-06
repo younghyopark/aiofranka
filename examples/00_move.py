@@ -3,12 +3,11 @@
 from __future__ import annotations
 
 import argparse
-import asyncio
 
-from aiofranka import NativeFrankaController, RobotInterface
+from aiofranka import Controller, Robot
 
 
-async def main() -> int:
+def main() -> int:
     parser = argparse.ArgumentParser(
         description="Move one joint on the robot at IP, or omit IP to run MuJoCo."
     )
@@ -19,16 +18,13 @@ async def main() -> int:
     if not 0 <= args.joint < 7:
         parser.error(f"--joint must be in [0, 6], got {args.joint}")
 
-    controller = NativeFrankaController(RobotInterface(args.ip))
-    await controller.start()
-    try:
-        target = controller.initial_qpos.copy()
+    robot = Robot(args.ip)
+    with Controller(robot) as controller:  # start() here, stop() at the end
+        target = robot.state["qpos"].copy()
         target[args.joint] += args.delta
-        await controller.move(target)
-    finally:
-        await controller.stop()
+        controller.move(target)
     return 0
 
 
 if __name__ == "__main__":
-    raise SystemExit(asyncio.run(main()))
+    raise SystemExit(main())

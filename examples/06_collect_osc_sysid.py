@@ -33,13 +33,13 @@ rows so far are saved. Ctrl+C holds the arm where it is. Keep a hand on the enab
 
 from __future__ import annotations
 
-import asyncio
+import time
 
 import mujoco
 import numpy as np
 from scipy.spatial.transform import Rotation
 
-from aiofranka import NativeFrankaController, RobotInterface
+from aiofranka import Controller, Robot
 from aiofranka.config import add_recording
 from aiofranka.payload import MODEL_PATH, _collision_model
 from sysid import (CONTROL_HZ, FIELDS, SETTLE, TORQUE_LIMIT, Stop, arguments, collect, held,
@@ -260,7 +260,7 @@ def describe(args, poses, limits, model, data):
               + (f", {100 * limit['shrunk']:.0f}% of their size for the clearance" if limit["shrunk"] < 1 else ""))
 
 
-async def main() -> int:
+def main() -> int:
     args = arguments(__doc__, "osc")
     config = args.config
     tcp, q_null = config["tcp"], config["null_target"]
@@ -270,7 +270,7 @@ async def main() -> int:
         return 1
 
     # Plan with aiofranka's model, which carries the payload the robot compensates once connected.
-    robot = None if args.plan else RobotInterface(args.ip)
+    robot = None if args.plan else Robot(args.ip)
     dynamics = mujoco.MjModel.from_xml_path(str(MODEL_PATH)) if robot is None else robot.model
     model, data = _collision_model(args.tool_length, args.tool_radius, args.floor, args.clearance)
     poses, trouble = base_poses(args.poses or names, tcp, q_null, model, data)
@@ -279,13 +279,13 @@ async def main() -> int:
     blocks = plan(poses, {p: limits[p]["step"] for p in poses},
                   {p: [wave * limits[p]["scale"] for wave in waves()] for p in poses}, args.hz, args.repeats)
     describe(args, poses, limits, model, data)
-    start = None if robot is None else robot.data.qpos[:7].copy()
+    start = None if robot is None else robot.state["qpos"].copy()
     if not report(trouble + problems(blocks, poses, tcp, q_null, model, data, args.clearance, start), args):
         return 1
     if args.plan:
         return 0
 
-    controller = NativeFrankaController(robot)
+    controller = Controller(robot)
     if not args.no_check_tool:
         try:
             controller.check_tool(config)
@@ -301,20 +301,20 @@ async def main() -> int:
     meta = metadata(args, robot, controller, "osc", list(poses))
     played, null_targets = [], np.full((len(blocks), 7), np.nan)
 
-    async def play_block(index, block):
-        await move_to(controller, poses[block.pose])
+    def play_block(index, block):
+        move_to(controller, poses[block.pose])
         if q_null is not None:
-            rest = null_rest(model, data, controller.state["qpos"], tcp, q_null)
+            rest = null_rest(model, data, robot.state["qpos"], tcp, q_null)
             if rest > NULL_REST_TOLERANCE:
                 raise Stop(f"the null space is not at rest at {block.pose} ({rest:.2f} rad toward the null target)")
         # At the base pose, where the null space is at rest, rather than at the null target.
         controller.activate(config, check_tool=False, check_null_target=False)
         null_targets[index] = controller.initial_qpos
-        await asyncio.sleep(SETTLE)
+        time.sleep(SETTLE)
         base = np.array(controller.ee_desired)
-        await play(controller, "ee_desired", apply(base, block.offsets), RECORDED, played)
+        play(controller, "ee_desired", apply(base, block.offsets), RECORDED, played)
 
-    stopped = await collect(controller, blocks, play_block, home=poses[next(iter(poses))])
+    stopped = collect(controller, blocks, play_block, home=poses[next(iter(poses))])
 
     arrays = rows(played, blocks, RECORDED)
     arrays.update({name: np.tile(config[name], (len(blocks), 1)) for name in ("ee_kp", "ee_kd", "null_kp", "null_kd")})
@@ -341,4 +341,4 @@ async def main() -> int:
 
 
 if __name__ == "__main__":
-    raise SystemExit(asyncio.run(main()))
+    raise SystemExit(main())

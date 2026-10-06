@@ -21,11 +21,9 @@ far are saved. Ctrl+C holds the arm where it is. Joint 7 oscillated at kd 20 (st
 
 from __future__ import annotations
 
-import asyncio
-
 import numpy as np
 
-from aiofranka import NativeFrankaController, RobotInterface
+from aiofranka import Controller, Robot
 from aiofranka.config import add_recording
 from aiofranka.payload import _collision_model
 from sysid import (FIELDS, TORQUE_LIMIT, arguments, collect, joint_problem, metadata, move_problems,
@@ -57,7 +55,7 @@ def problems(blocks, poses, model, data, clearance, start):
     return out + move_problems(model, data, first if start is None else start, poses)
 
 
-async def main() -> int:
+def main() -> int:
     args = arguments(__doc__, "impedance")
     kp, kd = args.config["kp"], args.config["kd"]
     poses = {name: np.array(POSES[name]) for name in args.poses or POSES}
@@ -65,19 +63,19 @@ async def main() -> int:
     waves = (multisine(MULTISINE_PEAK, MULTISINE_SPEED), ramps(RAMP))
     blocks = plan(poses, {p: step for p in poses}, {p: waves for p in poses}, args.hz, args.repeats)
 
-    robot = None if args.plan else RobotInterface(args.ip)
+    robot = None if args.plan else Robot(args.ip)
     model, data = _collision_model(args.tool_length, args.tool_radius, args.floor, args.clearance)
     print(f"\n  {args.activate}: kp {kp.tolist()}, kd {kd.tolist()}, targets at {args.hz} Hz, "
           f"tool {args.config.get('tool', 'not set')}")
     print(f"  {len(blocks)} blocks, {args.repeats} at each of {', '.join(poses)}, about "
           f"{len(blocks) * 16 / 60:.1f} min; steps up to {np.round(step, 3).tolist()} rad")
-    start = None if robot is None else robot.data.qpos[:7].copy()
+    start = None if robot is None else robot.state["qpos"].copy()
     if not report(problems(blocks, poses, model, data, args.clearance, start), args):
         return 1
     if args.plan:
         return 0
 
-    controller = NativeFrankaController(robot)
+    controller = Controller(robot)
     if not args.no_check_tool:
         try:
             controller.check_tool(args.config)
@@ -93,13 +91,13 @@ async def main() -> int:
     meta = metadata(args, robot, controller, "impedance", list(poses))
     played = []
 
-    async def play_block(index, block):
+    def play_block(index, block):
         q0 = poses[block.pose]
-        await move_to(controller, q0)
+        move_to(controller, q0)
         controller.activate(args.config, check_tool=False)  # checked above
-        await play(controller, "q_desired", q0 + block.offsets, RECORDED, played)
+        play(controller, "q_desired", q0 + block.offsets, RECORDED, played)
 
-    stopped = await collect(controller, blocks, play_block, home=poses[next(iter(poses))])
+    stopped = collect(controller, blocks, play_block, home=poses[next(iter(poses))])
 
     arrays = rows(played, blocks, RECORDED)
     arrays.update(kp=np.tile(kp, (len(blocks), 1)), kd=np.tile(kd, (len(blocks), 1)),
@@ -122,4 +120,4 @@ async def main() -> int:
 
 
 if __name__ == "__main__":
-    raise SystemExit(asyncio.run(main()))
+    raise SystemExit(main())
