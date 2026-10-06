@@ -6,14 +6,14 @@
   <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Async Utilities &mdash; aiofranka 0.7.1 documentation</title>
+  <title>Async Utilities &mdash; aiofranka 0.8.0 documentation</title>
       <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=b86133f3" />
       <link rel="stylesheet" type="text/css" href="../_static/css/theme.css?v=9edc463e" />
 
   
       <script src="../_static/jquery.js?v=5d32c60e"></script>
       <script src="../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
-      <script src="../_static/documentation_options.js?v=5a057da9"></script>
+      <script src="../_static/documentation_options.js?v=486e5634"></script>
       <script src="../_static/doctools.js?v=fd6eb6e6"></script>
       <script src="../_static/sphinx_highlight.js?v=6ffebe34"></script>
     <script src="../_static/js/theme.js"></script>
@@ -54,9 +54,9 @@
 </ul>
 <p class="caption" role="heading"><span class="caption-text">API Reference</span></p>
 <ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="native.html">NativeFrankaController</a></li>
+<li class="toctree-l1"><a class="reference internal" href="controller.html">FrankaController</a></li>
 <li class="toctree-l1"><a class="reference internal" href="remote.html">FrankaRemoteController (Server Mode)</a></li>
-<li class="toctree-l1"><a class="reference internal" href="controller.html">Franka Controller</a></li>
-<li class="toctree-l1"><a class="reference internal" href="native.html">Native Controller</a></li>
 <li class="toctree-l1"><a class="reference internal" href="robot.html">Robot Interface</a></li>
 <li class="toctree-l1"><a class="reference internal" href="payload.html">Payload Identification and Tools</a></li>
 <li class="toctree-l1"><a class="reference internal" href="config.html">Controller Configurations</a></li>
@@ -241,7 +241,7 @@ process. Use <code class="docutils literal notranslate"><span class="pre">await<
     <span class="n">model</span><span class="p">,</span> <span class="n">config</span> <span class="o">=</span> <span class="n">load_model</span><span class="p">(</span><span class="n">checkpoint</span><span class="p">,</span> <span class="n">device</span><span class="p">)</span>
     <span class="k">return</span> <span class="n">ACTInferencePolicy</span><span class="p">(</span><span class="n">model</span><span class="p">,</span> <span class="n">config</span><span class="p">,</span> <span class="n">device</span><span class="p">)</span>
 
-<span class="n">policy</span> <span class="o">=</span> <span class="n">mpify</span><span class="p">(</span><span class="n">make_policy</span><span class="p">,</span> <span class="n">checkpoint</span><span class="p">,</span> <span class="s2">"cuda:0"</span><span class="p">)</span>
+<span class="n">policy</span> <span class="o">=</span> <span class="n">mpify</span><span class="p">(</span><span class="n">make_policy</span><span class="p">,</span> <span class="n">checkpoint</span><span class="p">,</span> <span class="s2">&quot;cuda:0&quot;</span><span class="p">)</span>
 
 <span class="k">await</span> <span class="n">policy</span><span class="o">.</span><span class="n">reset</span><span class="p">(</span><span class="n">initial_ee</span><span class="p">)</span>
 <span class="n">ee</span> <span class="o">=</span> <span class="k">await</span> <span class="n">policy</span><span class="o">.</span><span class="n">get_action</span><span class="p">(</span><span class="n">ee</span><span class="p">,</span> <span class="n">qpos</span><span class="p">,</span> <span class="n">task_type</span><span class="p">)</span>
@@ -271,7 +271,7 @@ process. Use <code class="docutils literal notranslate"><span class="pre">await<
 <dd><p>Async-safe replacement for built-in <code class="docutils literal notranslate"><span class="pre">input()</span></code>.</p>
 <p>Runs <code class="docutils literal notranslate"><span class="pre">input()</span></code> in a thread executor so the event loop (and the 1kHz
 control loop) keeps running while waiting for user input:</p>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="k">await</span> <span class="n">async_input</span><span class="p">(</span><span class="s2">"Press Enter to start..."</span><span class="p">)</span>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="k">await</span> <span class="n">async_input</span><span class="p">(</span><span class="s2">&quot;Press Enter to start...&quot;</span><span class="p">)</span>
 </pre></div>
 </div>
 <dl class="field-list simple">

@@ -6,14 +6,14 @@
   <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Async Mode Guide &mdash; aiofranka 0.7.1 documentation</title>
+  <title>Async Mode Guide &mdash; aiofranka 0.8.0 documentation</title>
       <link rel="stylesheet" type="text/css" href="_static/pygments.css?v=b86133f3" />
       <link rel="stylesheet" type="text/css" href="_static/css/theme.css?v=9edc463e" />
 
   
       <script src="_static/jquery.js?v=5d32c60e"></script>
       <script src="_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
-      <script src="_static/documentation_options.js?v=5a057da9"></script>
+      <script src="_static/documentation_options.js?v=486e5634"></script>
       <script src="_static/doctools.js?v=fd6eb6e6"></script>
       <script src="_static/sphinx_highlight.js?v=6ffebe34"></script>
     <script src="_static/js/theme.js"></script>
@@ -72,9 +72,9 @@
 </ul>
 <p class="caption" role="heading"><span class="caption-text">API Reference</span></p>
 <ul>
+<li class="toctree-l1"><a class="reference internal" href="api/native.html">NativeFrankaController</a></li>
+<li class="toctree-l1"><a class="reference internal" href="api/controller.html">FrankaController</a></li>
 <li class="toctree-l1"><a class="reference internal" href="api/remote.html">FrankaRemoteController (Server Mode)</a></li>
-<li class="toctree-l1"><a class="reference internal" href="api/controller.html">Franka Controller</a></li>
-<li class="toctree-l1"><a class="reference internal" href="api/native.html">Native Controller</a></li>
 <li class="toctree-l1"><a class="reference internal" href="api/robot.html">Robot Interface</a></li>
 <li class="toctree-l1"><a class="reference internal" href="api/payload.html">Payload Identification and Tools</a></li>
 <li class="toctree-l1"><a class="reference internal" href="api/config.html">Controller Configurations</a></li>
@@ -114,25 +114,34 @@
 <p><strong>Using server mode</strong> (<code class="docutils literal notranslate"><span class="pre">FrankaRemoteController</span></code>)? You can skip this entire document.
 The 1kHz loop runs in a separate process, so your script can’t starve it.</p>
 </div>
-<p>This guide covers the sharp edges of <strong>async mode</strong> (<code class="docutils literal notranslate"><span class="pre">FrankaController</span></code>) — the in-process
-control loop that requires careful async discipline.</p>
+<p>In async mode, <code class="docutils literal notranslate"><span class="pre">controller.start()</span></code> starts the 1 kHz loop, and your script runs on the
+asyncio event loop next to it. <code class="docutils literal notranslate"><span class="pre">NativeFrankaController</span></code>’s loop runs in C++ and keeps sending
+torques whatever the event loop does, so blocking the event loop does not stop the robot. It
+delays what runs there: your next <code class="docutils literal notranslate"><span class="pre">set()</span></code>, a <code class="docutils literal notranslate"><span class="pre">move()</span></code> (which streams its trajectory from
+the event loop), and the copy of the loop’s state into <code class="docutils literal notranslate"><span class="pre">robot.data</span></code> and <code class="docutils literal notranslate"><span class="pre">robot.robot_state</span></code>.
+This guide keeps the event loop responsive.</p>
+<p>With the legacy <code class="docutils literal notranslate"><span class="pre">FrankaController</span></code>, whose 1 kHz loop itself runs on the event loop, the rules
+below are required.</p>
 <section id="the-core-rule">
 <h2>The Core Rule<a class="headerlink" href="#the-core-rule" title="Link to this heading"></a></h2>
-<p>After <code class="docutils literal notranslate"><span class="pre">controller.start()</span></code>, a <strong>1kHz async control loop</strong> runs in the background
-communicating with the robot via libfranka. If this loop is starved (i.e., doesn’t
-get to run on time), the robot triggers a <code class="docutils literal notranslate"><span class="pre">communication_constraints_violation</span></code>
-reflex and aborts the motion.</p>
-<p><strong>Never block the asyncio event loop after</strong> <code class="docutils literal notranslate"><span class="pre">controller.start()</span></code>.</p>
+<p>After <code class="docutils literal notranslate"><span class="pre">controller.start()</span></code>, <strong>don’t block the asyncio event loop</strong>:</p>
+<ul class="simple">
+<li><p>With <code class="docutils literal notranslate"><span class="pre">NativeFrankaController</span></code>, the arm holds its last target until the event loop runs
+again. <code class="docutils literal notranslate"><span class="pre">controller.state</span></code> reads the loop directly and stays current.</p></li>
+<li><p>With the legacy <code class="docutils literal notranslate"><span class="pre">FrankaController</span></code>, the 1 kHz loop starves: the robot triggers a
+<code class="docutils literal notranslate"><span class="pre">communication_constraints_violation</span></code> reflex and aborts the motion.</p></li>
+</ul>
 </section>
 <section id="what-blocks-the-event-loop">
 <h2>What Blocks the Event Loop<a class="headerlink" href="#what-blocks-the-event-loop" title="Link to this heading"></a></h2>
-<p>Any synchronous (non-awaiting) work that takes more than ~1ms will starve the 1kHz loop:</p>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="c1"># BAD — blocks the event loop, will trigger reflex</span>
+<p>Any synchronous (non-awaiting) work blocks it. With the native loop, it delays your targets by
+as long; more than ~1ms starves the legacy loop:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="c1"># BAD — blocks the event loop</span>
 <span class="k">await</span> <span class="n">controller</span><span class="o">.</span><span class="n">start</span><span class="p">()</span>
 <span class="n">result</span> <span class="o">=</span> <span class="n">model</span><span class="p">(</span><span class="n">input_tensor</span><span class="p">)</span>          <span class="c1"># 2ms+ of GPU compute</span>
-<span class="n">frame</span> <span class="o">=</span> <span class="n">cv2</span><span class="o">.</span><span class="n">imread</span><span class="p">(</span><span class="s2">"image.png"</span><span class="p">)</span>       <span class="c1"># disk I/O</span>
+<span class="n">frame</span> <span class="o">=</span> <span class="n">cv2</span><span class="o">.</span><span class="n">imread</span><span class="p">(</span><span class="s2">&quot;image.png&quot;</span><span class="p">)</span>       <span class="c1"># disk I/O</span>
 <span class="n">time</span><span class="o">.</span><span class="n">sleep</span><span class="p">(</span><span class="mf">0.1</span><span class="p">)</span>                       <span class="c1"># synchronous sleep</span>
-<span class="n">data</span> <span class="o">=</span> <span class="n">requests</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"http://..."</span><span class="p">)</span>     <span class="c1"># network I/O</span>
+<span class="n">data</span> <span class="o">=</span> <span class="n">requests</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;http://...&quot;</span><span class="p">)</span>     <span class="c1"># network I/O</span>
 </pre></div>
 </div>
 </section>
@@ -149,7 +158,7 @@ reflex and aborts the motion.</p>
     <span class="k">def</span><span class="w"> </span><span class="nf">get_action</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">obs</span><span class="p">):</span>
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">model</span><span class="p">(</span><span class="n">obs</span><span class="p">)</span>  <span class="c1"># blocking, but now safe to await</span>
 
-<span class="c1"># Wrapping an existing function you don't own</span>
+<span class="c1"># Wrapping an existing function you don&#39;t own</span>
 <span class="n">model_async</span> <span class="o">=</span> <span class="n">asyncify</span><span class="p">(</span><span class="n">model</span><span class="p">)</span>
 
 <span class="c1"># Now safe to use in the control loop</span>
@@ -157,7 +166,7 @@ reflex and aborts the motion.</p>
 <span class="k">for</span> <span class="n">step</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">100</span><span class="p">):</span>
     <span class="n">action</span> <span class="o">=</span> <span class="k">await</span> <span class="n">policy</span><span class="o">.</span><span class="n">get_action</span><span class="p">(</span><span class="n">obs</span><span class="p">)</span>          <span class="c1"># non-blocking</span>
     <span class="n">result</span> <span class="o">=</span> <span class="k">await</span> <span class="n">model_async</span><span class="p">(</span><span class="n">input_tensor</span><span class="p">)</span>       <span class="c1"># non-blocking</span>
-    <span class="k">await</span> <span class="n">controller</span><span class="o">.</span><span class="n">set</span><span class="p">(</span><span class="s2">"ee_desired"</span><span class="p">,</span> <span class="n">action</span><span class="p">)</span>     <span class="c1"># non-blocking</span>
+    <span class="k">await</span> <span class="n">controller</span><span class="o">.</span><span class="n">set</span><span class="p">(</span><span class="s2">&quot;ee_desired&quot;</span><span class="p">,</span> <span class="n">action</span><span class="p">)</span>     <span class="c1"># non-blocking</span>
 </pre></div>
 </div>
 <p>The original sync function is still accessible as <code class="docutils literal notranslate"><span class="pre">policy.get_action.sync(obs)</span></code> if needed.</p>
@@ -167,15 +176,15 @@ reflex and aborts the motion.</p>
 <p><code class="docutils literal notranslate"><span class="pre">input()</span></code> blocks the event loop. Use <code class="docutils literal notranslate"><span class="pre">async_input</span></code> instead:</p>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">aiofranka</span><span class="w"> </span><span class="kn">import</span> <span class="n">async_input</span>
 
-<span class="k">await</span> <span class="n">async_input</span><span class="p">(</span><span class="s2">"Press Enter to start..."</span><span class="p">)</span>
+<span class="k">await</span> <span class="n">async_input</span><span class="p">(</span><span class="s2">&quot;Press Enter to start...&quot;</span><span class="p">)</span>
 </pre></div>
 </div>
 </section>
 </section>
 <section id="time-sleep-vs-asyncio-sleep">
 <h2>time.sleep vs asyncio.sleep<a class="headerlink" href="#time-sleep-vs-asyncio-sleep" title="Link to this heading"></a></h2>
-<p>A common gotcha: <code class="docutils literal notranslate"><span class="pre">time.sleep()</span></code> blocks the entire event loop, which <strong>will</strong> starve
-the 1kHz control loop. Always use <code class="docutils literal notranslate"><span class="pre">await</span> <span class="pre">asyncio.sleep()</span></code> instead:</p>
+<p>A common gotcha: <code class="docutils literal notranslate"><span class="pre">time.sleep()</span></code> blocks the entire event loop, which holds your targets,
+and <strong>will</strong> starve the legacy 1kHz control loop. Always use <code class="docutils literal notranslate"><span class="pre">await</span> <span class="pre">asyncio.sleep()</span></code> instead:</p>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="c1"># BAD — blocks the event loop</span>
 <span class="n">time</span><span class="o">.</span><span class="n">sleep</span><span class="p">(</span><span class="mf">0.1</span><span class="p">)</span>
 
@@ -183,8 +192,8 @@ the 1kHz control loop. Always use <code class="docutils literal notranslate"><sp
 <span class="k">await</span> <span class="n">asyncio</span><span class="o">.</span><span class="n">sleep</span><span class="p">(</span><span class="mf">0.1</span><span class="p">)</span>
 </pre></div>
 </div>
-<p>This applies anywhere after <code class="docutils literal notranslate"><span class="pre">controller.start()</span></code>. Even a short <code class="docutils literal notranslate"><span class="pre">time.sleep(0.002)</span></code>
-can cause a violation.</p>
+<p>This applies anywhere after <code class="docutils literal notranslate"><span class="pre">controller.start()</span></code>. With the legacy loop, even a short
+<code class="docutils literal notranslate"><span class="pre">time.sleep(0.002)</span></code> can cause a violation.</p>
 </section>
 <section id="quick-checklist">
 <h2>Quick Checklist<a class="headerlink" href="#quick-checklist" title="Link to this heading"></a></h2>
@@ -221,13 +230,13 @@ can cause a violation.</p>
 <h2>CUDA and run_in_executor<a class="headerlink" href="#cuda-and-run-in-executor" title="Link to this heading"></a></h2>
 <p>If your model runs on GPU, <strong>avoid</strong> <code class="docutils literal notranslate"><span class="pre">run_in_executor</span></code> for CUDA operations. The
 default <code class="docutils literal notranslate"><span class="pre">ThreadPoolExecutor</span></code> causes GIL contention between the worker thread
-(launching CUDA kernels) and the main thread (running the 1kHz loop). This can
+(launching CUDA kernels) and the main thread (running the event loop). This can
 inflate a 1ms forward pass to 50ms+.</p>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="c1"># BAD — GIL contention makes CUDA ~40x slower in a worker thread</span>
 <span class="n">ee_desired</span> <span class="o">=</span> <span class="k">await</span> <span class="n">loop</span><span class="o">.</span><span class="n">run_in_executor</span><span class="p">(</span><span class="kc">None</span><span class="p">,</span> <span class="n">model</span><span class="p">,</span> <span class="n">input_tensor</span><span class="p">)</span>
 
 <span class="c1"># GOOD — if your GPU forward pass is &lt;2ms, call it directly</span>
-<span class="n">ee_desired</span> <span class="o">=</span> <span class="n">model</span><span class="p">(</span><span class="n">input_tensor</span><span class="p">)</span>  <span class="c1"># fast enough to not starve the 1kHz loop</span>
+<span class="n">ee_desired</span> <span class="o">=</span> <span class="n">model</span><span class="p">(</span><span class="n">input_tensor</span><span class="p">)</span>  <span class="c1"># fast enough not to hold up the event loop</span>
 </pre></div>
 </div>
 <p><strong>Rule of thumb</strong>: profile your model’s forward pass. If it’s under ~2ms on GPU,
@@ -269,7 +278,7 @@ with an initialized CUDA context, so the per-call cost is just a queue round-tri
     <span class="k">return</span> <span class="n">PolicyWrapper</span><span class="p">(</span><span class="n">model</span><span class="p">,</span> <span class="n">config</span><span class="p">,</span> <span class="n">device</span><span class="p">)</span>
 
 <span class="c1"># Spawns a child process, returns a transparent async proxy</span>
-<span class="n">policy</span> <span class="o">=</span> <span class="n">mpify</span><span class="p">(</span><span class="n">make_policy</span><span class="p">,</span> <span class="s2">"checkpoint.pt"</span><span class="p">,</span> <span class="s2">"cuda:0"</span><span class="p">)</span>
+<span class="n">policy</span> <span class="o">=</span> <span class="n">mpify</span><span class="p">(</span><span class="n">make_policy</span><span class="p">,</span> <span class="s2">&quot;checkpoint.pt&quot;</span><span class="p">,</span> <span class="s2">&quot;cuda:0&quot;</span><span class="p">)</span>
 
 <span class="c1"># All access is forwarded to the child process via pipe</span>
 <span class="k">await</span> <span class="n">policy</span><span class="o">.</span><span class="n">reset</span><span class="p">(</span><span class="n">initial_ee</span><span class="p">)</span>

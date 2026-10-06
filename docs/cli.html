@@ -6,14 +6,14 @@
   <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>CLI Reference &mdash; aiofranka 0.7.1 documentation</title>
+  <title>CLI Reference &mdash; aiofranka 0.8.0 documentation</title>
       <link rel="stylesheet" type="text/css" href="_static/pygments.css?v=b86133f3" />
       <link rel="stylesheet" type="text/css" href="_static/css/theme.css?v=9edc463e" />
 
   
       <script src="_static/jquery.js?v=5d32c60e"></script>
       <script src="_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
-      <script src="_static/documentation_options.js?v=5a057da9"></script>
+      <script src="_static/documentation_options.js?v=486e5634"></script>
       <script src="_static/doctools.js?v=fd6eb6e6"></script>
       <script src="_static/sphinx_highlight.js?v=6ffebe34"></script>
     <script src="_static/js/theme.js"></script>
@@ -52,6 +52,7 @@
 <li class="toctree-l2"><a class="reference internal" href="#unlock-lock">unlock / lock</a></li>
 <li class="toctree-l2"><a class="reference internal" href="#gravcomp">gravcomp</a></li>
 <li class="toctree-l2"><a class="reference internal" href="#status">status</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#start-server">start-server</a></li>
 <li class="toctree-l2"><a class="reference internal" href="#stop">stop</a></li>
 <li class="toctree-l2"><a class="reference internal" href="#mode">mode</a></li>
 <li class="toctree-l2"><a class="reference internal" href="#config">config</a></li>
@@ -59,6 +60,7 @@
 <li class="toctree-l2"><a class="reference internal" href="#camera">camera</a></li>
 <li class="toctree-l2"><a class="reference internal" href="#selftest">selftest</a></li>
 <li class="toctree-l2"><a class="reference internal" href="#log">log</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#rt-benchmark">rt-benchmark</a></li>
 <li class="toctree-l2"><a class="reference internal" href="#common-flags">Common Flags</a></li>
 </ul>
 </li>
@@ -68,9 +70,9 @@
 </ul>
 <p class="caption" role="heading"><span class="caption-text">API Reference</span></p>
 <ul>
+<li class="toctree-l1"><a class="reference internal" href="api/native.html">NativeFrankaController</a></li>
+<li class="toctree-l1"><a class="reference internal" href="api/controller.html">FrankaController</a></li>
 <li class="toctree-l1"><a class="reference internal" href="api/remote.html">FrankaRemoteController (Server Mode)</a></li>
-<li class="toctree-l1"><a class="reference internal" href="api/controller.html">Franka Controller</a></li>
-<li class="toctree-l1"><a class="reference internal" href="api/native.html">Native Controller</a></li>
 <li class="toctree-l1"><a class="reference internal" href="api/robot.html">Robot Interface</a></li>
 <li class="toctree-l1"><a class="reference internal" href="api/payload.html">Payload Identification and Tools</a></li>
 <li class="toctree-l1"><a class="reference internal" href="api/config.html">Controller Configurations</a></li>
@@ -131,7 +133,7 @@ from Programming back to Execution. Lock does the reverse. Credentials are promp
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="c1"># Unlock before running your script</span>
 aiofranka<span class="w"> </span>unlock
 
-<span class="c1"># Lock when you're done</span>
+<span class="c1"># Lock when you&#39;re done</span>
 aiofranka<span class="w"> </span>lock
 </pre></div>
 </div>
@@ -162,6 +164,17 @@ aiofranka<span class="w"> </span>gravcomp<span class="w"> </span>--mode<span cla
 <p>Shows robot state (joints locked/unlocked, FCI active/inactive, control token,
 self-test status, end-effector configuration) and server status if running.</p>
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>aiofranka<span class="w"> </span>status
+</pre></div>
+</div>
+</section>
+<section id="start-server">
+<h2>start-server<a class="headerlink" href="#start-server" title="Link to this heading"></a></h2>
+<p>Runs the control server in the background for clients such as <code class="docutils literal notranslate"><span class="pre">FrankaRemoteController</span></code>
+(<code class="docutils literal notranslate"><span class="pre">--foreground</span></code> keeps it in the terminal). It unlocks the robot (<code class="docutils literal notranslate"><span class="pre">--no-unlock</span></code> skips that),
+moves it home (<code class="docutils literal notranslate"><span class="pre">--no-home</span></code> skips that) and runs the 1 kHz loop in C++
+(<code class="docutils literal notranslate"><span class="pre">NativeServerController</span></code>). <code class="docutils literal notranslate"><span class="pre">--python</span></code> runs the legacy Python loop instead.</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>aiofranka<span class="w"> </span>start-server<span class="w">              </span><span class="c1"># the native loop</span>
+aiofranka<span class="w"> </span>start-server<span class="w"> </span>--python<span class="w">     </span><span class="c1"># the legacy Python loop</span>
 </pre></div>
 </div>
 </section>
@@ -209,9 +222,9 @@ aiofranka<span class="w"> </span>config<span class="w"> </span>--translation<spa
 <p>Identify the tool on the flange and keep it as an end-effector profile in Desk (Settings &gt; End
 Effector), the same profiles the web UI shows. The robot compensates the active profile, and
 <code class="docutils literal notranslate"><span class="pre">RobotInterface</span></code> merges it into the MuJoCo model when it connects.</p>
-<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>aiofranka<span class="w"> </span>tool<span class="w"> </span>identify<span class="w"> </span>gripper<span class="w">   </span><span class="c1"># move through 16 poses, save as profile "gripper", activate it</span>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>aiofranka<span class="w"> </span>tool<span class="w"> </span>identify<span class="w"> </span>gripper<span class="w">   </span><span class="c1"># move through 16 poses, save as profile &quot;gripper&quot;, activate it</span>
 aiofranka<span class="w"> </span>tool<span class="w"> </span>load<span class="w"> </span>gripper<span class="w">       </span><span class="c1"># activate a profile</span>
-aiofranka<span class="w"> </span>tool<span class="w"> </span>unload<span class="w">             </span><span class="c1"># activate the built-in "No End Effector" profile</span>
+aiofranka<span class="w"> </span>tool<span class="w"> </span>unload<span class="w">             </span><span class="c1"># activate the built-in &quot;No End Effector&quot; profile</span>
 aiofranka<span class="w"> </span>tool<span class="w"> </span>list<span class="w">               </span><span class="c1"># list the profiles, marking the active one</span>
 aiofranka<span class="w"> </span>tool<span class="w"> </span>remove<span class="w"> </span>gripper<span class="w">     </span><span class="c1"># delete a profile</span>
 </pre></div>
@@ -225,8 +238,8 @@ a scale reading; an existing profile keeps its tool center point and inertia. <c
 it without activating it. See <a class="reference internal" href="controllers.html#payload-identification"><span class="std std-ref">Payload Identification</span></a>.</p>
 <p>From Python:</p>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span><span class="w"> </span><span class="nn">aiofranka</span>
-<span class="n">aiofranka</span><span class="o">.</span><span class="n">save_tool</span><span class="p">(</span><span class="s2">"gripper"</span><span class="p">,</span> <span class="n">mass</span><span class="o">=</span><span class="mf">0.62</span><span class="p">,</span> <span class="n">com</span><span class="o">=</span><span class="p">[</span><span class="mf">0.0</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">,</span> <span class="mf">0.045</span><span class="p">])</span>
-<span class="n">aiofranka</span><span class="o">.</span><span class="n">load_tool</span><span class="p">(</span><span class="s2">"gripper"</span><span class="p">)</span>
+<span class="n">aiofranka</span><span class="o">.</span><span class="n">save_tool</span><span class="p">(</span><span class="s2">&quot;gripper&quot;</span><span class="p">,</span> <span class="n">mass</span><span class="o">=</span><span class="mf">0.62</span><span class="p">,</span> <span class="n">com</span><span class="o">=</span><span class="p">[</span><span class="mf">0.0</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">,</span> <span class="mf">0.045</span><span class="p">])</span>
+<span class="n">aiofranka</span><span class="o">.</span><span class="n">load_tool</span><span class="p">(</span><span class="s2">&quot;gripper&quot;</span><span class="p">)</span>
 <span class="n">aiofranka</span><span class="o">.</span><span class="n">list_tools</span><span class="p">()</span>
 </pre></div>
 </div>
@@ -265,6 +278,20 @@ aiofranka<span class="w"> </span>selftest<span class="w"> </span>--force<span cl
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>aiofranka<span class="w"> </span>log<span class="w">              </span><span class="c1"># last 20 lines</span>
 aiofranka<span class="w"> </span>log<span class="w"> </span>-n<span class="w"> </span><span class="m">100</span><span class="w">       </span><span class="c1"># last 100 lines</span>
 aiofranka<span class="w"> </span>log<span class="w"> </span>-f<span class="w">           </span><span class="c1"># follow (like tail -f)</span>
+</pre></div>
+</div>
+</section>
+<section id="rt-benchmark">
+<h2>rt-benchmark<a class="headerlink" href="#rt-benchmark" title="Link to this heading"></a></h2>
+<p>Measures the 1 kHz loop on this machine. It holds the current pose in gravcomp, impedance and
+OSC in turn, 10 s each (<code class="docutils literal notranslate"><span class="pre">--duration</span></code>), records every cycle and compares the modes. <code class="docutils literal notranslate"><span class="pre">--mode</span></code>
+picks the modes; one mode prints its full report: the periods and their percentiles, the
+response time from <code class="docutils literal notranslate"><span class="pre">readOnce</span></code> to <code class="docutils literal notranslate"><span class="pre">writeOnce</span></code> against a 300 us budget, skipped robot
+states, dropped commands and a histogram. <code class="docutils literal notranslate"><span class="pre">--python</span></code> benchmarks the legacy Python loop
+instead, with a breakdown per phase, and <code class="docutils literal notranslate"><span class="pre">--all-combos</span></code> compares its real-time settings.</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>aiofranka<span class="w"> </span>rt-benchmark<span class="w">                 </span><span class="c1"># the native loop, every mode</span>
+aiofranka<span class="w"> </span>rt-benchmark<span class="w"> </span>--mode<span class="w"> </span>osc<span class="w">      </span><span class="c1"># one mode, its full report</span>
+aiofranka<span class="w"> </span>rt-benchmark<span class="w"> </span>--python<span class="w">        </span><span class="c1"># the legacy Python loop</span>
 </pre></div>
 </div>
 </section>

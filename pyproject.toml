@@ -6,7 +6,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "aiofranka"
-version = "0.7.1"
+version = "0.8.0"
 description = "A Python package for Franka robot control using asyncio."
 readme = "README.md"
 requires-python = ">=3.10"

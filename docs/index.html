@@ -6,14 +6,14 @@
   <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Welcome to aiofranka’s documentation! &mdash; aiofranka 0.7.1 documentation</title>
+  <title>Welcome to aiofranka’s documentation! &mdash; aiofranka 0.8.0 documentation</title>
       <link rel="stylesheet" type="text/css" href="_static/pygments.css?v=b86133f3" />
       <link rel="stylesheet" type="text/css" href="_static/css/theme.css?v=9edc463e" />
 
   
       <script src="_static/jquery.js?v=5d32c60e"></script>
       <script src="_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
-      <script src="_static/documentation_options.js?v=5a057da9"></script>
+      <script src="_static/documentation_options.js?v=486e5634"></script>
       <script src="_static/doctools.js?v=fd6eb6e6"></script>
       <script src="_static/sphinx_highlight.js?v=6ffebe34"></script>
     <script src="_static/js/theme.js"></script>
@@ -54,9 +54,9 @@
 </ul>
 <p class="caption" role="heading"><span class="caption-text">API Reference</span></p>
 <ul>
+<li class="toctree-l1"><a class="reference internal" href="api/native.html">NativeFrankaController</a></li>
+<li class="toctree-l1"><a class="reference internal" href="api/controller.html">FrankaController</a></li>
 <li class="toctree-l1"><a class="reference internal" href="api/remote.html">FrankaRemoteController (Server Mode)</a></li>
-<li class="toctree-l1"><a class="reference internal" href="api/controller.html">Franka Controller</a></li>
-<li class="toctree-l1"><a class="reference internal" href="api/native.html">Native Controller</a></li>
 <li class="toctree-l1"><a class="reference internal" href="api/robot.html">Robot Interface</a></li>
 <li class="toctree-l1"><a class="reference internal" href="api/payload.html">Payload Identification and Tools</a></li>
 <li class="toctree-l1"><a class="reference internal" href="api/config.html">Controller Configurations</a></li>
@@ -98,7 +98,7 @@
 <a class="reference external image-reference" href="https://opensource.org/licenses/MIT"><img alt="License: MIT" src="https://img.shields.io/badge/License-MIT-yellow.svg" />
 </a>
 <p><strong>aiofranka</strong> is an asyncio-based Python library for controlling Franka Emika robots. It provides a high-level interface that combines <strong>pylibfranka</strong> for real-time 1kHz torque control, <strong>MuJoCo</strong> for kinematics/dynamics computation, and <strong>Ruckig</strong> for smooth trajectory generation.</p>
-<p>The library is designed for research applications requiring precise, real-time control with minimal latency and maximum flexibility.</p>
+<p>Its 1 kHz control loop runs in C++, in a thread that never waits for Python (see <a class="reference internal" href="native.html"><span class="doc">Native Control Loop</span></a>). The library is designed for research applications requiring precise, real-time control with minimal latency and maximum flexibility.</p>
 <section id="contents">
 <h2>Contents<a class="headerlink" href="#contents" title="Link to this heading"></a></h2>
 <div class="toctree-wrapper compound">
@@ -112,9 +112,10 @@
 </ul>
 </li>
 <li class="toctree-l1"><a class="reference internal" href="quickstart.html">Quick Start</a><ul>
-<li class="toctree-l2"><a class="reference internal" href="quickstart.html#server-mode">Server Mode</a></li>
 <li class="toctree-l2"><a class="reference internal" href="quickstart.html#async-mode">Async Mode</a></li>
-<li class="toctree-l2"><a class="reference internal" href="quickstart.html#server-mode-vs-async-mode">Server Mode vs Async Mode</a></li>
+<li class="toctree-l2"><a class="reference internal" href="quickstart.html#server-mode">Server Mode</a></li>
+<li class="toctree-l2"><a class="reference internal" href="quickstart.html#async-mode-vs-server-mode">Async Mode vs Server Mode</a></li>
+<li class="toctree-l2"><a class="reference internal" href="quickstart.html#legacy-the-python-loop">Legacy: the Python Loop</a></li>
 <li class="toctree-l2"><a class="reference internal" href="quickstart.html#unlocking-and-locking">Unlocking and Locking</a></li>
 <li class="toctree-l2"><a class="reference internal" href="quickstart.html#reading-robot-state">Reading Robot State</a></li>
 <li class="toctree-l2"><a class="reference internal" href="quickstart.html#rate-limiting">Rate Limiting</a></li>
@@ -137,6 +138,7 @@
 <li class="toctree-l1"><a class="reference internal" href="native.html">Native Control Loop</a><ul>
 <li class="toctree-l2"><a class="reference internal" href="native.html#how-it-compares">How it compares</a></li>
 <li class="toctree-l2"><a class="reference internal" href="native.html#building">Building</a></li>
+<li class="toctree-l2"><a class="reference internal" href="native.html#recording-every-cycle">Recording every cycle</a></li>
 <li class="toctree-l2"><a class="reference internal" href="native.html#custom-control-laws">Custom control laws</a></li>
 </ul>
 </li>
@@ -144,6 +146,7 @@
 <li class="toctree-l2"><a class="reference internal" href="cli.html#unlock-lock">unlock / lock</a></li>
 <li class="toctree-l2"><a class="reference internal" href="cli.html#gravcomp">gravcomp</a></li>
 <li class="toctree-l2"><a class="reference internal" href="cli.html#status">status</a></li>
+<li class="toctree-l2"><a class="reference internal" href="cli.html#start-server">start-server</a></li>
 <li class="toctree-l2"><a class="reference internal" href="cli.html#stop">stop</a></li>
 <li class="toctree-l2"><a class="reference internal" href="cli.html#mode">mode</a></li>
 <li class="toctree-l2"><a class="reference internal" href="cli.html#config">config</a></li>
@@ -151,6 +154,7 @@
 <li class="toctree-l2"><a class="reference internal" href="cli.html#camera">camera</a></li>
 <li class="toctree-l2"><a class="reference internal" href="cli.html#selftest">selftest</a></li>
 <li class="toctree-l2"><a class="reference internal" href="cli.html#log">log</a></li>
+<li class="toctree-l2"><a class="reference internal" href="cli.html#rt-benchmark">rt-benchmark</a></li>
 <li class="toctree-l2"><a class="reference internal" href="cli.html#common-flags">Common Flags</a></li>
 </ul>
 </li>
@@ -165,8 +169,8 @@
 </ul>
 </li>
 <li class="toctree-l1"><a class="reference internal" href="examples.html">Examples</a><ul>
-<li class="toctree-l2"><a class="reference internal" href="examples.html#example-1-simple-motion-server-mode">Example 1: Simple Motion (Server Mode)</a></li>
-<li class="toctree-l2"><a class="reference internal" href="examples.html#example-2-simple-motion-async-mode">Example 2: Simple Motion (Async Mode)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="examples.html#example-1-simple-motion">Example 1: Simple Motion</a></li>
+<li class="toctree-l2"><a class="reference internal" href="examples.html#example-2-simple-motion-server-mode">Example 2: Simple Motion (Server Mode)</a></li>
 <li class="toctree-l2"><a class="reference internal" href="examples.html#example-3-impedance-control">Example 3: Impedance Control</a></li>
 <li class="toctree-l2"><a class="reference internal" href="examples.html#example-4-operational-space-control">Example 4: Operational Space Control</a></li>
 <li class="toctree-l2"><a class="reference internal" href="examples.html#example-5-data-collection">Example 5: Data Collection</a></li>
@@ -192,22 +196,23 @@
 <div class="toctree-wrapper compound">
 <p class="caption" role="heading"><span class="caption-text">API Reference</span></p>
 <ul>
+<li class="toctree-l1"><a class="reference internal" href="api/native.html">NativeFrankaController</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="api/native.html#aiofranka.native.load_native"><code class="docutils literal notranslate"><span class="pre">load_native()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="api/native.html#aiofranka.native.ControlLaw"><code class="docutils literal notranslate"><span class="pre">ControlLaw</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="api/native.html#aiofranka.native.control_law"><code class="docutils literal notranslate"><span class="pre">control_law()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="api/native.html#aiofranka.native.Recording"><code class="docutils literal notranslate"><span class="pre">Recording</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="api/native.html#aiofranka.native.NativeFrankaController"><code class="docutils literal notranslate"><span class="pre">NativeFrankaController</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="api/native.html#aiofranka.server_native.NativeServerController"><code class="docutils literal notranslate"><span class="pre">NativeServerController</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="api/controller.html">FrankaController</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="api/controller.html#aiofranka.controller.FrankaController"><code class="docutils literal notranslate"><span class="pre">FrankaController</span></code></a></li>
+</ul>
+</li>
 <li class="toctree-l1"><a class="reference internal" href="api/remote.html">FrankaRemoteController (Server Mode)</a><ul>
 <li class="toctree-l2"><a class="reference internal" href="api/remote.html#aiofranka.remote.ServerDiedError"><code class="docutils literal notranslate"><span class="pre">ServerDiedError</span></code></a></li>
 <li class="toctree-l2"><a class="reference internal" href="api/remote.html#aiofranka.remote.FrankaRemoteController"><code class="docutils literal notranslate"><span class="pre">FrankaRemoteController</span></code></a></li>
 <li class="toctree-l2"><a class="reference internal" href="api/remote.html#aiofranka.remote.FrankaRemoteControllerNative"><code class="docutils literal notranslate"><span class="pre">FrankaRemoteControllerNative</span></code></a></li>
-</ul>
-</li>
-<li class="toctree-l1"><a class="reference internal" href="api/controller.html">Franka Controller</a><ul>
-<li class="toctree-l2"><a class="reference internal" href="api/controller.html#aiofranka.controller.FrankaController"><code class="docutils literal notranslate"><span class="pre">FrankaController</span></code></a></li>
-</ul>
-</li>
-<li class="toctree-l1"><a class="reference internal" href="api/native.html">Native Controller</a><ul>
-<li class="toctree-l2"><a class="reference internal" href="api/native.html#aiofranka.native.load_native"><code class="docutils literal notranslate"><span class="pre">load_native()</span></code></a></li>
-<li class="toctree-l2"><a class="reference internal" href="api/native.html#aiofranka.native.ControlLaw"><code class="docutils literal notranslate"><span class="pre">ControlLaw</span></code></a></li>
-<li class="toctree-l2"><a class="reference internal" href="api/native.html#aiofranka.native.control_law"><code class="docutils literal notranslate"><span class="pre">control_law()</span></code></a></li>
-<li class="toctree-l2"><a class="reference internal" href="api/native.html#aiofranka.native.NativeFrankaController"><code class="docutils literal notranslate"><span class="pre">NativeFrankaController</span></code></a></li>
-<li class="toctree-l2"><a class="reference internal" href="api/native.html#aiofranka.server_native.NativeServerController"><code class="docutils literal notranslate"><span class="pre">NativeServerController</span></code></a></li>
 </ul>
 </li>
 <li class="toctree-l1"><a class="reference internal" href="api/robot.html">Robot Interface</a><ul>

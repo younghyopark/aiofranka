@@ -6,20 +6,20 @@
   <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Troubleshooting &mdash; aiofranka 0.7.1 documentation</title>
+  <title>Troubleshooting &mdash; aiofranka 0.8.0 documentation</title>
       <link rel="stylesheet" type="text/css" href="_static/pygments.css?v=b86133f3" />
       <link rel="stylesheet" type="text/css" href="_static/css/theme.css?v=9edc463e" />
 
   
       <script src="_static/jquery.js?v=5d32c60e"></script>
       <script src="_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
-      <script src="_static/documentation_options.js?v=5a057da9"></script>
+      <script src="_static/documentation_options.js?v=486e5634"></script>
       <script src="_static/doctools.js?v=fd6eb6e6"></script>
       <script src="_static/sphinx_highlight.js?v=6ffebe34"></script>
     <script src="_static/js/theme.js"></script>
     <link rel="index" title="Index" href="genindex.html" />
     <link rel="search" title="Search" href="search.html" />
-    <link rel="next" title="FrankaRemoteController (Server Mode)" href="api/remote.html" />
+    <link rel="next" title="NativeFrankaController" href="api/native.html" />
     <link rel="prev" title="Examples" href="examples.html" /> 
 </head>
 
@@ -65,7 +65,7 @@
 </ul>
 </li>
 <li class="toctree-l2"><a class="reference internal" href="#control-loop-issues">Control Loop Issues</a><ul>
-<li class="toctree-l3"><a class="reference internal" href="#communication-constraints-violation-async-mode">Communication Constraints Violation (Async Mode)</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#communication-constraints-violation">Communication Constraints Violation</a></li>
 <li class="toctree-l3"><a class="reference internal" href="#low-control-frequency">Low Control Frequency</a></li>
 </ul>
 </li>
@@ -85,9 +85,9 @@
 </ul>
 <p class="caption" role="heading"><span class="caption-text">API Reference</span></p>
 <ul>
+<li class="toctree-l1"><a class="reference internal" href="api/native.html">NativeFrankaController</a></li>
+<li class="toctree-l1"><a class="reference internal" href="api/controller.html">FrankaController</a></li>
 <li class="toctree-l1"><a class="reference internal" href="api/remote.html">FrankaRemoteController (Server Mode)</a></li>
-<li class="toctree-l1"><a class="reference internal" href="api/controller.html">Franka Controller</a></li>
-<li class="toctree-l1"><a class="reference internal" href="api/native.html">Native Controller</a></li>
 <li class="toctree-l1"><a class="reference internal" href="api/robot.html">Robot Interface</a></li>
 <li class="toctree-l1"><a class="reference internal" href="api/payload.html">Payload Identification and Tools</a></li>
 <li class="toctree-l1"><a class="reference internal" href="api/config.html">Controller Configurations</a></li>
@@ -215,7 +215,7 @@ ping<span class="w"> </span><span class="m">172</span>.16.0.2
 </li>
 <li><p><strong>Discontinuous Commands</strong> — Use smooth trajectories:</p>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="c1"># Bad: jump to far target</span>
-<span class="n">controller</span><span class="o">.</span><span class="n">set</span><span class="p">(</span><span class="s2">"q_desired"</span><span class="p">,</span> <span class="n">far_target</span><span class="p">)</span>
+<span class="n">controller</span><span class="o">.</span><span class="n">set</span><span class="p">(</span><span class="s2">&quot;q_desired&quot;</span><span class="p">,</span> <span class="n">far_target</span><span class="p">)</span>
 
 <span class="c1"># Good: use trajectory generation</span>
 <span class="n">controller</span><span class="o">.</span><span class="n">move</span><span class="p">(</span><span class="n">far_target</span><span class="p">)</span>
@@ -223,7 +223,7 @@ ping<span class="w"> </span><span class="m">172</span>.16.0.2
 </div>
 </li>
 <li><p><strong>Collision Detected</strong> — Clear workspace, check for obstacles</p></li>
-<li><p><strong>Communication Constraints Violation</strong> (async mode only) — A blocking call starved the 1kHz loop. See <a class="reference internal" href="async_mode.html"><span class="doc">Async Mode Guide</span></a>.</p></li>
+<li><p><strong>Communication Constraints Violation</strong> — Torque commands reached the robot late, e.g. a blocking call starved the legacy <code class="docutils literal notranslate"><span class="pre">FrankaController</span></code>’s loop. See <a class="reference internal" href="#communication-constraints-violation">Communication Constraints Violation</a> below.</p></li>
 </ol>
 <p><strong>Recovery:</strong></p>
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="c1"># Recover safety errors and re-unlock</span>
@@ -261,12 +261,12 @@ aiofranka<span class="w"> </span>unlock
 <section id="robot-doesn-t-move">
 <h3>Robot Doesn’t Move<a class="headerlink" href="#robot-doesn-t-move" title="Link to this heading"></a></h3>
 <p><strong>Diagnosis:</strong></p>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Running: </span><span class="si">{</span><span class="n">controller</span><span class="o">.</span><span class="n">running</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Running: </span><span class="si">{</span><span class="n">controller</span><span class="o">.</span><span class="n">running</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
 <span class="n">state</span> <span class="o">=</span> <span class="n">controller</span><span class="o">.</span><span class="n">state</span>
-<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Current position: </span><span class="si">{</span><span class="n">state</span><span class="p">[</span><span class="s1">'qpos'</span><span class="p">]</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
-<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Desired position: </span><span class="si">{</span><span class="n">controller</span><span class="o">.</span><span class="n">q_desired</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
-<span class="n">diff</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">norm</span><span class="p">(</span><span class="n">controller</span><span class="o">.</span><span class="n">q_desired</span> <span class="o">-</span> <span class="n">state</span><span class="p">[</span><span class="s1">'qpos'</span><span class="p">])</span>
-<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Distance to target: </span><span class="si">{</span><span class="n">diff</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Current position: </span><span class="si">{</span><span class="n">state</span><span class="p">[</span><span class="s1">&#39;qpos&#39;</span><span class="p">]</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Desired position: </span><span class="si">{</span><span class="n">controller</span><span class="o">.</span><span class="n">q_desired</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+<span class="n">diff</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">norm</span><span class="p">(</span><span class="n">controller</span><span class="o">.</span><span class="n">q_desired</span> <span class="o">-</span> <span class="n">state</span><span class="p">[</span><span class="s1">&#39;qpos&#39;</span><span class="p">])</span>
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Distance to target: </span><span class="si">{</span><span class="n">diff</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
 </pre></div>
 </div>
 <p><strong>Common Issues:</strong></p>
@@ -280,14 +280,22 @@ aiofranka<span class="w"> </span>unlock
 </section>
 <section id="control-loop-issues">
 <h2>Control Loop Issues<a class="headerlink" href="#control-loop-issues" title="Link to this heading"></a></h2>
-<section id="communication-constraints-violation-async-mode">
-<h3>Communication Constraints Violation (Async Mode)<a class="headerlink" href="#communication-constraints-violation-async-mode" title="Link to this heading"></a></h3>
+<section id="communication-constraints-violation">
+<h3>Communication Constraints Violation<a class="headerlink" href="#communication-constraints-violation" title="Link to this heading"></a></h3>
 <p><strong>Symptoms:</strong> Robot aborts motion with <code class="docutils literal notranslate"><span class="pre">communication_constraints_violation</span></code> error.</p>
-<p><strong>Cause:</strong> A blocking call in your async code starved the 1kHz control loop.</p>
+<p><strong>Cause:</strong> Torque commands reached the robot late. With the legacy Python loop
+(<code class="docutils literal notranslate"><span class="pre">FrankaController</span></code>, <code class="docutils literal notranslate"><span class="pre">aiofranka</span> <span class="pre">start-server</span> <span class="pre">--python</span></code>), a blocking call in your code
+starved it. The native loop does not wait for Python, so with it the cause is the system: a
+saturated CPU, the network, or a loop thread without real-time priority.</p>
 <p><strong>Solutions:</strong></p>
 <ul class="simple">
-<li><p>Switch to <strong>server mode</strong> (<code class="docutils literal notranslate"><span class="pre">FrankaRemoteController</span></code>) — the recommended approach for heavy workloads</p></li>
-<li><p>Or follow the <a class="reference internal" href="async_mode.html"><span class="doc">Async Mode Guide</span></a> guide to avoid blocking the event loop</p></li>
+<li><p>Use the native loop: <code class="docutils literal notranslate"><span class="pre">NativeFrankaController</span></code> in your process, or server mode
+(<code class="docutils literal notranslate"><span class="pre">FrankaRemoteController</span></code>), whose server runs it by default</p></li>
+<li><p>With the legacy <code class="docutils literal notranslate"><span class="pre">FrankaController</span></code>, follow the <a class="reference internal" href="async_mode.html"><span class="doc">Async Mode Guide</span></a> guide to avoid blocking the
+event loop</p></li>
+<li><p>With the native loop, use wired Ethernet, keep a core free for the robot NIC’s interrupts, and
+give the loop’s thread its SCHED_FIFO priority (see <a class="reference internal" href="native.html"><span class="doc">Native Control Loop</span></a>). <code class="docutils literal notranslate"><span class="pre">aiofranka</span> <span class="pre">rt-benchmark</span></code>
+measures the loop (see <a class="reference internal" href="cli.html"><span class="doc">CLI Reference</span></a>).</p></li>
 </ul>
 </section>
 <section id="low-control-frequency">
@@ -309,10 +317,10 @@ aiofranka<span class="w"> </span>unlock
 <p><strong>Causes:</strong></p>
 <ol class="arabic">
 <li><p><strong>Near singularity:</strong></p>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">jac</span> <span class="o">=</span> <span class="n">controller</span><span class="o">.</span><span class="n">state</span><span class="p">[</span><span class="s1">'jac'</span><span class="p">]</span>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">jac</span> <span class="o">=</span> <span class="n">controller</span><span class="o">.</span><span class="n">state</span><span class="p">[</span><span class="s1">&#39;jac&#39;</span><span class="p">]</span>
 <span class="n">cond</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">cond</span><span class="p">(</span><span class="n">jac</span><span class="p">)</span>
 <span class="k">if</span> <span class="n">cond</span> <span class="o">&gt;</span> <span class="mi">100</span><span class="p">:</span>
-    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Warning: Poor conditioning: </span><span class="si">{</span><span class="n">cond</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
+    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Warning: Poor conditioning: </span><span class="si">{</span><span class="n">cond</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
 </pre></div>
 </div>
 </li>
@@ -334,11 +342,11 @@ aiofranka<span class="w"> </span>unlock
 <h3>OSC Doesn’t Reach Target<a class="headerlink" href="#osc-doesn-t-reach-target" title="Link to this heading"></a></h3>
 <p><strong>Diagnosis:</strong></p>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">state</span> <span class="o">=</span> <span class="n">controller</span><span class="o">.</span><span class="n">state</span>
-<span class="n">ee_current</span> <span class="o">=</span> <span class="n">state</span><span class="p">[</span><span class="s1">'ee'</span><span class="p">]</span>
+<span class="n">ee_current</span> <span class="o">=</span> <span class="n">state</span><span class="p">[</span><span class="s1">&#39;ee&#39;</span><span class="p">]</span>
 <span class="n">ee_desired</span> <span class="o">=</span> <span class="n">controller</span><span class="o">.</span><span class="n">ee_desired</span>
 
 <span class="n">pos_error</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">norm</span><span class="p">(</span><span class="n">ee_desired</span><span class="p">[:</span><span class="mi">3</span><span class="p">,</span> <span class="mi">3</span><span class="p">]</span> <span class="o">-</span> <span class="n">ee_current</span><span class="p">[:</span><span class="mi">3</span><span class="p">,</span> <span class="mi">3</span><span class="p">])</span>
-<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Position error: </span><span class="si">{</span><span class="n">pos_error</span><span class="w"> </span><span class="o">*</span><span class="w"> </span><span class="mi">1000</span><span class="si">:</span><span class="s2">.1f</span><span class="si">}</span><span class="s2"> mm"</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Position error: </span><span class="si">{</span><span class="n">pos_error</span><span class="w"> </span><span class="o">*</span><span class="w"> </span><span class="mi">1000</span><span class="si">:</span><span class="s2">.1f</span><span class="si">}</span><span class="s2"> mm&quot;</span><span class="p">)</span>
 </pre></div>
 </div>
 <p><strong>Causes:</strong></p>
@@ -396,7 +404,7 @@ aiofranka<span class="w"> </span>unlock
 <li><p><strong>Operating system and Python version</strong></p></li>
 <li><p><strong>Minimal code</strong> that reproduces the issue</p></li>
 <li><p><strong>Full error message</strong> from terminal</p></li>
-<li><p><strong>Whether you’re using server mode or async mode</strong></p></li>
+<li><p><strong>Whether you’re using async mode or server mode</strong>, with the native or the legacy Python loop</p></li>
 </ol>
 <p>Where to ask:</p>
 <ul class="simple">
@@ -410,7 +418,7 @@ aiofranka<span class="w"> </span>unlock
           </div>
           <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
         <a href="examples.html" class="btn btn-neutral float-left" title="Examples" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
-        <a href="api/remote.html" class="btn btn-neutral float-right" title="FrankaRemoteController (Server Mode)" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+        <a href="api/native.html" class="btn btn-neutral float-right" title="NativeFrankaController" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
     </div>
 
   <hr/>

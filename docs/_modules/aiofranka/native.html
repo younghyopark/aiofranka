@@ -5,14 +5,14 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>aiofranka.native &mdash; aiofranka 0.7.0 documentation</title>
+  <title>aiofranka.native &mdash; aiofranka 0.7.1 documentation</title>
       <link rel="stylesheet" type="text/css" href="../../_static/pygments.css?v=b86133f3" />
       <link rel="stylesheet" type="text/css" href="../../_static/css/theme.css?v=9edc463e" />
 
   
       <script src="../../_static/jquery.js?v=5d32c60e"></script>
       <script src="../../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
-      <script src="../../_static/documentation_options.js?v=fe7df9b0"></script>
+      <script src="../../_static/documentation_options.js?v=5a057da9"></script>
       <script src="../../_static/doctools.js?v=fd6eb6e6"></script>
       <script src="../../_static/sphinx_highlight.js?v=6ffebe34"></script>
     <script src="../../_static/js/theme.js"></script>
@@ -52,9 +52,9 @@
 </ul>
 <p class="caption" role="heading"><span class="caption-text">API Reference</span></p>
 <ul>
+<li class="toctree-l1"><a class="reference internal" href="../../api/native.html">NativeFrankaController</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../api/controller.html">FrankaController</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../api/remote.html">FrankaRemoteController (Server Mode)</a></li>
-<li class="toctree-l1"><a class="reference internal" href="../../api/controller.html">Franka Controller</a></li>
-<li class="toctree-l1"><a class="reference internal" href="../../api/native.html">Native Controller</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../api/robot.html">Robot Interface</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../api/payload.html">Payload Identification and Tools</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../api/config.html">Controller Configurations</a></li>
@@ -88,34 +88,35 @@
            <div itemprop="articleBody">
              
   <h1>Source code for aiofranka.native</h1><div class="highlight"><pre>
-<span></span><span class="sd">"""</span>
+<span></span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">The native control loop: NativeFrankaController, a drop-in for FrankaController.</span>
 
 <span class="sd">FrankaController runs its 1 kHz control loop on the asyncio event loop, in Python. Anything</span>
 <span class="sd">else that runs there delays the next torque command: a planner, loading a model, garbage</span>
-<span class="sd">collection, the server's command thread holding the GIL. When a command is late, the robot</span>
+<span class="sd">collection, the server&#39;s command thread holding the GIL. When a command is late, the robot</span>
 <span class="sd">stops with communication_constraints_violation. NativeFrankaController runs the same loop</span>
-<span class="sd">in C++, in a thread that never waits for Python, and has FrankaController's constructor,</span>
+<span class="sd">in C++, in a thread that never waits for Python, and has FrankaController&#39;s constructor,</span>
 <span class="sd">methods and attributes, so porting code means swapping the class:</span>
 
-<span class="sd">    &gt;&gt;&gt; robot = RobotInterface("172.16.0.2")</span>
+<span class="sd">    &gt;&gt;&gt; robot = RobotInterface(&quot;172.16.0.2&quot;)</span>
 <span class="sd">    &gt;&gt;&gt; controller = NativeFrankaController(robot)  # instead of FrankaController(robot)</span>
 <span class="sd">    &gt;&gt;&gt; await controller.start()</span>
-<span class="sd">    &gt;&gt;&gt; controller.switch("osc")</span>
-<span class="sd">    &gt;&gt;&gt; await controller.set("ee_desired", target)</span>
+<span class="sd">    &gt;&gt;&gt; controller.switch(&quot;osc&quot;)</span>
+<span class="sd">    &gt;&gt;&gt; await controller.set(&quot;ee_desired&quot;, target)</span>
 
-<span class="sd">Its impedance, pid, osc and torque laws are ports of FrankaController's and send the same</span>
+<span class="sd">Its impedance, pid, osc and torque laws are ports of FrankaController&#39;s and send the same</span>
 <span class="sd">torques, to rounding. New laws are written in Python and compiled with Numba, see</span>
 <span class="sd">control_law().</span>
 
 <span class="sd">What changes:</span>
-<span class="sd">    - The loop runs in C++, so a subclass's step() would never run: NativeFrankaController</span>
-<span class="sd">      refuses one. Write the step as a control law instead.</span>
+<span class="sd">    - The loop runs in C++, so a subclass&#39;s step() would never run: NativeFrankaController</span>
+<span class="sd">      refuses one. Write the step as a control law instead, and log every cycle with</span>
+<span class="sd">      record().</span>
 <span class="sd">    - Attributes the loop reads (kp, q_desired, ee_desired, ...) are views of its memory.</span>
 <span class="sd">      Assigning one copies the value in, and the loop takes it whole at its next cycle.</span>
 <span class="sd">    - While the loop runs, robot.data and robot.robot_state follow it from the event loop,</span>
 <span class="sd">      about every millisecond. In simulation the loop owns the simulated arm.</span>
-<span class="sd">"""</span>
+<span class="sd">&quot;&quot;&quot;</span>
 
 <span class="kn">import</span><span class="w"> </span><span class="nn">asyncio</span>
 <span class="kn">import</span><span class="w"> </span><span class="nn">copy</span>
@@ -127,6 +128,7 @@
 <span class="kn">import</span><span class="w"> </span><span class="nn">threading</span>
 <span class="kn">import</span><span class="w"> </span><span class="nn">time</span>
 <span class="kn">import</span><span class="w"> </span><span class="nn">weakref</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">pathlib</span><span class="w"> </span><span class="kn">import</span> <span class="n">Path</span>
 
 <span class="kn">import</span><span class="w"> </span><span class="nn">mujoco</span>
 <span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
@@ -136,25 +138,29 @@
 <span class="n">logger</span> <span class="o">=</span> <span class="n">logging</span><span class="o">.</span><span class="n">getLogger</span><span class="p">(</span><span class="vm">__name__</span><span class="p">)</span>
 
 <span class="c1"># Controller types whose torque FrankaController keeps in .torque, which torque mode then sends.</span>
-<span class="n">_KEEPS_TORQUE</span> <span class="o">=</span> <span class="p">(</span><span class="s2">"impedance"</span><span class="p">,</span> <span class="s2">"pid"</span><span class="p">)</span>
+<span class="n">_KEEPS_TORQUE</span> <span class="o">=</span> <span class="p">(</span><span class="s2">&quot;impedance&quot;</span><span class="p">,</span> <span class="s2">&quot;pid&quot;</span><span class="p">)</span>
 
-<span class="n">_BUILD_HELP</span> <span class="o">=</span> <span class="s2">"""aiofranka's native control loop, the extension aiofranka._native, is not built.</span>
+<span class="c1"># What NativeFrankaController.record() records when it is not given fields.</span>
+<span class="n">RECORD_FIELDS</span> <span class="o">=</span> <span class="p">(</span><span class="s2">&quot;cycle&quot;</span><span class="p">,</span> <span class="s2">&quot;time&quot;</span><span class="p">,</span> <span class="s2">&quot;wall_time&quot;</span><span class="p">,</span> <span class="s2">&quot;busy&quot;</span><span class="p">,</span> <span class="s2">&quot;q&quot;</span><span class="p">,</span> <span class="s2">&quot;dq&quot;</span><span class="p">,</span> <span class="s2">&quot;tcp&quot;</span><span class="p">,</span> <span class="s2">&quot;q_desired&quot;</span><span class="p">,</span> <span class="s2">&quot;ee_desired&quot;</span><span class="p">,</span>
+                 <span class="s2">&quot;tau&quot;</span><span class="p">,</span> <span class="s2">&quot;tau_J_d&quot;</span><span class="p">,</span> <span class="s2">&quot;tau_J&quot;</span><span class="p">,</span> <span class="s2">&quot;control_command_success_rate&quot;</span><span class="p">)</span>
+
+<span class="n">_BUILD_HELP</span> <span class="o">=</span> <span class="s2">&quot;&quot;&quot;aiofranka&#39;s native control loop, the extension aiofranka._native, is not built.</span>
 
 <span class="s2">Build it in the aiofranka checkout, which needs a C++17 compiler:</span>
 
-<span class="s2">    pip install "pybind11&gt;=3.1,&lt;3.2"</span>
+<span class="s2">    pip install &quot;pybind11&gt;=3.1,&lt;3.2&quot;</span>
 <span class="s2">    pip install --no-build-isolation -e .</span>
-<span class="s2">"""</span>
+<span class="s2">&quot;&quot;&quot;</span>
 
 <span class="n">_native</span> <span class="o">=</span> <span class="kc">None</span>
 
 
 <span class="k">def</span><span class="w"> </span><span class="nf">_promote_libfranka</span><span class="p">(</span><span class="n">pylibfranka</span><span class="p">):</span>
-<span class="w">    </span><span class="sd">"""Make the libfranka that pylibfranka loaded global, so aiofranka._native binds to it."""</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Make the libfranka that pylibfranka loaded global, so aiofranka._native binds to it.&quot;&quot;&quot;</span>
     <span class="n">package</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">dirname</span><span class="p">(</span><span class="n">pylibfranka</span><span class="o">.</span><span class="vm">__file__</span><span class="p">)</span>
     <span class="n">candidates</span> <span class="o">=</span> <span class="p">[]</span>
-    <span class="k">for</span> <span class="n">directory</span> <span class="ow">in</span> <span class="p">(</span><span class="n">package</span><span class="p">,</span> <span class="n">package</span> <span class="o">+</span> <span class="s2">".libs"</span><span class="p">):</span>
-        <span class="k">for</span> <span class="n">pattern</span> <span class="ow">in</span> <span class="p">(</span><span class="s2">"libfranka*.dylib"</span><span class="p">,</span> <span class="s2">"libfranka*.so*"</span><span class="p">):</span>
+    <span class="k">for</span> <span class="n">directory</span> <span class="ow">in</span> <span class="p">(</span><span class="n">package</span><span class="p">,</span> <span class="n">package</span> <span class="o">+</span> <span class="s2">&quot;.libs&quot;</span><span class="p">):</span>
+        <span class="k">for</span> <span class="n">pattern</span> <span class="ow">in</span> <span class="p">(</span><span class="s2">&quot;libfranka*.dylib&quot;</span><span class="p">,</span> <span class="s2">&quot;libfranka*.so*&quot;</span><span class="p">):</span>
             <span class="n">candidates</span> <span class="o">+=</span> <span class="nb">sorted</span><span class="p">(</span><span class="n">glob</span><span class="o">.</span><span class="n">glob</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">directory</span><span class="p">,</span> <span class="n">pattern</span><span class="p">)))</span>
     <span class="k">for</span> <span class="n">path</span> <span class="ow">in</span> <span class="n">candidates</span><span class="p">:</span>
         <span class="k">try</span><span class="p">:</span>
@@ -163,23 +169,23 @@
             <span class="k">return</span> <span class="n">path</span>
         <span class="k">except</span> <span class="ne">OSError</span><span class="p">:</span>
             <span class="k">continue</span>
-    <span class="k">raise</span> <span class="ne">ImportError</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Could not find the libfranka that pylibfranka loaded (looked in </span><span class="si">{</span><span class="n">package</span><span class="si">}</span><span class="s2">)"</span><span class="p">)</span>
+    <span class="k">raise</span> <span class="ne">ImportError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Could not find the libfranka that pylibfranka loaded (looked in </span><span class="si">{</span><span class="n">package</span><span class="si">}</span><span class="s2">)&quot;</span><span class="p">)</span>
 
 
 <div class="viewcode-block" id="load_native">
 <a class="viewcode-back" href="../../api/native.html#aiofranka.native.load_native">[docs]</a>
 <span class="k">def</span><span class="w"> </span><span class="nf">load_native</span><span class="p">():</span>
-<span class="w">    </span><span class="sd">"""</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">    Import the native control loop, aiofranka._native.</span>
 
-<span class="sd">    It uses pylibfranka's libfranka, which it must have been built for.</span>
+<span class="sd">    It uses pylibfranka&#39;s libfranka, which it must have been built for.</span>
 
 <span class="sd">    Returns:</span>
 <span class="sd">        module: aiofranka._native</span>
 
 <span class="sd">    Raises:</span>
 <span class="sd">        ImportError: If the extension is not built, or was built for another libfranka</span>
-<span class="sd">    """</span>
+<span class="sd">    &quot;&quot;&quot;</span>
     <span class="k">global</span> <span class="n">_native</span>
     <span class="k">if</span> <span class="n">_native</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
         <span class="k">return</span> <span class="n">_native</span>
@@ -192,48 +198,48 @@
     <span class="k">try</span><span class="p">:</span>
         <span class="kn">from</span><span class="w"> </span><span class="nn">aiofranka</span><span class="w"> </span><span class="kn">import</span> <span class="n">_native</span> <span class="k">as</span> <span class="n">native</span>
     <span class="k">except</span> <span class="ne">ImportError</span> <span class="k">as</span> <span class="n">error</span><span class="p">:</span>
-        <span class="k">raise</span> <span class="ne">ImportError</span><span class="p">(</span><span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">_BUILD_HELP</span><span class="si">}</span><span class="se">\n</span><span class="s2">(</span><span class="si">{</span><span class="n">error</span><span class="si">}</span><span class="s2">)"</span><span class="p">)</span> <span class="kn">from</span><span class="w"> </span><span class="nn">error</span>
-    <span class="n">installed</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">pylibfranka</span><span class="p">,</span> <span class="s2">"__version__"</span><span class="p">,</span> <span class="s2">""</span><span class="p">)</span>
-    <span class="k">if</span> <span class="n">installed</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s2">"."</span><span class="p">)[:</span><span class="mi">2</span><span class="p">]</span> <span class="o">!=</span> <span class="n">native</span><span class="o">.</span><span class="n">LIBFRANKA_VERSION</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s2">"."</span><span class="p">)[:</span><span class="mi">2</span><span class="p">]:</span>
+        <span class="k">raise</span> <span class="ne">ImportError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">_BUILD_HELP</span><span class="si">}</span><span class="se">\n</span><span class="s2">(</span><span class="si">{</span><span class="n">error</span><span class="si">}</span><span class="s2">)&quot;</span><span class="p">)</span> <span class="kn">from</span><span class="w"> </span><span class="nn">error</span>
+    <span class="n">installed</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">pylibfranka</span><span class="p">,</span> <span class="s2">&quot;__version__&quot;</span><span class="p">,</span> <span class="s2">&quot;&quot;</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">installed</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s2">&quot;.&quot;</span><span class="p">)[:</span><span class="mi">2</span><span class="p">]</span> <span class="o">!=</span> <span class="n">native</span><span class="o">.</span><span class="n">LIBFRANKA_VERSION</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s2">&quot;.&quot;</span><span class="p">)[:</span><span class="mi">2</span><span class="p">]:</span>
         <span class="k">raise</span> <span class="ne">ImportError</span><span class="p">(</span>
-            <span class="sa">f</span><span class="s2">"aiofranka's native control loop was built for libfranka </span><span class="si">{</span><span class="n">native</span><span class="o">.</span><span class="n">LIBFRANKA_VERSION</span><span class="si">}</span><span class="s2">, "</span>
-            <span class="sa">f</span><span class="s2">"but pylibfranka </span><span class="si">{</span><span class="n">installed</span><span class="si">}</span><span class="s2"> is installed. Update the headers in src/native/include "</span>
-            <span class="s2">"to that version and rebuild aiofranka."</span><span class="p">)</span>
+            <span class="sa">f</span><span class="s2">&quot;aiofranka&#39;s native control loop was built for libfranka </span><span class="si">{</span><span class="n">native</span><span class="o">.</span><span class="n">LIBFRANKA_VERSION</span><span class="si">}</span><span class="s2">, &quot;</span>
+            <span class="sa">f</span><span class="s2">&quot;but pylibfranka </span><span class="si">{</span><span class="n">installed</span><span class="si">}</span><span class="s2"> is installed. Update the headers in src/native/include &quot;</span>
+            <span class="s2">&quot;to that version and rebuild aiofranka.&quot;</span><span class="p">)</span>
     <span class="n">_native</span> <span class="o">=</span> <span class="n">native</span>
     <span class="k">return</span> <span class="n">native</span></div>
 
 
 
 <span class="k">def</span><span class="w"> </span><span class="nf">_mujoco_functions</span><span class="p">():</span>
-<span class="w">    </span><span class="sd">"""The addresses of the MuJoCo functions the loop calls, in the libmujoco mujoco loaded."""</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;The addresses of the MuJoCo functions the loop calls, in the libmujoco mujoco loaded.&quot;&quot;&quot;</span>
     <span class="n">directory</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">dirname</span><span class="p">(</span><span class="n">mujoco</span><span class="o">.</span><span class="vm">__file__</span><span class="p">)</span>
-    <span class="k">for</span> <span class="n">pattern</span> <span class="ow">in</span> <span class="p">(</span><span class="s2">"libmujoco*.dylib"</span><span class="p">,</span> <span class="s2">"libmujoco.so*"</span><span class="p">,</span> <span class="s2">"mujoco*.dll"</span><span class="p">):</span>
+    <span class="k">for</span> <span class="n">pattern</span> <span class="ow">in</span> <span class="p">(</span><span class="s2">&quot;libmujoco*.dylib&quot;</span><span class="p">,</span> <span class="s2">&quot;libmujoco.so*&quot;</span><span class="p">,</span> <span class="s2">&quot;mujoco*.dll&quot;</span><span class="p">):</span>
         <span class="k">for</span> <span class="n">path</span> <span class="ow">in</span> <span class="nb">sorted</span><span class="p">(</span><span class="n">glob</span><span class="o">.</span><span class="n">glob</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">directory</span><span class="p">,</span> <span class="n">pattern</span><span class="p">))):</span>
             <span class="k">try</span><span class="p">:</span>
                 <span class="n">library</span> <span class="o">=</span> <span class="n">ctypes</span><span class="o">.</span><span class="n">CDLL</span><span class="p">(</span><span class="n">path</span><span class="p">,</span> <span class="n">mode</span><span class="o">=</span><span class="n">os</span><span class="o">.</span><span class="n">RTLD_NOLOAD</span><span class="p">)</span>
             <span class="k">except</span> <span class="ne">OSError</span><span class="p">:</span>
                 <span class="k">continue</span>
-            <span class="n">names</span> <span class="o">=</span> <span class="p">(</span><span class="s2">"mj_fwdPosition"</span><span class="p">,</span> <span class="s2">"mj_step"</span><span class="p">,</span> <span class="s2">"mj_jacSite"</span><span class="p">,</span> <span class="s2">"mj_fullM"</span><span class="p">)</span>
+            <span class="n">names</span> <span class="o">=</span> <span class="p">(</span><span class="s2">&quot;mj_fwdPosition&quot;</span><span class="p">,</span> <span class="s2">&quot;mj_step&quot;</span><span class="p">,</span> <span class="s2">&quot;mj_jacSite&quot;</span><span class="p">,</span> <span class="s2">&quot;mj_fullM&quot;</span><span class="p">)</span>
             <span class="k">return</span> <span class="p">{</span><span class="n">name</span><span class="p">:</span> <span class="n">ctypes</span><span class="o">.</span><span class="n">cast</span><span class="p">(</span><span class="nb">getattr</span><span class="p">(</span><span class="n">library</span><span class="p">,</span> <span class="n">name</span><span class="p">),</span> <span class="n">ctypes</span><span class="o">.</span><span class="n">c_void_p</span><span class="p">)</span><span class="o">.</span><span class="n">value</span> <span class="k">for</span> <span class="n">name</span> <span class="ow">in</span> <span class="n">names</span><span class="p">}</span>
-    <span class="k">raise</span> <span class="ne">ImportError</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Could not find the libmujoco that mujoco loaded (looked in </span><span class="si">{</span><span class="n">directory</span><span class="si">}</span><span class="s2">)"</span><span class="p">)</span>
+    <span class="k">raise</span> <span class="ne">ImportError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Could not find the libmujoco that mujoco loaded (looked in </span><span class="si">{</span><span class="n">directory</span><span class="si">}</span><span class="s2">)&quot;</span><span class="p">)</span>
 
 
 <span class="k">def</span><span class="w"> </span><span class="nf">_dtype</span><span class="p">(</span><span class="n">layout</span><span class="p">,</span> <span class="n">itemsize</span><span class="p">,</span> <span class="n">extra</span><span class="o">=</span><span class="p">()):</span>
-<span class="w">    </span><span class="sd">"""A numpy structured dtype of a C++ struct, from the layout the module exports."""</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;A numpy structured dtype of a C++ struct, from the layout the module exports.&quot;&quot;&quot;</span>
     <span class="n">names</span><span class="p">,</span> <span class="n">formats</span><span class="p">,</span> <span class="n">offsets</span> <span class="o">=</span> <span class="p">[],</span> <span class="p">[],</span> <span class="p">[]</span>
     <span class="k">for</span> <span class="n">name</span><span class="p">,</span> <span class="n">offset</span><span class="p">,</span> <span class="n">shape</span><span class="p">,</span> <span class="n">kind</span> <span class="ow">in</span> <span class="nb">tuple</span><span class="p">(</span><span class="n">layout</span><span class="p">)</span> <span class="o">+</span> <span class="nb">tuple</span><span class="p">(</span><span class="n">extra</span><span class="p">):</span>
         <span class="n">names</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">name</span><span class="p">)</span>
         <span class="n">offsets</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">offset</span><span class="p">)</span>
         <span class="n">formats</span><span class="o">.</span><span class="n">append</span><span class="p">((</span><span class="n">np</span><span class="o">.</span><span class="n">dtype</span><span class="p">(</span><span class="n">kind</span><span class="p">),</span> <span class="n">shape</span><span class="p">)</span> <span class="k">if</span> <span class="n">shape</span> <span class="k">else</span> <span class="n">np</span><span class="o">.</span><span class="n">dtype</span><span class="p">(</span><span class="n">kind</span><span class="p">))</span>
-    <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">dtype</span><span class="p">({</span><span class="s2">"names"</span><span class="p">:</span> <span class="n">names</span><span class="p">,</span> <span class="s2">"formats"</span><span class="p">:</span> <span class="n">formats</span><span class="p">,</span> <span class="s2">"offsets"</span><span class="p">:</span> <span class="n">offsets</span><span class="p">,</span> <span class="s2">"itemsize"</span><span class="p">:</span> <span class="n">itemsize</span><span class="p">})</span>
+    <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">dtype</span><span class="p">({</span><span class="s2">&quot;names&quot;</span><span class="p">:</span> <span class="n">names</span><span class="p">,</span> <span class="s2">&quot;formats&quot;</span><span class="p">:</span> <span class="n">formats</span><span class="p">,</span> <span class="s2">&quot;offsets&quot;</span><span class="p">:</span> <span class="n">offsets</span><span class="p">,</span> <span class="s2">&quot;itemsize&quot;</span><span class="p">:</span> <span class="n">itemsize</span><span class="p">})</span>
 
 
 <span class="k">def</span><span class="w"> </span><span class="nf">_shapes</span><span class="p">(</span><span class="n">fields</span><span class="p">):</span>
-<span class="w">    </span><span class="sd">"""{name: shape} from {name: shape or size}."""</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;{name: shape} from {name: shape or size}.&quot;&quot;&quot;</span>
     <span class="n">out</span> <span class="o">=</span> <span class="p">{}</span>
     <span class="k">for</span> <span class="n">name</span><span class="p">,</span> <span class="n">shape</span> <span class="ow">in</span> <span class="p">(</span><span class="n">fields</span> <span class="ow">or</span> <span class="p">{})</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
         <span class="k">if</span> <span class="ow">not</span> <span class="n">name</span><span class="o">.</span><span class="n">isidentifier</span><span class="p">():</span>
-            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">name</span><span class="si">!r}</span><span class="s2"> is not a valid field name"</span><span class="p">)</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">name</span><span class="si">!r}</span><span class="s2"> is not a valid field name&quot;</span><span class="p">)</span>
         <span class="n">out</span><span class="p">[</span><span class="n">name</span><span class="p">]</span> <span class="o">=</span> <span class="p">(</span><span class="n">shape</span><span class="p">,)</span> <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">shape</span><span class="p">,</span> <span class="nb">int</span><span class="p">)</span> <span class="k">else</span> <span class="nb">tuple</span><span class="p">(</span><span class="n">shape</span><span class="p">)</span>
     <span class="k">return</span> <span class="n">out</span>
 
@@ -241,7 +247,7 @@
 <div class="viewcode-block" id="ControlLaw">
 <a class="viewcode-back" href="../../api/native.html#aiofranka.native.ControlLaw">[docs]</a>
 <span class="k">class</span><span class="w"> </span><span class="nc">ControlLaw</span><span class="p">:</span>
-<span class="w">    </span><span class="sd">"""</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">    A control law for NativeFrankaController, made with control_law().</span>
 
 <span class="sd">    Attributes:</span>
@@ -249,7 +255,7 @@
 <span class="sd">        function: The Python function</span>
 <span class="sd">        params (dict): Shapes of its parameters, by name</span>
 <span class="sd">        memory (dict): Shapes of its memory, by name</span>
-<span class="sd">    """</span>
+<span class="sd">    &quot;&quot;&quot;</span>
 
 <div class="viewcode-block" id="ControlLaw.__init__">
 <a class="viewcode-back" href="../../api/native.html#aiofranka.native.ControlLaw.__init__">[docs]</a>
@@ -265,26 +271,26 @@
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">function</span><span class="p">(</span><span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
 
     <span class="k">def</span><span class="w"> </span><span class="fm">__repr__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-        <span class="k">return</span> <span class="sa">f</span><span class="s2">"&lt;ControlLaw </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">name</span><span class="si">}</span><span class="s2">&gt;"</span></div>
+        <span class="k">return</span> <span class="sa">f</span><span class="s2">&quot;&lt;ControlLaw </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">name</span><span class="si">}</span><span class="s2">&gt;&quot;</span></div>
 
 
 
 <div class="viewcode-block" id="control_law">
 <a class="viewcode-back" href="../../api/native.html#aiofranka.native.control_law">[docs]</a>
 <span class="k">def</span><span class="w"> </span><span class="nf">control_law</span><span class="p">(</span><span class="n">function</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">params</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">memory</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
-<span class="w">    </span><span class="sd">"""</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">    Make a Python function a control law of NativeFrankaController.</span>
 
 <span class="sd">    The native loop calls it at 1 kHz, compiled with Numba, so it runs without Python: write</span>
-<span class="sd">    it with numpy and math only (Numba's nopython mode). It gets four arguments:</span>
+<span class="sd">    it with numpy and math only (Numba&#39;s nopython mode). It gets four arguments:</span>
 
-<span class="sd">    - s: what the loop read at this cycle, FrankaController.state's fields: qpos, qvel,</span>
+<span class="sd">    - s: what the loop read at this cycle, FrankaController.state&#39;s fields: qpos, qvel,</span>
 <span class="sd">      ee (flange pose, 4x4), jac (6x7, linear rows first), mm (7x7), last_torque,</span>
 <span class="sd">      and cycle, time [s] and dt (1e-3)</span>
-<span class="sd">    - p: the controller's attributes: kp, kd, ki, ee_kp, ee_kd, null_kp, null_kd,</span>
+<span class="sd">    - p: the controller&#39;s attributes: kp, kd, ki, ee_kp, ee_kd, null_kp, null_kd,</span>
 <span class="sd">      q_desired, ee_desired, torque, initial_qpos, control_transform, torque_limit,</span>
-<span class="sd">      torque_diff_limit, plus the law's own params</span>
-<span class="sd">    - m: the law's memory, zeroed when switch() selects the law; write to it</span>
+<span class="sd">      torque_diff_limit, plus the law&#39;s own params</span>
+<span class="sd">    - m: the law&#39;s memory, zeroed when switch() selects the law; write to it</span>
 <span class="sd">    - tau: the 7 torques to fill [Nm]</span>
 
 <span class="sd">    Return nothing, or a nonzero integer to stop the loop with an error. With clip (the</span>
@@ -295,20 +301,20 @@
 <span class="sd">    activate() can change like kp. Laws that name the same parameter share it.</span>
 
 <span class="sd">    Args:</span>
-<span class="sd">        params (dict): Shapes of the law's parameters, by name, e.g. {"stiffness": 7}</span>
-<span class="sd">        memory (dict): Shapes of what the law keeps between cycles, e.g. {"integral": 7}</span>
-<span class="sd">        name (str): The controller type for switch() (default: the function's name)</span>
+<span class="sd">        params (dict): Shapes of the law&#39;s parameters, by name, e.g. {&quot;stiffness&quot;: 7}</span>
+<span class="sd">        memory (dict): Shapes of what the law keeps between cycles, e.g. {&quot;integral&quot;: 7}</span>
+<span class="sd">        name (str): The controller type for switch() (default: the function&#39;s name)</span>
 
 <span class="sd">    Example:</span>
-<span class="sd">        &gt;&gt;&gt; @control_law(params={"stiffness": 7, "damping": 7}, memory={"integral": 7})</span>
+<span class="sd">        &gt;&gt;&gt; @control_law(params={&quot;stiffness&quot;: 7, &quot;damping&quot;: 7}, memory={&quot;integral&quot;: 7})</span>
 <span class="sd">        ... def pi_damping(s, p, m, tau):</span>
 <span class="sd">        ...     error = p.q_desired - s.qpos</span>
 <span class="sd">        ...     m.integral[:] += error * s.dt</span>
 <span class="sd">        ...     tau[:] = p.stiffness * error + 2.0 * m.integral - p.damping * s.qvel</span>
 <span class="sd">        &gt;&gt;&gt; controller.switch(pi_damping)  # compiles it, a few seconds the first time</span>
 <span class="sd">        &gt;&gt;&gt; controller.stiffness = np.full(7, 60.0)</span>
-<span class="sd">        &gt;&gt;&gt; await controller.set("q_desired", target)</span>
-<span class="sd">    """</span>
+<span class="sd">        &gt;&gt;&gt; await controller.set(&quot;q_desired&quot;, target)</span>
+<span class="sd">    &quot;&quot;&quot;</span>
     <span class="k">def</span><span class="w"> </span><span class="nf">decorate</span><span class="p">(</span><span class="n">f</span><span class="p">):</span>
         <span class="k">return</span> <span class="n">ControlLaw</span><span class="p">(</span><span class="n">f</span><span class="p">,</span> <span class="n">params</span><span class="o">=</span><span class="n">params</span><span class="p">,</span> <span class="n">memory</span><span class="o">=</span><span class="n">memory</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="n">name</span><span class="p">)</span>
     <span class="k">return</span> <span class="n">decorate</span> <span class="k">if</span> <span class="n">function</span> <span class="ow">is</span> <span class="kc">None</span> <span class="k">else</span> <span class="n">decorate</span><span class="p">(</span><span class="n">function</span><span class="p">)</span></div>
@@ -316,14 +322,14 @@
 
 
 <span class="k">def</span><span class="w"> </span><span class="nf">_compile</span><span class="p">(</span><span class="n">law</span><span class="p">,</span> <span class="n">native</span><span class="p">,</span> <span class="n">params_dtype</span><span class="p">,</span> <span class="n">memory_dtype</span><span class="p">):</span>
-<span class="w">    </span><span class="sd">"""Compile a law with Numba into the C function the loop calls."""</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Compile a law with Numba into the C function the loop calls.&quot;&quot;&quot;</span>
     <span class="k">try</span><span class="p">:</span>
         <span class="kn">import</span><span class="w"> </span><span class="nn">numba</span>
         <span class="kn">from</span><span class="w"> </span><span class="nn">numba</span><span class="w"> </span><span class="kn">import</span> <span class="n">carray</span><span class="p">,</span> <span class="n">types</span>
     <span class="k">except</span> <span class="ne">ImportError</span> <span class="k">as</span> <span class="n">error</span><span class="p">:</span>
-        <span class="k">raise</span> <span class="ne">ImportError</span><span class="p">(</span><span class="s2">"Custom control laws need Numba: pip install numba"</span><span class="p">)</span> <span class="kn">from</span><span class="w"> </span><span class="nn">error</span>
+        <span class="k">raise</span> <span class="ne">ImportError</span><span class="p">(</span><span class="s2">&quot;Custom control laws need Numba: pip install numba&quot;</span><span class="p">)</span> <span class="kn">from</span><span class="w"> </span><span class="nn">error</span>
 
-    <span class="n">function</span> <span class="o">=</span> <span class="n">numba</span><span class="o">.</span><span class="n">njit</span><span class="p">(</span><span class="n">law</span><span class="o">.</span><span class="n">function</span><span class="p">,</span> <span class="n">error_model</span><span class="o">=</span><span class="s2">"numpy"</span><span class="p">)</span>
+    <span class="n">function</span> <span class="o">=</span> <span class="n">numba</span><span class="o">.</span><span class="n">njit</span><span class="p">(</span><span class="n">law</span><span class="o">.</span><span class="n">function</span><span class="p">,</span> <span class="n">error_model</span><span class="o">=</span><span class="s2">&quot;numpy&quot;</span><span class="p">)</span>
     <span class="n">state</span> <span class="o">=</span> <span class="n">numba</span><span class="o">.</span><span class="n">from_dtype</span><span class="p">(</span><span class="n">_dtype</span><span class="p">(</span><span class="n">native</span><span class="o">.</span><span class="n">STATE_LAYOUT</span><span class="p">,</span> <span class="n">native</span><span class="o">.</span><span class="n">STATE_SIZE</span><span class="p">))</span>
     <span class="n">params</span> <span class="o">=</span> <span class="n">numba</span><span class="o">.</span><span class="n">from_dtype</span><span class="p">(</span><span class="n">params_dtype</span><span class="p">)</span>
     <span class="n">memory</span> <span class="o">=</span> <span class="n">numba</span><span class="o">.</span><span class="n">from_dtype</span><span class="p">(</span><span class="n">memory_dtype</span><span class="p">)</span>
@@ -344,11 +350,11 @@
                 <span class="k">return</span> <span class="mi">0</span>
             <span class="k">return</span> <span class="n">code</span>
 
-    <span class="k">return</span> <span class="n">numba</span><span class="o">.</span><span class="n">cfunc</span><span class="p">(</span><span class="n">signature</span><span class="p">,</span> <span class="n">nopython</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">error_model</span><span class="o">=</span><span class="s2">"numpy"</span><span class="p">)(</span><span class="n">call</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">numba</span><span class="o">.</span><span class="n">cfunc</span><span class="p">(</span><span class="n">signature</span><span class="p">,</span> <span class="n">nopython</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">error_model</span><span class="o">=</span><span class="s2">&quot;numpy&quot;</span><span class="p">)(</span><span class="n">call</span><span class="p">)</span>
 
 
 <span class="k">class</span><span class="w"> </span><span class="nc">_Param</span><span class="p">:</span>
-<span class="w">    </span><span class="sd">"""A controller attribute that the native loop reads: a view of its staging memory."""</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;A controller attribute that the native loop reads: a view of its staging memory.&quot;&quot;&quot;</span>
 
     <span class="k">def</span><span class="w"> </span><span class="nf">__set_name__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">owner</span><span class="p">,</span> <span class="n">name</span><span class="p">):</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">name</span> <span class="o">=</span> <span class="n">name</span>
@@ -362,25 +368,155 @@
         <span class="n">controller</span><span class="o">.</span><span class="n">_assign</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">name</span><span class="p">,</span> <span class="n">value</span><span class="p">)</span>
 
 
+<div class="viewcode-block" id="Recording">
+<a class="viewcode-back" href="../../api/native.html#aiofranka.native.Recording">[docs]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">Recording</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Every cycle of the native loop, from NativeFrankaController.record().</span>
+
+<span class="sd">    The loop writes a row per cycle into a buffer in C++, which the controller moves to</span>
+<span class="sd">    Python about every 10 ms. stop() ends the recording; using it in a with block stops it</span>
+<span class="sd">    at the end of the block.</span>
+
+<span class="sd">    Attributes:</span>
+<span class="sd">        fields (tuple): The recorded fields</span>
+<span class="sd">        path (Path): Where stop() saves the rows (.npz), or None</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+<div class="viewcode-block" id="Recording.__init__">
+<a class="viewcode-back" href="../../api/native.html#aiofranka.native.Recording.__init__">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">loop</span><span class="p">,</span> <span class="n">recorder</span><span class="p">,</span> <span class="n">fields</span><span class="p">,</span> <span class="n">dtype</span><span class="p">,</span> <span class="n">path</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">fields</span> <span class="o">=</span> <span class="nb">tuple</span><span class="p">(</span><span class="n">fields</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">path</span> <span class="o">=</span> <span class="kc">None</span> <span class="k">if</span> <span class="n">path</span> <span class="ow">is</span> <span class="kc">None</span> <span class="k">else</span> <span class="n">Path</span><span class="p">(</span><span class="n">path</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_loop</span> <span class="o">=</span> <span class="n">loop</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_recorder</span> <span class="o">=</span> <span class="n">recorder</span>  <span class="c1"># until stop(), which keeps its counts</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_counts</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_dtype</span> <span class="o">=</span> <span class="n">dtype</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_chunks</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_lock</span> <span class="o">=</span> <span class="n">threading</span><span class="o">.</span><span class="n">Lock</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_active</span> <span class="o">=</span> <span class="kc">True</span></div>
+
+
+    <span class="nd">@property</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">recording</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Whether the loop still records into it.&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_active</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">rows</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Rows the loop recorded so far.&quot;&quot;&quot;</span>
+        <span class="n">recorder</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_recorder</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_counts</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="k">if</span> <span class="n">recorder</span> <span class="ow">is</span> <span class="kc">None</span> <span class="k">else</span> <span class="n">recorder</span><span class="o">.</span><span class="n">rows</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">dropped</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Rows the loop dropped because Python had not taken the earlier ones in time.&quot;&quot;&quot;</span>
+        <span class="n">recorder</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_recorder</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_counts</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="k">if</span> <span class="n">recorder</span> <span class="ow">is</span> <span class="kc">None</span> <span class="k">else</span> <span class="n">recorder</span><span class="o">.</span><span class="n">dropped</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_drain</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">with</span> <span class="bp">self</span><span class="o">.</span><span class="n">_lock</span><span class="p">:</span>
+            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_recorder</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="k">return</span>
+            <span class="n">chunk</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_recorder</span><span class="o">.</span><span class="n">drain</span><span class="p">()</span>
+            <span class="k">if</span> <span class="n">chunk</span><span class="o">.</span><span class="n">size</span><span class="p">:</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">_chunks</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">chunk</span><span class="p">)</span>
+
+<div class="viewcode-block" id="Recording.data">
+<a class="viewcode-back" href="../../api/native.html#aiofranka.native.Recording.data">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">data</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        The rows so far.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            dict: {field: numpy array with one row per cycle, oldest first}</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_drain</span><span class="p">()</span>
+        <span class="k">with</span> <span class="bp">self</span><span class="o">.</span><span class="n">_lock</span><span class="p">:</span>
+            <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_chunks</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">1</span><span class="p">:</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">_chunks</span> <span class="o">=</span> <span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">concatenate</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_chunks</span><span class="p">)]</span>
+            <span class="n">raw</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_chunks</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_chunks</span> <span class="k">else</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">uint8</span><span class="p">)</span>
+        <span class="n">rows</span> <span class="o">=</span> <span class="n">raw</span><span class="o">.</span><span class="n">view</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_dtype</span><span class="p">)</span>
+        <span class="k">return</span> <span class="p">{</span><span class="n">name</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">rows</span><span class="p">[</span><span class="n">name</span><span class="p">])</span> <span class="k">for</span> <span class="n">name</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">fields</span><span class="p">}</span></div>
+
+
+<div class="viewcode-block" id="Recording.save">
+<a class="viewcode-back" href="../../api/native.html#aiofranka.native.Recording.save">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">save</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">path</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Save the rows so far to an .npz file, with one array per field.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            path (str or Path): Where (default: the recording&#39;s path)</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            Path: The file</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">path</span> <span class="o">=</span> <span class="n">Path</span><span class="p">(</span><span class="n">path</span> <span class="k">if</span> <span class="n">path</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="k">else</span> <span class="bp">self</span><span class="o">.</span><span class="n">path</span><span class="p">)</span>
+        <span class="n">data</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">data</span><span class="p">()</span>
+        <span class="n">path</span><span class="o">.</span><span class="n">parent</span><span class="o">.</span><span class="n">mkdir</span><span class="p">(</span><span class="n">parents</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">exist_ok</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+        <span class="c1"># Written whole or not at all.</span>
+        <span class="n">partial</span> <span class="o">=</span> <span class="n">path</span><span class="o">.</span><span class="n">with_name</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;.</span><span class="si">{</span><span class="n">path</span><span class="o">.</span><span class="n">stem</span><span class="si">}</span><span class="s2">.partial.npz&quot;</span><span class="p">)</span>
+        <span class="n">np</span><span class="o">.</span><span class="n">savez</span><span class="p">(</span><span class="n">partial</span><span class="p">,</span> <span class="o">**</span><span class="n">data</span><span class="p">)</span>
+        <span class="n">partial</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="n">path</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">path</span></div>
+
+
+<div class="viewcode-block" id="Recording.stop">
+<a class="viewcode-back" href="../../api/native.html#aiofranka.native.Recording.stop">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">stop</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Stop recording, and save to the recording&#39;s path if it has one.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            dict: data()</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_active</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_active</span> <span class="o">=</span> <span class="kc">False</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_loop</span><span class="o">.</span><span class="n">set_recorder</span><span class="p">(</span><span class="kc">None</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_drain</span><span class="p">()</span>
+            <span class="k">with</span> <span class="bp">self</span><span class="o">.</span><span class="n">_lock</span><span class="p">:</span>
+                <span class="c1"># The rows are in Python now: let the buffer in C++ go.</span>
+                <span class="n">recorder</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_recorder</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_recorder</span><span class="p">,</span> <span class="kc">None</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">_counts</span> <span class="o">=</span> <span class="p">(</span><span class="n">recorder</span><span class="o">.</span><span class="n">rows</span><span class="p">,</span> <span class="n">recorder</span><span class="o">.</span><span class="n">dropped</span><span class="p">)</span>
+            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">path</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">save</span><span class="p">()</span>
+                <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">dropped</span><span class="p">:</span>
+                    <span class="n">logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;The recording in </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">path</span><span class="si">}</span><span class="s2"> lacks </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">dropped</span><span class="si">}</span><span class="s2"> rows the loop dropped&quot;</span><span class="p">)</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">data</span><span class="p">()</span></div>
+
+
+    <span class="k">def</span><span class="w"> </span><span class="fm">__enter__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="bp">self</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="fm">__exit__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">*</span><span class="n">exc</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">stop</span><span class="p">()</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="fm">__repr__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="n">state</span> <span class="o">=</span> <span class="s2">&quot;recording&quot;</span> <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_active</span> <span class="k">else</span> <span class="s2">&quot;stopped&quot;</span>
+        <span class="k">return</span> <span class="sa">f</span><span class="s2">&quot;&lt;Recording </span><span class="si">{</span><span class="n">state</span><span class="si">}</span><span class="s2">, </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">rows</span><span class="si">}</span><span class="s2"> rows of </span><span class="si">{</span><span class="s1">&#39;, &#39;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">fields</span><span class="p">)</span><span class="si">}</span><span class="s2">&gt;&quot;</span></div>
+
+
+
 <div class="viewcode-block" id="NativeFrankaController">
 <a class="viewcode-back" href="../../api/native.html#aiofranka.native.NativeFrankaController">[docs]</a>
 <span class="k">class</span><span class="w"> </span><span class="nc">NativeFrankaController</span><span class="p">(</span><span class="n">FrankaController</span><span class="p">):</span>
-<span class="w">    </span><span class="sd">"""</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">    FrankaController with its 1 kHz control loop in C++.</span>
 
 <span class="sd">    Same constructor, methods and attributes as FrankaController; see aiofranka.native for</span>
 <span class="sd">    what changes. Requires the extension aiofranka._native.</span>
 
 <span class="sd">    Example:</span>
-<span class="sd">        &gt;&gt;&gt; robot = RobotInterface("172.16.0.2")</span>
+<span class="sd">        &gt;&gt;&gt; robot = RobotInterface(&quot;172.16.0.2&quot;)</span>
 <span class="sd">        &gt;&gt;&gt; controller = NativeFrankaController(robot)</span>
 <span class="sd">        &gt;&gt;&gt; await controller.start()</span>
 <span class="sd">        &gt;&gt;&gt; await controller.move()</span>
-<span class="sd">        &gt;&gt;&gt; controller.switch("impedance")</span>
+<span class="sd">        &gt;&gt;&gt; controller.switch(&quot;impedance&quot;)</span>
 <span class="sd">        &gt;&gt;&gt; controller.set_freq(50)</span>
-<span class="sd">        &gt;&gt;&gt; await controller.set("q_desired", target)</span>
+<span class="sd">        &gt;&gt;&gt; await controller.set(&quot;q_desired&quot;, target)</span>
 <span class="sd">        &gt;&gt;&gt; await controller.stop()</span>
-<span class="sd">    """</span>
+<span class="sd">    &quot;&quot;&quot;</span>
 
     <span class="n">kp</span> <span class="o">=</span> <span class="n">_Param</span><span class="p">()</span>
     <span class="n">kd</span> <span class="o">=</span> <span class="n">_Param</span><span class="p">()</span>
@@ -395,40 +531,48 @@
     <span class="n">control_transform</span> <span class="o">=</span> <span class="n">_Param</span><span class="p">()</span>
     <span class="n">torque_limit</span> <span class="o">=</span> <span class="n">_Param</span><span class="p">()</span>
 
-    <span class="c1"># SCHED_FIFO priority of the loop's thread on Linux, which keeps other processes from</span>
+    <span class="c1"># SCHED_FIFO priority of the loop&#39;s thread on Linux, which keeps other processes from</span>
     <span class="c1"># delaying it when every core is busy; 0 leaves it at normal priority. It needs an rtprio</span>
     <span class="c1"># limit (ulimit -r) of at least this, as a PREEMPT_RT setup for libfranka has.</span>
     <span class="n">realtime_priority</span> <span class="o">=</span> <span class="mi">80</span>
 
-    <span class="c1"># Seconds between syncs of the MuJoCo viewer in simulation.</span>
+    <span class="c1"># CPU that the loop&#39;s thread runs on, on Linux. None leaves it on the CPUs of the thread</span>
+    <span class="c1"># that calls start(), whose scheduling it would share: give it a CPU of its own that no</span>
+    <span class="c1"># other SCHED_FIFO thread uses.</span>
+    <span class="n">realtime_cpu</span> <span class="o">=</span> <span class="kc">None</span>
+
+    <span class="c1"># Seconds between syncs of the MuJoCo viewer in simulation, and between moves of the</span>
+    <span class="c1"># recorded rows to Python.</span>
     <span class="n">_VIEWER_PERIOD</span> <span class="o">=</span> <span class="mi">1</span> <span class="o">/</span> <span class="mi">60</span>
+    <span class="n">_DRAIN_PERIOD</span> <span class="o">=</span> <span class="mf">0.01</span>
 
 <div class="viewcode-block" id="NativeFrankaController.__init__">
 <a class="viewcode-back" href="../../api/native.html#aiofranka.native.NativeFrankaController.__init__">[docs]</a>
     <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">robot</span><span class="p">):</span>
         <span class="k">if</span> <span class="nb">type</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span><span class="o">.</span><span class="n">step</span> <span class="ow">is</span> <span class="ow">not</span> <span class="n">NativeFrankaController</span><span class="o">.</span><span class="n">step</span><span class="p">:</span>
             <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span>
-                <span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="nb">type</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span><span class="o">.</span><span class="vm">__name__</span><span class="si">}</span><span class="s2"> overrides step(), which NativeFrankaController never calls: "</span>
-                <span class="s2">"its 1 kHz loop runs in C++. Write the step as a control law "</span>
-                <span class="s2">"(aiofranka.native.control_law), or subclass FrankaController."</span><span class="p">)</span>
+                <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="nb">type</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span><span class="o">.</span><span class="vm">__name__</span><span class="si">}</span><span class="s2"> overrides step(), which NativeFrankaController never calls: &quot;</span>
+                <span class="s2">&quot;its 1 kHz loop runs in C++. Write the step as a control law &quot;</span>
+                <span class="s2">&quot;(aiofranka.native.control_law), or subclass FrankaController.&quot;</span><span class="p">)</span>
         <span class="n">native</span> <span class="o">=</span> <span class="n">load_native</span><span class="p">()</span>
         <span class="n">loop</span> <span class="o">=</span> <span class="n">native</span><span class="o">.</span><span class="n">Loop</span><span class="p">()</span>
         <span class="n">layout</span> <span class="o">=</span> <span class="p">{</span><span class="n">name</span><span class="p">:</span> <span class="p">(</span><span class="n">offset</span><span class="p">,</span> <span class="n">shape</span><span class="p">)</span> <span class="k">for</span> <span class="n">name</span><span class="p">,</span> <span class="n">offset</span><span class="p">,</span> <span class="n">shape</span><span class="p">,</span> <span class="n">_</span> <span class="ow">in</span> <span class="n">native</span><span class="o">.</span><span class="n">PARAMS_LAYOUT</span><span class="p">}</span>
         <span class="n">records</span> <span class="o">=</span> <span class="n">loop</span><span class="o">.</span><span class="n">params_buffer</span><span class="p">()</span><span class="o">.</span><span class="n">view</span><span class="p">(</span><span class="n">_dtype</span><span class="p">(</span><span class="n">native</span><span class="o">.</span><span class="n">PARAMS_LAYOUT</span><span class="p">,</span> <span class="n">native</span><span class="o">.</span><span class="n">PARAMS_SIZE</span><span class="p">))</span>
         <span class="n">attributes</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="vm">__dict__</span>
-        <span class="n">attributes</span><span class="p">[</span><span class="s2">"_native"</span><span class="p">]</span> <span class="o">=</span> <span class="n">native</span>
-        <span class="n">attributes</span><span class="p">[</span><span class="s2">"_loop"</span><span class="p">]</span> <span class="o">=</span> <span class="n">loop</span>
-        <span class="n">attributes</span><span class="p">[</span><span class="s2">"_layout"</span><span class="p">]</span> <span class="o">=</span> <span class="n">layout</span>
-        <span class="n">attributes</span><span class="p">[</span><span class="s2">"_records"</span><span class="p">]</span> <span class="o">=</span> <span class="n">records</span>
-        <span class="n">attributes</span><span class="p">[</span><span class="s2">"_views"</span><span class="p">]</span> <span class="o">=</span> <span class="p">{</span><span class="n">name</span><span class="p">:</span> <span class="n">records</span><span class="p">[</span><span class="n">name</span><span class="p">][</span><span class="mi">0</span><span class="p">]</span> <span class="k">for</span> <span class="n">name</span><span class="p">,</span> <span class="p">(</span><span class="n">_</span><span class="p">,</span> <span class="n">shape</span><span class="p">)</span> <span class="ow">in</span> <span class="n">layout</span><span class="o">.</span><span class="n">items</span><span class="p">()</span> <span class="k">if</span> <span class="n">shape</span><span class="p">}</span>
-        <span class="n">attributes</span><span class="p">[</span><span class="s2">"_custom"</span><span class="p">]</span> <span class="o">=</span> <span class="p">{}</span>        <span class="c1"># custom law parameters: name -&gt; (offset, shape)</span>
-        <span class="n">attributes</span><span class="p">[</span><span class="s2">"_custom_used"</span><span class="p">]</span> <span class="o">=</span> <span class="mi">0</span>    <span class="c1"># doubles of Params.custom given out</span>
-        <span class="n">attributes</span><span class="p">[</span><span class="s2">"_laws"</span><span class="p">]</span> <span class="o">=</span> <span class="p">{}</span>          <span class="c1"># name -&gt; (ControlLaw, index, cfunc, memory dtype)</span>
-        <span class="n">attributes</span><span class="p">[</span><span class="s2">"_world_lock"</span><span class="p">]</span> <span class="o">=</span> <span class="n">threading</span><span class="o">.</span><span class="n">Lock</span><span class="p">()</span>
-        <span class="n">attributes</span><span class="p">[</span><span class="s2">"_synced_cycle"</span><span class="p">]</span> <span class="o">=</span> <span class="o">-</span><span class="mi">1</span>
-        <span class="n">attributes</span><span class="p">[</span><span class="s2">"_models"</span><span class="p">]</span> <span class="o">=</span> <span class="p">{}</span>        <span class="c1"># model copies the loop may use, by epoch</span>
-        <span class="n">attributes</span><span class="p">[</span><span class="s2">"_configured"</span><span class="p">]</span> <span class="o">=</span> <span class="kc">False</span>
-        <span class="n">attributes</span><span class="p">[</span><span class="s2">"_torque_diff_limit"</span><span class="p">]</span> <span class="o">=</span> <span class="mf">990.0</span>
+        <span class="n">attributes</span><span class="p">[</span><span class="s2">&quot;_native&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">native</span>
+        <span class="n">attributes</span><span class="p">[</span><span class="s2">&quot;_loop&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">loop</span>
+        <span class="n">attributes</span><span class="p">[</span><span class="s2">&quot;_layout&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">layout</span>
+        <span class="n">attributes</span><span class="p">[</span><span class="s2">&quot;_records&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">records</span>
+        <span class="n">attributes</span><span class="p">[</span><span class="s2">&quot;_views&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="p">{</span><span class="n">name</span><span class="p">:</span> <span class="n">records</span><span class="p">[</span><span class="n">name</span><span class="p">][</span><span class="mi">0</span><span class="p">]</span> <span class="k">for</span> <span class="n">name</span><span class="p">,</span> <span class="p">(</span><span class="n">_</span><span class="p">,</span> <span class="n">shape</span><span class="p">)</span> <span class="ow">in</span> <span class="n">layout</span><span class="o">.</span><span class="n">items</span><span class="p">()</span> <span class="k">if</span> <span class="n">shape</span><span class="p">}</span>
+        <span class="n">attributes</span><span class="p">[</span><span class="s2">&quot;_custom&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="p">{}</span>        <span class="c1"># custom law parameters: name -&gt; (offset, shape)</span>
+        <span class="n">attributes</span><span class="p">[</span><span class="s2">&quot;_custom_used&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="mi">0</span>    <span class="c1"># doubles of Params.custom given out</span>
+        <span class="n">attributes</span><span class="p">[</span><span class="s2">&quot;_laws&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="p">{}</span>          <span class="c1"># name -&gt; (ControlLaw, index, cfunc, memory dtype)</span>
+        <span class="n">attributes</span><span class="p">[</span><span class="s2">&quot;_world_lock&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">threading</span><span class="o">.</span><span class="n">Lock</span><span class="p">()</span>
+        <span class="n">attributes</span><span class="p">[</span><span class="s2">&quot;_synced_cycle&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="o">-</span><span class="mi">1</span>
+        <span class="n">attributes</span><span class="p">[</span><span class="s2">&quot;_models&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="p">{}</span>        <span class="c1"># model copies the loop may use, by epoch</span>
+        <span class="n">attributes</span><span class="p">[</span><span class="s2">&quot;_configured&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="kc">False</span>
+        <span class="n">attributes</span><span class="p">[</span><span class="s2">&quot;_torque_diff_limit&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="mf">990.0</span>
+        <span class="n">attributes</span><span class="p">[</span><span class="s2">&quot;_recording&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
         <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="n">robot</span><span class="p">)</span></div>
 
 
@@ -443,13 +587,13 @@
         <span class="bp">self</span><span class="o">.</span><span class="n">_loop</span><span class="o">.</span><span class="n">assign</span><span class="p">(</span><span class="n">offset</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">ascontiguousarray</span><span class="p">(</span><span class="n">array</span><span class="p">)</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">))</span>
 
     <span class="k">def</span><span class="w"> </span><span class="fm">__getattr__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">name</span><span class="p">):</span>
-        <span class="n">custom</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="vm">__dict__</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"_custom"</span><span class="p">)</span>
+        <span class="n">custom</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="vm">__dict__</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;_custom&quot;</span><span class="p">)</span>
         <span class="k">if</span> <span class="n">custom</span> <span class="ow">and</span> <span class="n">name</span> <span class="ow">in</span> <span class="n">custom</span><span class="p">:</span>
             <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_views</span><span class="p">[</span><span class="n">name</span><span class="p">]</span>
-        <span class="k">raise</span> <span class="ne">AttributeError</span><span class="p">(</span><span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="nb">type</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span><span class="o">.</span><span class="vm">__name__</span><span class="si">!r}</span><span class="s2"> object has no attribute </span><span class="si">{</span><span class="n">name</span><span class="si">!r}</span><span class="s2">"</span><span class="p">)</span>
+        <span class="k">raise</span> <span class="ne">AttributeError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="nb">type</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span><span class="o">.</span><span class="vm">__name__</span><span class="si">!r}</span><span class="s2"> object has no attribute </span><span class="si">{</span><span class="n">name</span><span class="si">!r}</span><span class="s2">&quot;</span><span class="p">)</span>
 
     <span class="k">def</span><span class="w"> </span><span class="fm">__setattr__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">name</span><span class="p">,</span> <span class="n">value</span><span class="p">):</span>
-        <span class="n">custom</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="vm">__dict__</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"_custom"</span><span class="p">)</span>
+        <span class="n">custom</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="vm">__dict__</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;_custom&quot;</span><span class="p">)</span>
         <span class="k">if</span> <span class="n">custom</span> <span class="ow">and</span> <span class="n">name</span> <span class="ow">in</span> <span class="n">custom</span><span class="p">:</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">_assign</span><span class="p">(</span><span class="n">name</span><span class="p">,</span> <span class="n">value</span><span class="p">)</span>
         <span class="k">else</span><span class="p">:</span>
@@ -457,70 +601,70 @@
 
     <span class="nd">@property</span>
     <span class="k">def</span><span class="w"> </span><span class="nf">type</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-<span class="w">        </span><span class="sd">"""Controller type: "impedance", "pid", "osc", "torque", or a custom law's name."""</span>
-        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="vm">__dict__</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"_type"</span><span class="p">,</span> <span class="s2">"impedance"</span><span class="p">)</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Controller type: &quot;impedance&quot;, &quot;pid&quot;, &quot;osc&quot;, &quot;torque&quot;, or a custom law&#39;s name.&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="vm">__dict__</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;_type&quot;</span><span class="p">,</span> <span class="s2">&quot;impedance&quot;</span><span class="p">)</span>
 
     <span class="nd">@type</span><span class="o">.</span><span class="n">setter</span>
     <span class="k">def</span><span class="w"> </span><span class="nf">type</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">name</span><span class="p">):</span>
         <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">name</span><span class="p">,</span> <span class="n">ControlLaw</span><span class="p">):</span>
             <span class="n">name</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">register_law</span><span class="p">(</span><span class="n">name</span><span class="p">)</span>
         <span class="n">modes</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_native</span><span class="o">.</span><span class="n">MODES</span>
-        <span class="k">if</span> <span class="n">name</span> <span class="ow">in</span> <span class="n">modes</span> <span class="ow">and</span> <span class="n">name</span> <span class="o">!=</span> <span class="s2">"custom"</span><span class="p">:</span>
+        <span class="k">if</span> <span class="n">name</span> <span class="ow">in</span> <span class="n">modes</span> <span class="ow">and</span> <span class="n">name</span> <span class="o">!=</span> <span class="s2">&quot;custom&quot;</span><span class="p">:</span>
             <span class="n">mode</span><span class="p">,</span> <span class="n">index</span> <span class="o">=</span> <span class="n">modes</span><span class="p">[</span><span class="n">name</span><span class="p">],</span> <span class="o">-</span><span class="mi">1</span>
         <span class="k">elif</span> <span class="n">name</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_laws</span><span class="p">:</span>
-            <span class="n">mode</span><span class="p">,</span> <span class="n">index</span> <span class="o">=</span> <span class="n">modes</span><span class="p">[</span><span class="s2">"custom"</span><span class="p">],</span> <span class="bp">self</span><span class="o">.</span><span class="n">_laws</span><span class="p">[</span><span class="n">name</span><span class="p">][</span><span class="mi">1</span><span class="p">]</span>
+            <span class="n">mode</span><span class="p">,</span> <span class="n">index</span> <span class="o">=</span> <span class="n">modes</span><span class="p">[</span><span class="s2">&quot;custom&quot;</span><span class="p">],</span> <span class="bp">self</span><span class="o">.</span><span class="n">_laws</span><span class="p">[</span><span class="n">name</span><span class="p">][</span><span class="mi">1</span><span class="p">]</span>
         <span class="k">else</span><span class="p">:</span>
-            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Unknown controller type: </span><span class="si">{</span><span class="n">name</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
-        <span class="n">previous</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="vm">__dict__</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"_type"</span><span class="p">)</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Unknown controller type: </span><span class="si">{</span><span class="n">name</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+        <span class="n">previous</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="vm">__dict__</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;_type&quot;</span><span class="p">)</span>
         <span class="k">if</span> <span class="n">previous</span> <span class="ow">in</span> <span class="n">_KEEPS_TORQUE</span> <span class="ow">and</span> <span class="n">name</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">_KEEPS_TORQUE</span><span class="p">:</span>
             <span class="c1"># FrankaController leaves the impedance or PID torque in .torque, so torque mode</span>
             <span class="c1"># starts from it.</span>
             <span class="n">snapshot</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_loop</span><span class="o">.</span><span class="n">snapshot</span><span class="p">()</span>
             <span class="k">if</span> <span class="n">snapshot</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
-                <span class="bp">self</span><span class="o">.</span><span class="n">_assign</span><span class="p">(</span><span class="s2">"torque"</span><span class="p">,</span> <span class="n">snapshot</span><span class="p">[</span><span class="s2">"torque"</span><span class="p">])</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">_assign</span><span class="p">(</span><span class="s2">&quot;torque&quot;</span><span class="p">,</span> <span class="n">snapshot</span><span class="p">[</span><span class="s2">&quot;torque&quot;</span><span class="p">])</span>
         <span class="k">if</span> <span class="n">index</span> <span class="o">&gt;=</span> <span class="mi">0</span> <span class="ow">and</span> <span class="n">name</span> <span class="o">!=</span> <span class="n">previous</span><span class="p">:</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">_loop</span><span class="o">.</span><span class="n">reset_memory</span><span class="p">()</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_loop</span><span class="o">.</span><span class="n">assign_mode</span><span class="p">(</span><span class="n">mode</span><span class="p">,</span> <span class="n">index</span><span class="p">)</span>
-        <span class="bp">self</span><span class="o">.</span><span class="vm">__dict__</span><span class="p">[</span><span class="s2">"_type"</span><span class="p">]</span> <span class="o">=</span> <span class="n">name</span>
+        <span class="bp">self</span><span class="o">.</span><span class="vm">__dict__</span><span class="p">[</span><span class="s2">&quot;_type&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">name</span>
 
     <span class="nd">@property</span>
     <span class="k">def</span><span class="w"> </span><span class="nf">clip</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-<span class="w">        </span><span class="sd">"""Whether the loop limits the torque rate and clips the torques."""</span>
-        <span class="k">return</span> <span class="nb">bool</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_records</span><span class="p">[</span><span class="s2">"clip"</span><span class="p">][</span><span class="mi">0</span><span class="p">])</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Whether the loop limits the torque rate and clips the torques.&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="nb">bool</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_records</span><span class="p">[</span><span class="s2">&quot;clip&quot;</span><span class="p">][</span><span class="mi">0</span><span class="p">])</span>
 
     <span class="nd">@clip</span><span class="o">.</span><span class="n">setter</span>
     <span class="k">def</span><span class="w"> </span><span class="nf">clip</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">value</span><span class="p">):</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">_loop</span><span class="o">.</span><span class="n">assign_int</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_layout</span><span class="p">[</span><span class="s2">"clip"</span><span class="p">][</span><span class="mi">0</span><span class="p">],</span> <span class="nb">int</span><span class="p">(</span><span class="nb">bool</span><span class="p">(</span><span class="n">value</span><span class="p">)))</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_loop</span><span class="o">.</span><span class="n">assign_int</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_layout</span><span class="p">[</span><span class="s2">&quot;clip&quot;</span><span class="p">][</span><span class="mi">0</span><span class="p">],</span> <span class="nb">int</span><span class="p">(</span><span class="nb">bool</span><span class="p">(</span><span class="n">value</span><span class="p">)))</span>
 
     <span class="nd">@property</span>
     <span class="k">def</span><span class="w"> </span><span class="nf">torque_diff_limit</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-<span class="w">        </span><span class="sd">"""Max torque rate [Nm/s], a number or one per joint."""</span>
-        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="vm">__dict__</span><span class="p">[</span><span class="s2">"_torque_diff_limit"</span><span class="p">]</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Max torque rate [Nm/s], a number or one per joint.&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="vm">__dict__</span><span class="p">[</span><span class="s2">&quot;_torque_diff_limit&quot;</span><span class="p">]</span>
 
     <span class="nd">@torque_diff_limit</span><span class="o">.</span><span class="n">setter</span>
     <span class="k">def</span><span class="w"> </span><span class="nf">torque_diff_limit</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">value</span><span class="p">):</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">_assign</span><span class="p">(</span><span class="s2">"torque_diff_limit"</span><span class="p">,</span> <span class="n">value</span><span class="p">)</span>
-        <span class="bp">self</span><span class="o">.</span><span class="vm">__dict__</span><span class="p">[</span><span class="s2">"_torque_diff_limit"</span><span class="p">]</span> <span class="o">=</span> <span class="n">value</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_assign</span><span class="p">(</span><span class="s2">&quot;torque_diff_limit&quot;</span><span class="p">,</span> <span class="n">value</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="vm">__dict__</span><span class="p">[</span><span class="s2">&quot;_torque_diff_limit&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">value</span>
 
     <span class="nd">@property</span>
     <span class="k">def</span><span class="w"> </span><span class="nf">torque</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-<span class="w">        </span><span class="sd">"""</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        The torque command of torque mode [Nm] (7,). In impedance and PID mode, the torque</span>
 <span class="sd">        that the last cycle computed, as in FrankaController.</span>
-<span class="sd">        """</span>
+<span class="sd">        &quot;&quot;&quot;</span>
         <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">type</span> <span class="ow">in</span> <span class="n">_KEEPS_TORQUE</span><span class="p">:</span>
             <span class="n">snapshot</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_loop</span><span class="o">.</span><span class="n">snapshot</span><span class="p">()</span>
             <span class="k">if</span> <span class="n">snapshot</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
-                <span class="k">return</span> <span class="n">snapshot</span><span class="p">[</span><span class="s2">"torque"</span><span class="p">]</span>
-        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_views</span><span class="p">[</span><span class="s2">"torque"</span><span class="p">]</span>
+                <span class="k">return</span> <span class="n">snapshot</span><span class="p">[</span><span class="s2">&quot;torque&quot;</span><span class="p">]</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_views</span><span class="p">[</span><span class="s2">&quot;torque&quot;</span><span class="p">]</span>
 
     <span class="nd">@torque</span><span class="o">.</span><span class="n">setter</span>
     <span class="k">def</span><span class="w"> </span><span class="nf">torque</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">value</span><span class="p">):</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">_assign</span><span class="p">(</span><span class="s2">"torque"</span><span class="p">,</span> <span class="n">value</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_assign</span><span class="p">(</span><span class="s2">&quot;torque&quot;</span><span class="p">,</span> <span class="n">value</span><span class="p">)</span>
 
     <span class="nd">@property</span>
     <span class="k">def</span><span class="w"> </span><span class="nf">running</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-<span class="w">        </span><span class="sd">"""Whether the native loop runs. Setting False stops it."""</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Whether the native loop runs. Setting False stops it.&quot;&quot;&quot;</span>
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_loop</span><span class="o">.</span><span class="n">running</span><span class="p">()</span>
 
     <span class="nd">@running</span><span class="o">.</span><span class="n">setter</span>
@@ -530,48 +674,48 @@
 
     <span class="nd">@property</span>
     <span class="k">def</span><span class="w"> </span><span class="nf">state</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-<span class="w">        </span><span class="sd">"""What the last cycle read: qpos, qvel, ee, jac, mm and last_torque."""</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;What the last cycle read: qpos, qvel, ee, jac, mm and last_torque.&quot;&quot;&quot;</span>
         <span class="n">state</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_loop</span><span class="o">.</span><span class="n">state_dict</span><span class="p">()</span>
-        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="vm">__dict__</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"_state"</span><span class="p">)</span> <span class="k">if</span> <span class="n">state</span> <span class="ow">is</span> <span class="kc">None</span> <span class="k">else</span> <span class="n">state</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="vm">__dict__</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;_state&quot;</span><span class="p">)</span> <span class="k">if</span> <span class="n">state</span> <span class="ow">is</span> <span class="kc">None</span> <span class="k">else</span> <span class="n">state</span>
 
     <span class="nd">@state</span><span class="o">.</span><span class="n">setter</span>
     <span class="k">def</span><span class="w"> </span><span class="nf">state</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">value</span><span class="p">):</span>
-        <span class="bp">self</span><span class="o">.</span><span class="vm">__dict__</span><span class="p">[</span><span class="s2">"_state"</span><span class="p">]</span> <span class="o">=</span> <span class="n">value</span>
+        <span class="bp">self</span><span class="o">.</span><span class="vm">__dict__</span><span class="p">[</span><span class="s2">&quot;_state&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">value</span>
 
     <span class="nd">@property</span>
     <span class="k">def</span><span class="w"> </span><span class="nf">last_command</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-<span class="w">        </span><span class="sd">"""The torque the last cycle sent, after the rate limit and clip [Nm] (7,)."""</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;The torque the last cycle sent, after the rate limit and clip [Nm] (7,).&quot;&quot;&quot;</span>
         <span class="n">snapshot</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_loop</span><span class="o">.</span><span class="n">snapshot</span><span class="p">()</span>
-        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="vm">__dict__</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"_last_command"</span><span class="p">)</span> <span class="k">if</span> <span class="n">snapshot</span> <span class="ow">is</span> <span class="kc">None</span> <span class="k">else</span> <span class="n">snapshot</span><span class="p">[</span><span class="s2">"last_command"</span><span class="p">]</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="vm">__dict__</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;_last_command&quot;</span><span class="p">)</span> <span class="k">if</span> <span class="n">snapshot</span> <span class="ow">is</span> <span class="kc">None</span> <span class="k">else</span> <span class="n">snapshot</span><span class="p">[</span><span class="s2">&quot;last_command&quot;</span><span class="p">]</span>
 
     <span class="nd">@last_command</span><span class="o">.</span><span class="n">setter</span>
     <span class="k">def</span><span class="w"> </span><span class="nf">last_command</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">value</span><span class="p">):</span>
-        <span class="bp">self</span><span class="o">.</span><span class="vm">__dict__</span><span class="p">[</span><span class="s2">"_last_command"</span><span class="p">]</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">value</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="vm">__dict__</span><span class="p">[</span><span class="s2">&quot;_last_command&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">value</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">)</span>
 
     <span class="nd">@property</span>
     <span class="k">def</span><span class="w"> </span><span class="nf">error_integral</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-<span class="w">        </span><span class="sd">"""The PID controller's integral of the joint error (7,). Setting it resets it."""</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;The PID controller&#39;s integral of the joint error (7,). Setting it resets it.&quot;&quot;&quot;</span>
         <span class="n">snapshot</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_loop</span><span class="o">.</span><span class="n">snapshot</span><span class="p">()</span>
         <span class="k">if</span> <span class="n">snapshot</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
-            <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="vm">__dict__</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"_error_integral"</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="mi">7</span><span class="p">))</span>
-        <span class="k">return</span> <span class="n">snapshot</span><span class="p">[</span><span class="s2">"error_integral"</span><span class="p">]</span>
+            <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="vm">__dict__</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;_error_integral&quot;</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="mi">7</span><span class="p">))</span>
+        <span class="k">return</span> <span class="n">snapshot</span><span class="p">[</span><span class="s2">&quot;error_integral&quot;</span><span class="p">]</span>
 
     <span class="nd">@error_integral</span><span class="o">.</span><span class="n">setter</span>
     <span class="k">def</span><span class="w"> </span><span class="nf">error_integral</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">value</span><span class="p">):</span>
         <span class="n">value</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">broadcast_to</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">value</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">float64</span><span class="p">),</span> <span class="p">(</span><span class="mi">7</span><span class="p">,))</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
-        <span class="bp">self</span><span class="o">.</span><span class="vm">__dict__</span><span class="p">[</span><span class="s2">"_error_integral"</span><span class="p">]</span> <span class="o">=</span> <span class="n">value</span>
+        <span class="bp">self</span><span class="o">.</span><span class="vm">__dict__</span><span class="p">[</span><span class="s2">&quot;_error_integral&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">value</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_loop</span><span class="o">.</span><span class="n">reset_integral</span><span class="p">(</span><span class="n">value</span><span class="p">)</span>
 
     <span class="nd">@property</span>
     <span class="k">def</span><span class="w"> </span><span class="nf">law_memory</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-<span class="w">        </span><span class="sd">"""The memory of the running custom law, a copy with its fields, or None."""</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;The memory of the running custom law, a copy with its fields, or None.&quot;&quot;&quot;</span>
         <span class="n">entry</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_laws</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">type</span><span class="p">)</span>
         <span class="n">snapshot</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_loop</span><span class="o">.</span><span class="n">snapshot</span><span class="p">()</span>
         <span class="k">if</span> <span class="n">entry</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">or</span> <span class="n">snapshot</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
             <span class="k">return</span> <span class="kc">None</span>
         <span class="n">memory</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">entry</span><span class="p">[</span><span class="mi">3</span><span class="p">])</span>
         <span class="n">raw</span> <span class="o">=</span> <span class="n">memory</span><span class="o">.</span><span class="n">view</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">float64</span><span class="p">)</span>
-        <span class="n">raw</span><span class="p">[:</span><span class="nb">len</span><span class="p">(</span><span class="n">snapshot</span><span class="p">[</span><span class="s2">"memory"</span><span class="p">])]</span> <span class="o">=</span> <span class="n">snapshot</span><span class="p">[</span><span class="s2">"memory"</span><span class="p">]</span>
+        <span class="n">raw</span><span class="p">[:</span><span class="nb">len</span><span class="p">(</span><span class="n">snapshot</span><span class="p">[</span><span class="s2">&quot;memory&quot;</span><span class="p">])]</span> <span class="o">=</span> <span class="n">snapshot</span><span class="p">[</span><span class="s2">&quot;memory&quot;</span><span class="p">]</span>
         <span class="k">return</span> <span class="n">memory</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
 
     <span class="c1"># ── Custom laws ───────────────────────────────────────────────────────────</span>
@@ -579,7 +723,7 @@
 <div class="viewcode-block" id="NativeFrankaController.register_law">
 <a class="viewcode-back" href="../../api/native.html#aiofranka.native.NativeFrankaController.register_law">[docs]</a>
     <span class="k">def</span><span class="w"> </span><span class="nf">register_law</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">law</span><span class="p">):</span>
-<span class="w">        </span><span class="sd">"""</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Compile a control law and make it a controller type.</span>
 
 <span class="sd">        switch() then takes its name; switch(law) registers it too. Compiling takes a few</span>
@@ -589,42 +733,42 @@
 <span class="sd">            law (ControlLaw): A function decorated with control_law()</span>
 
 <span class="sd">        Returns:</span>
-<span class="sd">            str: The law's name</span>
-<span class="sd">        """</span>
+<span class="sd">            str: The law&#39;s name</span>
+<span class="sd">        &quot;&quot;&quot;</span>
         <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">law</span><span class="p">,</span> <span class="n">ControlLaw</span><span class="p">):</span>
-            <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span><span class="s2">"register_law() takes a function decorated with aiofranka.native.control_law"</span><span class="p">)</span>
+            <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span><span class="s2">&quot;register_law() takes a function decorated with aiofranka.native.control_law&quot;</span><span class="p">)</span>
         <span class="k">if</span> <span class="n">law</span><span class="o">.</span><span class="n">name</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_laws</span><span class="p">:</span>
             <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_laws</span><span class="p">[</span><span class="n">law</span><span class="o">.</span><span class="n">name</span><span class="p">][</span><span class="mi">0</span><span class="p">]</span> <span class="ow">is</span> <span class="n">law</span><span class="p">:</span>
                 <span class="k">return</span> <span class="n">law</span><span class="o">.</span><span class="n">name</span>
-            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">"A control law named </span><span class="si">{</span><span class="n">law</span><span class="o">.</span><span class="n">name</span><span class="si">!r}</span><span class="s2"> is registered already"</span><span class="p">)</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;A control law named </span><span class="si">{</span><span class="n">law</span><span class="o">.</span><span class="n">name</span><span class="si">!r}</span><span class="s2"> is registered already&quot;</span><span class="p">)</span>
         <span class="n">native</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_native</span>
         <span class="k">if</span> <span class="n">law</span><span class="o">.</span><span class="n">name</span> <span class="ow">in</span> <span class="n">native</span><span class="o">.</span><span class="n">MODES</span><span class="p">:</span>
-            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">law</span><span class="o">.</span><span class="n">name</span><span class="si">!r}</span><span class="s2"> is a built-in controller type"</span><span class="p">)</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">law</span><span class="o">.</span><span class="n">name</span><span class="si">!r}</span><span class="s2"> is a built-in controller type&quot;</span><span class="p">)</span>
         <span class="c1"># Parameters: shared by name, in Params.custom.</span>
         <span class="n">custom</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_custom</span><span class="p">)</span>
         <span class="n">used</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_custom_used</span>
-        <span class="n">base</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_layout</span><span class="p">[</span><span class="s2">"custom"</span><span class="p">][</span><span class="mi">0</span><span class="p">]</span>
+        <span class="n">base</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_layout</span><span class="p">[</span><span class="s2">&quot;custom&quot;</span><span class="p">][</span><span class="mi">0</span><span class="p">]</span>
         <span class="k">for</span> <span class="n">name</span><span class="p">,</span> <span class="n">shape</span> <span class="ow">in</span> <span class="n">law</span><span class="o">.</span><span class="n">params</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
             <span class="k">if</span> <span class="n">name</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_layout</span> <span class="ow">or</span> <span class="n">name</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="vm">__dict__</span> <span class="ow">or</span> <span class="nb">hasattr</span><span class="p">(</span><span class="nb">type</span><span class="p">(</span><span class="bp">self</span><span class="p">),</span> <span class="n">name</span><span class="p">):</span>
-                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">law</span><span class="o">.</span><span class="n">name</span><span class="si">}</span><span class="s2">: parameter </span><span class="si">{</span><span class="n">name</span><span class="si">!r}</span><span class="s2"> is a controller attribute already"</span><span class="p">)</span>
+                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">law</span><span class="o">.</span><span class="n">name</span><span class="si">}</span><span class="s2">: parameter </span><span class="si">{</span><span class="n">name</span><span class="si">!r}</span><span class="s2"> is a controller attribute already&quot;</span><span class="p">)</span>
             <span class="k">if</span> <span class="n">name</span> <span class="ow">in</span> <span class="n">custom</span><span class="p">:</span>
                 <span class="k">if</span> <span class="n">custom</span><span class="p">[</span><span class="n">name</span><span class="p">][</span><span class="mi">1</span><span class="p">]</span> <span class="o">!=</span> <span class="n">shape</span><span class="p">:</span>
-                    <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">law</span><span class="o">.</span><span class="n">name</span><span class="si">}</span><span class="s2">: parameter </span><span class="si">{</span><span class="n">name</span><span class="si">!r}</span><span class="s2"> has shape </span><span class="si">{</span><span class="n">custom</span><span class="p">[</span><span class="n">name</span><span class="p">][</span><span class="mi">1</span><span class="p">]</span><span class="si">}</span><span class="s2"> in another law"</span><span class="p">)</span>
+                    <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">law</span><span class="o">.</span><span class="n">name</span><span class="si">}</span><span class="s2">: parameter </span><span class="si">{</span><span class="n">name</span><span class="si">!r}</span><span class="s2"> has shape </span><span class="si">{</span><span class="n">custom</span><span class="p">[</span><span class="n">name</span><span class="p">][</span><span class="mi">1</span><span class="p">]</span><span class="si">}</span><span class="s2"> in another law&quot;</span><span class="p">)</span>
                 <span class="k">continue</span>
             <span class="n">size</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">prod</span><span class="p">(</span><span class="n">shape</span><span class="p">))</span>
             <span class="k">if</span> <span class="n">used</span> <span class="o">+</span> <span class="n">size</span> <span class="o">&gt;</span> <span class="n">native</span><span class="o">.</span><span class="n">CUSTOM_PARAMS</span><span class="p">:</span>
-                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Custom laws have </span><span class="si">{</span><span class="n">native</span><span class="o">.</span><span class="n">CUSTOM_PARAMS</span><span class="si">}</span><span class="s2"> doubles of parameters in all"</span><span class="p">)</span>
+                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Custom laws have </span><span class="si">{</span><span class="n">native</span><span class="o">.</span><span class="n">CUSTOM_PARAMS</span><span class="si">}</span><span class="s2"> doubles of parameters in all&quot;</span><span class="p">)</span>
             <span class="n">custom</span><span class="p">[</span><span class="n">name</span><span class="p">]</span> <span class="o">=</span> <span class="p">(</span><span class="n">base</span> <span class="o">+</span> <span class="mi">8</span> <span class="o">*</span> <span class="n">used</span><span class="p">,</span> <span class="n">shape</span><span class="p">)</span>
             <span class="n">used</span> <span class="o">+=</span> <span class="n">size</span>
         <span class="n">params_dtype</span> <span class="o">=</span> <span class="n">_dtype</span><span class="p">(</span>
-            <span class="p">[</span><span class="n">f</span> <span class="k">for</span> <span class="n">f</span> <span class="ow">in</span> <span class="n">native</span><span class="o">.</span><span class="n">PARAMS_LAYOUT</span> <span class="k">if</span> <span class="n">f</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">!=</span> <span class="s2">"custom"</span><span class="p">],</span> <span class="n">native</span><span class="o">.</span><span class="n">PARAMS_SIZE</span><span class="p">,</span>
-            <span class="p">[(</span><span class="n">name</span><span class="p">,</span> <span class="n">offset</span><span class="p">,</span> <span class="n">shape</span><span class="p">,</span> <span class="s2">"f8"</span><span class="p">)</span> <span class="k">for</span> <span class="n">name</span><span class="p">,</span> <span class="p">(</span><span class="n">offset</span><span class="p">,</span> <span class="n">shape</span><span class="p">)</span> <span class="ow">in</span> <span class="n">custom</span><span class="o">.</span><span class="n">items</span><span class="p">()])</span>
+            <span class="p">[</span><span class="n">f</span> <span class="k">for</span> <span class="n">f</span> <span class="ow">in</span> <span class="n">native</span><span class="o">.</span><span class="n">PARAMS_LAYOUT</span> <span class="k">if</span> <span class="n">f</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">!=</span> <span class="s2">&quot;custom&quot;</span><span class="p">],</span> <span class="n">native</span><span class="o">.</span><span class="n">PARAMS_SIZE</span><span class="p">,</span>
+            <span class="p">[(</span><span class="n">name</span><span class="p">,</span> <span class="n">offset</span><span class="p">,</span> <span class="n">shape</span><span class="p">,</span> <span class="s2">&quot;f8&quot;</span><span class="p">)</span> <span class="k">for</span> <span class="n">name</span><span class="p">,</span> <span class="p">(</span><span class="n">offset</span><span class="p">,</span> <span class="n">shape</span><span class="p">)</span> <span class="ow">in</span> <span class="n">custom</span><span class="o">.</span><span class="n">items</span><span class="p">()])</span>
         <span class="n">memory_layout</span><span class="p">,</span> <span class="n">offset</span> <span class="o">=</span> <span class="p">[],</span> <span class="mi">0</span>
         <span class="k">for</span> <span class="n">name</span><span class="p">,</span> <span class="n">shape</span> <span class="ow">in</span> <span class="n">law</span><span class="o">.</span><span class="n">memory</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
-            <span class="n">memory_layout</span><span class="o">.</span><span class="n">append</span><span class="p">((</span><span class="n">name</span><span class="p">,</span> <span class="n">offset</span><span class="p">,</span> <span class="n">shape</span><span class="p">,</span> <span class="s2">"f8"</span><span class="p">))</span>
+            <span class="n">memory_layout</span><span class="o">.</span><span class="n">append</span><span class="p">((</span><span class="n">name</span><span class="p">,</span> <span class="n">offset</span><span class="p">,</span> <span class="n">shape</span><span class="p">,</span> <span class="s2">&quot;f8&quot;</span><span class="p">))</span>
             <span class="n">offset</span> <span class="o">+=</span> <span class="mi">8</span> <span class="o">*</span> <span class="nb">int</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">prod</span><span class="p">(</span><span class="n">shape</span><span class="p">))</span>
         <span class="k">if</span> <span class="n">offset</span> <span class="o">&gt;</span> <span class="mi">8</span> <span class="o">*</span> <span class="n">native</span><span class="o">.</span><span class="n">MEMORY</span><span class="p">:</span>
-            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">"A law's memory holds at most </span><span class="si">{</span><span class="n">native</span><span class="o">.</span><span class="n">MEMORY</span><span class="si">}</span><span class="s2"> doubles"</span><span class="p">)</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;A law&#39;s memory holds at most </span><span class="si">{</span><span class="n">native</span><span class="o">.</span><span class="n">MEMORY</span><span class="si">}</span><span class="s2"> doubles&quot;</span><span class="p">)</span>
         <span class="n">memory_dtype</span> <span class="o">=</span> <span class="n">_dtype</span><span class="p">([],</span> <span class="mi">8</span> <span class="o">*</span> <span class="n">native</span><span class="o">.</span><span class="n">MEMORY</span><span class="p">,</span> <span class="n">memory_layout</span><span class="p">)</span>
 
         <span class="n">cfunc</span> <span class="o">=</span> <span class="n">_compile</span><span class="p">(</span><span class="n">law</span><span class="p">,</span> <span class="n">native</span><span class="p">,</span> <span class="n">params_dtype</span><span class="p">,</span> <span class="n">memory_dtype</span><span class="p">)</span>
@@ -641,12 +785,12 @@
 
 <div class="viewcode-block" id="NativeFrankaController.switch">
 <a class="viewcode-back" href="../../api/native.html#aiofranka.native.NativeFrankaController.switch">[docs]</a>
-    <span class="k">def</span><span class="w"> </span><span class="nf">switch</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">controller_type</span><span class="p">:</span> <span class="s2">"str | ControlLaw"</span><span class="p">):</span>
-<span class="w">        </span><span class="sd">"""</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">switch</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">controller_type</span><span class="p">:</span> <span class="s2">&quot;str | ControlLaw&quot;</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        FrankaController.switch(), which also takes a control law (see control_law()).</span>
 
-<span class="sd">        Like the PID integral, a custom law's memory starts from zero.</span>
-<span class="sd">        """</span>
+<span class="sd">        Like the PID integral, a custom law&#39;s memory starts from zero.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
         <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">controller_type</span><span class="p">,</span> <span class="n">ControlLaw</span><span class="p">):</span>
             <span class="n">controller_type</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">register_law</span><span class="p">(</span><span class="n">controller_type</span><span class="p">)</span>
         <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="n">switch</span><span class="p">(</span><span class="n">controller_type</span><span class="p">)</span>
@@ -654,25 +798,120 @@
             <span class="bp">self</span><span class="o">.</span><span class="n">_loop</span><span class="o">.</span><span class="n">reset_memory</span><span class="p">()</span></div>
 
 
+    <span class="c1"># ── Recording ─────────────────────────────────────────────────────────────</span>
+
+<div class="viewcode-block" id="NativeFrankaController.record">
+<a class="viewcode-back" href="../../api/native.html#aiofranka.native.NativeFrankaController.record">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">record</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">fields</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">seconds</span><span class="o">=</span><span class="mf">60.0</span><span class="p">,</span> <span class="n">path</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Record every cycle of the native loop, from its next one on.</span>
+
+<span class="sd">        Each cycle, after sending the torques, the loop writes the fields into a buffer in</span>
+<span class="sd">        C++ without waiting for Python, and the controller moves them to Python about every</span>
+<span class="sd">        10 ms. If the event loop is blocked for longer than `seconds`, the loop drops rows</span>
+<span class="sd">        and Recording.dropped counts them.</span>
+
+<span class="sd">        Fields, by name:</span>
+
+<span class="sd">        - of the cycle: cycle; time, the robot&#39;s [s] (in simulation, the simulation&#39;s);</span>
+<span class="sd">          wall_time, the host&#39;s time.time() when the robot state arrived [s]; busy, from</span>
+<span class="sd">          then to the torque command [s]; q, dq, ee (flange pose), tcp (ee @</span>
+<span class="sd">          control_transform), jac, mm; last_torque, the robot&#39;s tau_J_d (in simulation,</span>
+<span class="sd">          the last command); tau, the torque sent, after the rate limit and clip;</span>
+<span class="sd">          robot_mode (-1 in simulation)</span>
+<span class="sd">        - the controller&#39;s attributes as the cycle used them: q_desired, ee_desired, kp,</span>
+<span class="sd">          kd, ee_kp, ..., mode, and the parameters of registered control laws</span>
+<span class="sd">        - every number of the robot state (NaN in simulation): tau_J, tau_J_d, dtau_J, q_d,</span>
+<span class="sd">          dq_d, theta, dtheta, tau_ext_hat_filtered, O_F_ext_hat_K, K_F_ext_hat_K,</span>
+<span class="sd">          control_command_success_rate, O_T_EE (flat and column-major, as in pylibfranka), ...</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            fields (list): Fields to record (default: aiofranka.native.RECORD_FIELDS)</span>
+<span class="sd">            seconds (float): Size of the buffer in C++, in seconds of cycles</span>
+<span class="sd">            path (str or Path): An .npz file to save the rows to when the recording stops</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            Recording: The rows; stop() it, or use it in a with block</span>
+
+<span class="sd">        Raises:</span>
+<span class="sd">            ValueError: If a field is unknown</span>
+<span class="sd">            RuntimeError: If another recording is running</span>
+
+<span class="sd">        Example:</span>
+<span class="sd">            &gt;&gt;&gt; with controller.record([&quot;time&quot;, &quot;q&quot;, &quot;tau&quot;, &quot;tau_J_d&quot;], path=&quot;control.npz&quot;):</span>
+<span class="sd">            ...     await run_policy(controller)</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">current</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_recording</span>
+        <span class="k">if</span> <span class="n">current</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">current</span><span class="o">.</span><span class="n">recording</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">RuntimeError</span><span class="p">(</span><span class="s2">&quot;A recording is running already; stop() it first&quot;</span><span class="p">)</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">fields</span><span class="p">,</span> <span class="nb">str</span><span class="p">):</span>
+            <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span><span class="s2">&quot;fields is a list of field names&quot;</span><span class="p">)</span>
+        <span class="n">names</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="n">RECORD_FIELDS</span> <span class="k">if</span> <span class="n">fields</span> <span class="ow">is</span> <span class="kc">None</span> <span class="k">else</span> <span class="n">fields</span><span class="p">)</span>
+        <span class="n">table</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_record_fields</span><span class="p">()</span>
+        <span class="n">unknown</span> <span class="o">=</span> <span class="p">[</span><span class="n">name</span> <span class="k">for</span> <span class="n">name</span> <span class="ow">in</span> <span class="n">names</span> <span class="k">if</span> <span class="n">name</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">table</span><span class="p">]</span>
+        <span class="k">if</span> <span class="n">unknown</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Cannot record </span><span class="si">{</span><span class="s1">&#39;, &#39;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="nb">map</span><span class="p">(</span><span class="nb">repr</span><span class="p">,</span><span class="w"> </span><span class="n">unknown</span><span class="p">))</span><span class="si">}</span><span class="s2">. Fields: </span><span class="si">{</span><span class="s1">&#39;, &#39;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="nb">sorted</span><span class="p">(</span><span class="n">table</span><span class="p">))</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="nb">set</span><span class="p">(</span><span class="n">names</span><span class="p">))</span> <span class="o">!=</span> <span class="nb">len</span><span class="p">(</span><span class="n">names</span><span class="p">):</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;A field is listed twice&quot;</span><span class="p">)</span>
+        <span class="n">slices</span><span class="p">,</span> <span class="n">formats</span><span class="p">,</span> <span class="n">offsets</span><span class="p">,</span> <span class="n">row</span> <span class="o">=</span> <span class="p">[],</span> <span class="p">[],</span> <span class="p">[],</span> <span class="mi">0</span>
+        <span class="k">for</span> <span class="n">name</span> <span class="ow">in</span> <span class="n">names</span><span class="p">:</span>
+            <span class="n">source</span><span class="p">,</span> <span class="n">offset</span><span class="p">,</span> <span class="n">shape</span><span class="p">,</span> <span class="n">kind</span> <span class="o">=</span> <span class="n">table</span><span class="p">[</span><span class="n">name</span><span class="p">]</span>
+            <span class="n">size</span> <span class="o">=</span> <span class="mi">8</span> <span class="o">*</span> <span class="nb">int</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">prod</span><span class="p">(</span><span class="n">shape</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">int</span><span class="p">))</span>
+            <span class="n">slices</span><span class="o">.</span><span class="n">append</span><span class="p">((</span><span class="n">source</span><span class="p">,</span> <span class="n">offset</span><span class="p">,</span> <span class="n">size</span><span class="p">))</span>
+            <span class="n">formats</span><span class="o">.</span><span class="n">append</span><span class="p">((</span><span class="n">np</span><span class="o">.</span><span class="n">dtype</span><span class="p">(</span><span class="n">kind</span><span class="p">),</span> <span class="n">shape</span><span class="p">)</span> <span class="k">if</span> <span class="n">shape</span> <span class="k">else</span> <span class="n">np</span><span class="o">.</span><span class="n">dtype</span><span class="p">(</span><span class="n">kind</span><span class="p">))</span>
+            <span class="n">offsets</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">row</span><span class="p">)</span>
+            <span class="n">row</span> <span class="o">+=</span> <span class="n">size</span>
+        <span class="n">dtype</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">dtype</span><span class="p">({</span><span class="s2">&quot;names&quot;</span><span class="p">:</span> <span class="n">names</span><span class="p">,</span> <span class="s2">&quot;formats&quot;</span><span class="p">:</span> <span class="n">formats</span><span class="p">,</span> <span class="s2">&quot;offsets&quot;</span><span class="p">:</span> <span class="n">offsets</span><span class="p">,</span> <span class="s2">&quot;itemsize&quot;</span><span class="p">:</span> <span class="n">row</span><span class="p">})</span>
+        <span class="n">recorder</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_native</span><span class="o">.</span><span class="n">Recorder</span><span class="p">(</span><span class="n">slices</span><span class="p">,</span> <span class="nb">max</span><span class="p">(</span><span class="nb">round</span><span class="p">(</span><span class="n">seconds</span> <span class="o">*</span> <span class="mi">1000</span><span class="p">),</span> <span class="mi">1</span><span class="p">))</span>
+        <span class="n">recording</span> <span class="o">=</span> <span class="n">Recording</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_loop</span><span class="p">,</span> <span class="n">recorder</span><span class="p">,</span> <span class="n">names</span><span class="p">,</span> <span class="n">dtype</span><span class="p">,</span> <span class="n">path</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_loop</span><span class="o">.</span><span class="n">set_recorder</span><span class="p">(</span><span class="n">recorder</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="vm">__dict__</span><span class="p">[</span><span class="s2">&quot;_recording&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">recording</span>
+        <span class="k">return</span> <span class="n">recording</span></div>
+
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_record_fields</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;{field: (source, offset, shape, dtype)} of what record() can take.&quot;&quot;&quot;</span>
+        <span class="n">native</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_native</span>
+        <span class="n">sources</span> <span class="o">=</span> <span class="n">native</span><span class="o">.</span><span class="n">RECORD_SOURCES</span>
+        <span class="n">table</span> <span class="o">=</span> <span class="p">{}</span>
+        <span class="k">for</span> <span class="n">name</span><span class="p">,</span> <span class="n">offset</span><span class="p">,</span> <span class="n">shape</span><span class="p">,</span> <span class="n">kind</span> <span class="ow">in</span> <span class="n">native</span><span class="o">.</span><span class="n">ROBOT_LAYOUT</span><span class="p">:</span>
+            <span class="n">table</span><span class="p">[</span><span class="n">name</span><span class="p">]</span> <span class="o">=</span> <span class="p">(</span><span class="n">sources</span><span class="p">[</span><span class="s2">&quot;robot&quot;</span><span class="p">],</span> <span class="n">offset</span><span class="p">,</span> <span class="nb">tuple</span><span class="p">(</span><span class="n">shape</span><span class="p">),</span> <span class="n">kind</span><span class="p">)</span>
+        <span class="k">for</span> <span class="n">name</span><span class="p">,</span> <span class="n">offset</span><span class="p">,</span> <span class="n">shape</span><span class="p">,</span> <span class="n">kind</span> <span class="ow">in</span> <span class="n">native</span><span class="o">.</span><span class="n">PARAMS_LAYOUT</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">name</span> <span class="o">!=</span> <span class="s2">&quot;custom&quot;</span><span class="p">:</span>
+                <span class="n">table</span><span class="p">[</span><span class="n">name</span><span class="p">]</span> <span class="o">=</span> <span class="p">(</span><span class="n">sources</span><span class="p">[</span><span class="s2">&quot;params&quot;</span><span class="p">],</span> <span class="n">offset</span><span class="p">,</span> <span class="nb">tuple</span><span class="p">(</span><span class="n">shape</span><span class="p">),</span> <span class="n">kind</span><span class="p">)</span>
+        <span class="k">for</span> <span class="n">name</span><span class="p">,</span> <span class="p">(</span><span class="n">offset</span><span class="p">,</span> <span class="n">shape</span><span class="p">)</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_custom</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+            <span class="n">table</span><span class="p">[</span><span class="n">name</span><span class="p">]</span> <span class="o">=</span> <span class="p">(</span><span class="n">sources</span><span class="p">[</span><span class="s2">&quot;params&quot;</span><span class="p">],</span> <span class="n">offset</span><span class="p">,</span> <span class="nb">tuple</span><span class="p">(</span><span class="n">shape</span><span class="p">),</span> <span class="s2">&quot;f8&quot;</span><span class="p">)</span>
+        <span class="k">for</span> <span class="n">name</span><span class="p">,</span> <span class="n">offset</span><span class="p">,</span> <span class="n">shape</span><span class="p">,</span> <span class="n">kind</span> <span class="ow">in</span> <span class="n">native</span><span class="o">.</span><span class="n">STATE_LAYOUT</span><span class="p">:</span>
+            <span class="n">table</span><span class="p">[</span><span class="n">name</span><span class="p">]</span> <span class="o">=</span> <span class="p">(</span><span class="n">sources</span><span class="p">[</span><span class="s2">&quot;state&quot;</span><span class="p">],</span> <span class="n">offset</span><span class="p">,</span> <span class="nb">tuple</span><span class="p">(</span><span class="n">shape</span><span class="p">),</span> <span class="n">kind</span><span class="p">)</span>
+        <span class="n">table</span><span class="p">[</span><span class="s2">&quot;q&quot;</span><span class="p">],</span> <span class="n">table</span><span class="p">[</span><span class="s2">&quot;dq&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">table</span><span class="p">[</span><span class="s2">&quot;qpos&quot;</span><span class="p">],</span> <span class="n">table</span><span class="p">[</span><span class="s2">&quot;qvel&quot;</span><span class="p">]</span>  <span class="c1"># the robot&#39;s, in its names</span>
+        <span class="k">for</span> <span class="n">name</span><span class="p">,</span> <span class="n">offset</span><span class="p">,</span> <span class="n">shape</span><span class="p">,</span> <span class="n">kind</span> <span class="ow">in</span> <span class="n">native</span><span class="o">.</span><span class="n">RECORD_EXTRA_LAYOUT</span><span class="p">:</span>
+            <span class="n">table</span><span class="p">[</span><span class="n">name</span><span class="p">]</span> <span class="o">=</span> <span class="p">(</span><span class="n">sources</span><span class="p">[</span><span class="s2">&quot;extra&quot;</span><span class="p">],</span> <span class="n">offset</span><span class="p">,</span> <span class="nb">tuple</span><span class="p">(</span><span class="n">shape</span><span class="p">),</span> <span class="n">kind</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">table</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_drain_recording</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="n">recording</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_recording</span>
+        <span class="k">if</span> <span class="n">recording</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">recording</span><span class="o">.</span><span class="n">_drain</span><span class="p">()</span>
+
     <span class="c1"># ── The loop ──────────────────────────────────────────────────────────────</span>
 
     <span class="k">def</span><span class="w"> </span><span class="nf">_configure</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-<span class="w">        </span><span class="sd">"""Give the loop its own copies of the model, and of the data it computes with."""</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Give the loop its own copies of the model, and of the data it computes with.&quot;&quot;&quot;</span>
         <span class="n">robot</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">robot</span>
         <span class="n">model</span> <span class="o">=</span> <span class="n">robot</span><span class="o">.</span><span class="n">model</span>
         <span class="k">if</span> <span class="ow">not</span> <span class="p">(</span><span class="n">model</span><span class="o">.</span><span class="n">nq</span> <span class="o">==</span> <span class="n">model</span><span class="o">.</span><span class="n">nv</span> <span class="o">==</span> <span class="n">model</span><span class="o">.</span><span class="n">nu</span> <span class="o">==</span> <span class="mi">7</span><span class="p">):</span>
-            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">"The native loop needs a model with 7 joints and 7 actuators"</span><span class="p">)</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;The native loop needs a model with 7 joints and 7 actuators&quot;</span><span class="p">)</span>
         <span class="n">model</span> <span class="o">=</span> <span class="n">copy</span><span class="o">.</span><span class="n">copy</span><span class="p">(</span><span class="n">model</span><span class="p">)</span>
-        <span class="c1"># In simulation, the loop's data is the simulated arm, continuing from robot.data.</span>
+        <span class="c1"># In simulation, the loop&#39;s data is the simulated arm, continuing from robot.data.</span>
         <span class="n">data</span> <span class="o">=</span> <span class="n">mujoco</span><span class="o">.</span><span class="n">MjData</span><span class="p">(</span><span class="n">model</span><span class="p">)</span> <span class="k">if</span> <span class="n">robot</span><span class="o">.</span><span class="n">real</span> <span class="k">else</span> <span class="n">copy</span><span class="o">.</span><span class="n">copy</span><span class="p">(</span><span class="n">robot</span><span class="o">.</span><span class="n">data</span><span class="p">)</span>
         <span class="n">site</span> <span class="o">=</span> <span class="n">robot</span><span class="o">.</span><span class="n">site_id</span>
         <span class="n">arrays</span> <span class="o">=</span> <span class="p">{</span>
-            <span class="s2">"data"</span><span class="p">:</span> <span class="n">data</span><span class="o">.</span><span class="n">_address</span><span class="p">,</span>
-            <span class="s2">"qpos"</span><span class="p">:</span> <span class="n">data</span><span class="o">.</span><span class="n">qpos</span><span class="o">.</span><span class="n">ctypes</span><span class="o">.</span><span class="n">data</span><span class="p">,</span>
-            <span class="s2">"qvel"</span><span class="p">:</span> <span class="n">data</span><span class="o">.</span><span class="n">qvel</span><span class="o">.</span><span class="n">ctypes</span><span class="o">.</span><span class="n">data</span><span class="p">,</span>
-            <span class="s2">"ctrl"</span><span class="p">:</span> <span class="n">data</span><span class="o">.</span><span class="n">ctrl</span><span class="o">.</span><span class="n">ctypes</span><span class="o">.</span><span class="n">data</span><span class="p">,</span>
-            <span class="s2">"site_xpos"</span><span class="p">:</span> <span class="n">data</span><span class="o">.</span><span class="n">site_xpos</span><span class="p">[</span><span class="n">site</span><span class="p">]</span><span class="o">.</span><span class="n">ctypes</span><span class="o">.</span><span class="n">data</span><span class="p">,</span>
-            <span class="s2">"site_xmat"</span><span class="p">:</span> <span class="n">data</span><span class="o">.</span><span class="n">site_xmat</span><span class="p">[</span><span class="n">site</span><span class="p">]</span><span class="o">.</span><span class="n">ctypes</span><span class="o">.</span><span class="n">data</span><span class="p">,</span>
+            <span class="s2">&quot;data&quot;</span><span class="p">:</span> <span class="n">data</span><span class="o">.</span><span class="n">_address</span><span class="p">,</span>
+            <span class="s2">&quot;qpos&quot;</span><span class="p">:</span> <span class="n">data</span><span class="o">.</span><span class="n">qpos</span><span class="o">.</span><span class="n">ctypes</span><span class="o">.</span><span class="n">data</span><span class="p">,</span>
+            <span class="s2">&quot;qvel&quot;</span><span class="p">:</span> <span class="n">data</span><span class="o">.</span><span class="n">qvel</span><span class="o">.</span><span class="n">ctypes</span><span class="o">.</span><span class="n">data</span><span class="p">,</span>
+            <span class="s2">&quot;ctrl&quot;</span><span class="p">:</span> <span class="n">data</span><span class="o">.</span><span class="n">ctrl</span><span class="o">.</span><span class="n">ctypes</span><span class="o">.</span><span class="n">data</span><span class="p">,</span>
+            <span class="s2">&quot;site_xpos&quot;</span><span class="p">:</span> <span class="n">data</span><span class="o">.</span><span class="n">site_xpos</span><span class="p">[</span><span class="n">site</span><span class="p">]</span><span class="o">.</span><span class="n">ctypes</span><span class="o">.</span><span class="n">data</span><span class="p">,</span>
+            <span class="s2">&quot;site_xmat&quot;</span><span class="p">:</span> <span class="n">data</span><span class="o">.</span><span class="n">site_xmat</span><span class="p">[</span><span class="n">site</span><span class="p">]</span><span class="o">.</span><span class="n">ctypes</span><span class="o">.</span><span class="n">data</span><span class="p">,</span>
         <span class="p">}</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_loop</span><span class="o">.</span><span class="n">set_mujoco</span><span class="p">(</span><span class="n">model</span><span class="o">.</span><span class="n">_address</span><span class="p">,</span> <span class="n">arrays</span><span class="p">,</span> <span class="n">site</span><span class="p">,</span> <span class="nb">float</span><span class="p">(</span><span class="n">model</span><span class="o">.</span><span class="n">opt</span><span class="o">.</span><span class="n">timestep</span><span class="p">),</span>
                               <span class="nb">float</span><span class="p">(</span><span class="n">robot</span><span class="o">.</span><span class="n">data</span><span class="o">.</span><span class="n">time</span><span class="p">),</span> <span class="n">_mujoco_functions</span><span class="p">())</span>
@@ -681,22 +920,26 @@
         <span class="c1"># RobotInterface asks the loop for states while it runs, and tells it about payloads.</span>
         <span class="n">robot</span><span class="o">.</span><span class="n">_native_ref</span> <span class="o">=</span> <span class="n">weakref</span><span class="o">.</span><span class="n">ref</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span>
 
-    <span class="k">def</span><span class="w"> </span><span class="nf">_launch</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">macos_qos</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">cpu</span><span class="o">=-</span><span class="mi">1</span><span class="p">,</span> <span class="n">fifo_priority</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">_launch</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">macos_qos</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">cpu</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">fifo_priority</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+        <span class="n">linux</span> <span class="o">=</span> <span class="n">sys</span><span class="o">.</span><span class="n">platform</span><span class="o">.</span><span class="n">startswith</span><span class="p">(</span><span class="s2">&quot;linux&quot;</span><span class="p">)</span>
         <span class="k">if</span> <span class="n">macos_qos</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
-            <span class="n">macos_qos</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">environ</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"LIBFRANKA_MACOS_BUSY_WAIT"</span><span class="p">)</span> <span class="o">!=</span> <span class="s2">"0"</span>
+            <span class="n">macos_qos</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">environ</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;LIBFRANKA_MACOS_BUSY_WAIT&quot;</span><span class="p">)</span> <span class="o">!=</span> <span class="s2">&quot;0&quot;</span>
         <span class="k">if</span> <span class="n">fifo_priority</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
-            <span class="n">fifo_priority</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">realtime_priority</span> <span class="k">if</span> <span class="n">sys</span><span class="o">.</span><span class="n">platform</span><span class="o">.</span><span class="n">startswith</span><span class="p">(</span><span class="s2">"linux"</span><span class="p">)</span> <span class="k">else</span> <span class="mi">0</span>
+            <span class="n">fifo_priority</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">realtime_priority</span> <span class="k">if</span> <span class="n">linux</span> <span class="k">else</span> <span class="mi">0</span>
+        <span class="k">if</span> <span class="n">cpu</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">cpu</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">realtime_cpu</span> <span class="k">if</span> <span class="n">linux</span> <span class="k">else</span> <span class="kc">None</span>
+        <span class="n">cpu</span> <span class="o">=</span> <span class="o">-</span><span class="mi">1</span> <span class="k">if</span> <span class="n">cpu</span> <span class="ow">is</span> <span class="kc">None</span> <span class="k">else</span> <span class="nb">int</span><span class="p">(</span><span class="n">cpu</span><span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_configure</span><span class="p">()</span>
         <span class="n">robot</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">robot</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_loop</span><span class="o">.</span><span class="n">start</span><span class="p">(</span><span class="n">robot</span><span class="o">.</span><span class="n">torque_controller</span> <span class="k">if</span> <span class="n">robot</span><span class="o">.</span><span class="n">real</span> <span class="k">else</span> <span class="kc">None</span><span class="p">,</span>
                          <span class="n">macos_qos</span><span class="o">=</span><span class="n">macos_qos</span><span class="p">,</span> <span class="n">cpu</span><span class="o">=</span><span class="n">cpu</span><span class="p">,</span> <span class="n">fifo_priority</span><span class="o">=</span><span class="n">fifo_priority</span><span class="p">)</span>
 
     <span class="k">def</span><span class="w"> </span><span class="nf">_owns_connection</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-<span class="w">        </span><span class="sd">"""Whether the loop runs, and so reads every robot state."""</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Whether the loop runs, and so reads every robot state.&quot;&quot;&quot;</span>
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_loop</span><span class="o">.</span><span class="n">running</span><span class="p">()</span>
 
     <span class="k">def</span><span class="w"> </span><span class="nf">_model_changed</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-<span class="w">        </span><span class="sd">"""RobotInterface.sync_payload() changed the model: give the loop a copy of it."""</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;RobotInterface.sync_payload() changed the model: give the loop a copy of it.&quot;&quot;&quot;</span>
         <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">_configured</span><span class="p">:</span>
             <span class="k">return</span>
         <span class="n">model</span> <span class="o">=</span> <span class="n">copy</span><span class="o">.</span><span class="n">copy</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">robot</span><span class="o">.</span><span class="n">model</span><span class="p">)</span>
@@ -704,7 +947,7 @@
         <span class="bp">self</span><span class="o">.</span><span class="n">_models</span><span class="p">[</span><span class="n">epoch</span><span class="p">]</span> <span class="o">=</span> <span class="n">model</span>
 
     <span class="k">def</span><span class="w"> </span><span class="nf">_sync_world</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-<span class="w">        </span><span class="sd">"""Bring robot.data and robot.robot_state to the loop's last cycle."""</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Bring robot.data and robot.robot_state to the loop&#39;s last cycle.&quot;&quot;&quot;</span>
         <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">_configured</span><span class="p">:</span>
             <span class="k">return</span> <span class="kc">False</span>
         <span class="k">with</span> <span class="bp">self</span><span class="o">.</span><span class="n">_world_lock</span><span class="p">:</span>
@@ -716,7 +959,7 @@
             <span class="n">cycle</span><span class="p">,</span> <span class="n">world_time</span><span class="p">,</span> <span class="n">epoch</span> <span class="o">=</span> <span class="n">info</span>
             <span class="k">if</span> <span class="n">cycle</span> <span class="o">==</span> <span class="bp">self</span><span class="o">.</span><span class="n">_synced_cycle</span><span class="p">:</span>
                 <span class="k">return</span> <span class="kc">True</span>
-            <span class="bp">self</span><span class="o">.</span><span class="vm">__dict__</span><span class="p">[</span><span class="s2">"_synced_cycle"</span><span class="p">]</span> <span class="o">=</span> <span class="n">cycle</span>
+            <span class="bp">self</span><span class="o">.</span><span class="vm">__dict__</span><span class="p">[</span><span class="s2">&quot;_synced_cycle&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">cycle</span>
             <span class="k">if</span> <span class="ow">not</span> <span class="n">robot</span><span class="o">.</span><span class="n">real</span><span class="p">:</span>
                 <span class="n">data</span><span class="o">.</span><span class="n">time</span> <span class="o">=</span> <span class="n">world_time</span>
             <span class="n">mujoco</span><span class="o">.</span><span class="n">mj_forward</span><span class="p">(</span><span class="n">robot</span><span class="o">.</span><span class="n">model</span><span class="p">,</span> <span class="n">data</span><span class="p">)</span>
@@ -732,14 +975,14 @@
             <span class="k">return</span> <span class="kc">True</span>
 
     <span class="k">def</span><span class="w"> </span><span class="nf">_tick</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-<span class="w">        </span><span class="sd">"""Called after each sync while the loop runs (the server writes shared memory)."""</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Called after each sync while the loop runs (the server writes shared memory).&quot;&quot;&quot;</span>
 
     <span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">_watch</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-<span class="w">        </span><span class="sd">"""Mirror the loop into robot.data until it ends; returns its error, or None."""</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Mirror the loop into robot.data until it ends; returns its error, or None.&quot;&quot;&quot;</span>
         <span class="n">loop</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_loop</span>
         <span class="n">robot</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">robot</span>
-        <span class="n">viewer</span> <span class="o">=</span> <span class="kc">None</span> <span class="k">if</span> <span class="n">robot</span><span class="o">.</span><span class="n">real</span> <span class="k">else</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">robot</span><span class="p">,</span> <span class="s2">"viewer"</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
-        <span class="n">last_stats</span> <span class="o">=</span> <span class="n">last_viewer</span> <span class="o">=</span> <span class="n">time</span><span class="o">.</span><span class="n">perf_counter</span><span class="p">()</span>
+        <span class="n">viewer</span> <span class="o">=</span> <span class="kc">None</span> <span class="k">if</span> <span class="n">robot</span><span class="o">.</span><span class="n">real</span> <span class="k">else</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">robot</span><span class="p">,</span> <span class="s2">&quot;viewer&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
+        <span class="n">last_stats</span> <span class="o">=</span> <span class="n">last_viewer</span> <span class="o">=</span> <span class="n">last_drain</span> <span class="o">=</span> <span class="n">time</span><span class="o">.</span><span class="n">perf_counter</span><span class="p">()</span>
         <span class="n">status_checked</span> <span class="o">=</span> <span class="kc">False</span>
         <span class="k">try</span><span class="p">:</span>
             <span class="k">while</span> <span class="kc">True</span><span class="p">:</span>
@@ -747,10 +990,13 @@
                 <span class="bp">self</span><span class="o">.</span><span class="n">_sync_world</span><span class="p">()</span>
                 <span class="bp">self</span><span class="o">.</span><span class="n">_tick</span><span class="p">()</span>
                 <span class="n">now</span> <span class="o">=</span> <span class="n">time</span><span class="o">.</span><span class="n">perf_counter</span><span class="p">()</span>
+                <span class="k">if</span> <span class="n">now</span> <span class="o">-</span> <span class="n">last_drain</span> <span class="o">&gt;=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_DRAIN_PERIOD</span><span class="p">:</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">_drain_recording</span><span class="p">()</span>
+                    <span class="n">last_drain</span> <span class="o">=</span> <span class="n">now</span>
                 <span class="k">if</span> <span class="ow">not</span> <span class="n">status_checked</span> <span class="ow">and</span> <span class="n">now</span> <span class="o">-</span> <span class="n">last_stats</span> <span class="o">&gt;</span> <span class="mf">0.05</span><span class="p">:</span>
                     <span class="n">status_checked</span> <span class="o">=</span> <span class="kc">True</span>
                     <span class="k">if</span> <span class="n">loop</span><span class="o">.</span><span class="n">realtime_status</span><span class="p">():</span>
-                        <span class="n">logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Native control loop: </span><span class="si">{</span><span class="n">loop</span><span class="o">.</span><span class="n">realtime_status</span><span class="p">()</span><span class="o">.</span><span class="n">rstrip</span><span class="p">(</span><span class="s1">'; '</span><span class="p">)</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
+                        <span class="n">logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Native control loop: </span><span class="si">{</span><span class="n">loop</span><span class="o">.</span><span class="n">realtime_status</span><span class="p">()</span><span class="o">.</span><span class="n">rstrip</span><span class="p">(</span><span class="s1">&#39;; &#39;</span><span class="p">)</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
                 <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">track</span> <span class="ow">and</span> <span class="n">now</span> <span class="o">-</span> <span class="n">last_stats</span> <span class="o">&gt;=</span> <span class="mf">1.0</span><span class="p">:</span>
                     <span class="bp">self</span><span class="o">.</span><span class="n">_print_stats</span><span class="p">()</span>
                     <span class="n">last_stats</span> <span class="o">=</span> <span class="n">now</span>
@@ -764,12 +1010,13 @@
             <span class="n">loop</span><span class="o">.</span><span class="n">request_stop</span><span class="p">()</span>
             <span class="n">loop</span><span class="o">.</span><span class="n">join</span><span class="p">()</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">_sync_world</span><span class="p">()</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_drain_recording</span><span class="p">()</span>
         <span class="k">return</span> <span class="n">loop</span><span class="o">.</span><span class="n">error</span><span class="p">()</span> <span class="ow">or</span> <span class="kc">None</span>
 
 <div class="viewcode-block" id="NativeFrankaController.loop_stats">
 <a class="viewcode-back" href="../../api/native.html#aiofranka.native.NativeFrankaController.loop_stats">[docs]</a>
     <span class="k">def</span><span class="w"> </span><span class="nf">loop_stats</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">reset</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
-<span class="w">        </span><span class="sd">"""</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Timing of the native loop since start, or since the last call with reset.</span>
 
 <span class="sd">        Args:</span>
@@ -777,28 +1024,28 @@
 
 <span class="sd">        Returns:</span>
 <span class="sd">            dict: count, mean, std, min and max of the period between cycles [s]; busy_mean</span>
-<span class="sd">                and busy_max, from a cycle's start to its torque command [s]; what the robot</span>
+<span class="sd">                and busy_max, from a cycle&#39;s start to its torque command [s]; what the robot</span>
 <span class="sd">                reported (real robot only): robot_gap_max [s], the states missed in between,</span>
 <span class="sd">                and success_min, its lowest command success rate. Since start: warn and error,</span>
 <span class="sd">                periods off 1 ms by more than 0.1 ms or longer than 10 ms, and max_all [s].</span>
-<span class="sd">        """</span>
+<span class="sd">        &quot;&quot;&quot;</span>
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_loop</span><span class="o">.</span><span class="n">stats</span><span class="p">(</span><span class="n">reset</span><span class="o">=</span><span class="n">reset</span><span class="p">)</span></div>
 
 
     <span class="k">def</span><span class="w"> </span><span class="nf">_print_stats</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
         <span class="n">stats</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_loop</span><span class="o">.</span><span class="n">stats</span><span class="p">(</span><span class="n">reset</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
-        <span class="k">if</span> <span class="n">stats</span><span class="p">[</span><span class="s2">"count"</span><span class="p">]</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+        <span class="k">if</span> <span class="n">stats</span><span class="p">[</span><span class="s2">&quot;count&quot;</span><span class="p">]</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
             <span class="k">return</span>
-        <span class="n">mean</span><span class="p">,</span> <span class="n">std</span> <span class="o">=</span> <span class="n">stats</span><span class="p">[</span><span class="s2">"mean"</span><span class="p">]</span> <span class="o">*</span> <span class="mi">1000</span><span class="p">,</span> <span class="n">stats</span><span class="p">[</span><span class="s2">"std"</span><span class="p">]</span> <span class="o">*</span> <span class="mi">1000</span>
-        <span class="n">low</span><span class="p">,</span> <span class="n">high</span> <span class="o">=</span> <span class="n">stats</span><span class="p">[</span><span class="s2">"min"</span><span class="p">]</span> <span class="o">*</span> <span class="mi">1000</span><span class="p">,</span> <span class="n">stats</span><span class="p">[</span><span class="s2">"max"</span><span class="p">]</span> <span class="o">*</span> <span class="mi">1000</span>
-        <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Control loop stats (last </span><span class="si">{</span><span class="n">stats</span><span class="p">[</span><span class="s1">'count'</span><span class="p">]</span><span class="si">}</span><span class="s2"> iterations):"</span><span class="p">)</span>
-        <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"  Frequency: </span><span class="si">{</span><span class="mf">1.0</span><span class="w"> </span><span class="o">/</span><span class="w"> </span><span class="n">stats</span><span class="p">[</span><span class="s1">'mean'</span><span class="p">]</span><span class="si">:</span><span class="s2">.1f</span><span class="si">}</span><span class="s2"> Hz (target: 1000 Hz)"</span><span class="p">)</span>
-        <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"  Mean dt: </span><span class="si">{</span><span class="n">mean</span><span class="si">:</span><span class="s2">.3f</span><span class="si">}</span><span class="s2"> ms, Std: </span><span class="si">{</span><span class="n">std</span><span class="si">:</span><span class="s2">.3f</span><span class="si">}</span><span class="s2"> ms"</span><span class="p">)</span>
-        <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"  Min dt: </span><span class="si">{</span><span class="n">low</span><span class="si">:</span><span class="s2">.3f</span><span class="si">}</span><span class="s2"> ms, Max dt: </span><span class="si">{</span><span class="n">high</span><span class="si">:</span><span class="s2">.3f</span><span class="si">}</span><span class="s2"> ms"</span><span class="p">)</span>
-        <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"  Jitter (max-min): </span><span class="si">{</span><span class="n">high</span><span class="w"> </span><span class="o">-</span><span class="w"> </span><span class="n">low</span><span class="si">:</span><span class="s2">.3f</span><span class="si">}</span><span class="s2"> ms"</span><span class="p">)</span>
+        <span class="n">mean</span><span class="p">,</span> <span class="n">std</span> <span class="o">=</span> <span class="n">stats</span><span class="p">[</span><span class="s2">&quot;mean&quot;</span><span class="p">]</span> <span class="o">*</span> <span class="mi">1000</span><span class="p">,</span> <span class="n">stats</span><span class="p">[</span><span class="s2">&quot;std&quot;</span><span class="p">]</span> <span class="o">*</span> <span class="mi">1000</span>
+        <span class="n">low</span><span class="p">,</span> <span class="n">high</span> <span class="o">=</span> <span class="n">stats</span><span class="p">[</span><span class="s2">&quot;min&quot;</span><span class="p">]</span> <span class="o">*</span> <span class="mi">1000</span><span class="p">,</span> <span class="n">stats</span><span class="p">[</span><span class="s2">&quot;max&quot;</span><span class="p">]</span> <span class="o">*</span> <span class="mi">1000</span>
+        <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Control loop stats (last </span><span class="si">{</span><span class="n">stats</span><span class="p">[</span><span class="s1">&#39;count&#39;</span><span class="p">]</span><span class="si">}</span><span class="s2"> iterations):&quot;</span><span class="p">)</span>
+        <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;  Frequency: </span><span class="si">{</span><span class="mf">1.0</span><span class="w"> </span><span class="o">/</span><span class="w"> </span><span class="n">stats</span><span class="p">[</span><span class="s1">&#39;mean&#39;</span><span class="p">]</span><span class="si">:</span><span class="s2">.1f</span><span class="si">}</span><span class="s2"> Hz (target: 1000 Hz)&quot;</span><span class="p">)</span>
+        <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;  Mean dt: </span><span class="si">{</span><span class="n">mean</span><span class="si">:</span><span class="s2">.3f</span><span class="si">}</span><span class="s2"> ms, Std: </span><span class="si">{</span><span class="n">std</span><span class="si">:</span><span class="s2">.3f</span><span class="si">}</span><span class="s2"> ms&quot;</span><span class="p">)</span>
+        <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;  Min dt: </span><span class="si">{</span><span class="n">low</span><span class="si">:</span><span class="s2">.3f</span><span class="si">}</span><span class="s2"> ms, Max dt: </span><span class="si">{</span><span class="n">high</span><span class="si">:</span><span class="s2">.3f</span><span class="si">}</span><span class="s2"> ms&quot;</span><span class="p">)</span>
+        <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;  Jitter (max-min): </span><span class="si">{</span><span class="n">high</span><span class="w"> </span><span class="o">-</span><span class="w"> </span><span class="n">low</span><span class="si">:</span><span class="s2">.3f</span><span class="si">}</span><span class="s2"> ms&quot;</span><span class="p">)</span>
 
     <span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">_run</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-<span class="w">        </span><span class="sd">"""Watch the native loop; on an error, report it and exit, as FrankaController does."""</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Watch the native loop; on an error, report it and exit, as FrankaController does.&quot;&quot;&quot;</span>
         <span class="k">try</span><span class="p">:</span>
             <span class="n">error</span> <span class="o">=</span> <span class="k">await</span> <span class="bp">self</span><span class="o">.</span><span class="n">_watch</span><span class="p">()</span>
             <span class="k">if</span> <span class="n">error</span><span class="p">:</span>
@@ -807,24 +1054,31 @@
             <span class="k">raise</span>
         <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
             <span class="n">error_str</span> <span class="o">=</span> <span class="nb">str</span><span class="p">(</span><span class="n">e</span><span class="p">)</span>
-            <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Error in control loop: </span><span class="si">{</span><span class="n">error_str</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
+            <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Error in control loop: </span><span class="si">{</span><span class="n">error_str</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+            <span class="n">recording</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_recording</span>
+            <span class="k">if</span> <span class="n">recording</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">recording</span><span class="o">.</span><span class="n">recording</span> <span class="ow">and</span> <span class="n">recording</span><span class="o">.</span><span class="n">path</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="k">try</span><span class="p">:</span>
+                    <span class="n">recording</span><span class="o">.</span><span class="n">stop</span><span class="p">()</span>
+                    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Saved the recording to </span><span class="si">{</span><span class="n">recording</span><span class="o">.</span><span class="n">path</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+                <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">save_err</span><span class="p">:</span>
+                    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Could not save the recording to </span><span class="si">{</span><span class="n">recording</span><span class="o">.</span><span class="n">path</span><span class="si">}</span><span class="s2">: </span><span class="si">{</span><span class="n">save_err</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
             <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">error_callback</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
                 <span class="k">try</span><span class="p">:</span>
                     <span class="bp">self</span><span class="o">.</span><span class="n">error_callback</span><span class="p">(</span><span class="n">error_str</span><span class="p">)</span>
                 <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">cb_err</span><span class="p">:</span>
-                    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Error in error_callback: </span><span class="si">{</span><span class="n">cb_err</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
+                    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Error in error_callback: </span><span class="si">{</span><span class="n">cb_err</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
             <span class="n">sys</span><span class="o">.</span><span class="n">exit</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span>  <span class="c1"># Kill the entire script</span>
 
 <div class="viewcode-block" id="NativeFrankaController.start">
 <a class="viewcode-back" href="../../api/native.html#aiofranka.native.NativeFrankaController.start">[docs]</a>
     <span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">start</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-<span class="w">        </span><span class="sd">"""</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Start the native 1 kHz control loop (FrankaController.start()).</span>
 
 <span class="sd">        Returns:</span>
 <span class="sd">            asyncio.Task: Watches the loop, and ends with it</span>
-<span class="sd">        """</span>
-        <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">"Starting robot control loop (native)"</span><span class="p">)</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Starting robot control loop (native)&quot;</span><span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">robot</span><span class="o">.</span><span class="n">start</span><span class="p">()</span>
         <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">task</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">or</span> <span class="bp">self</span><span class="o">.</span><span class="n">task</span><span class="o">.</span><span class="n">done</span><span class="p">():</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">_launch</span><span class="p">()</span>
@@ -836,19 +1090,20 @@
 <div class="viewcode-block" id="NativeFrankaController.step">
 <a class="viewcode-back" href="../../api/native.html#aiofranka.native.NativeFrankaController.step">[docs]</a>
     <span class="k">def</span><span class="w"> </span><span class="nf">step</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-<span class="w">        </span><span class="sd">"""</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Run one control cycle in the calling thread (FrankaController.step()).</span>
 
 <span class="sd">        For stepping a simulation, or the robot, by hand while the loop is not running.</span>
-<span class="sd">        """</span>
+<span class="sd">        &quot;&quot;&quot;</span>
         <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_loop</span><span class="o">.</span><span class="n">running</span><span class="p">():</span>
-            <span class="k">raise</span> <span class="ne">RuntimeError</span><span class="p">(</span><span class="s2">"The native loop is running; it steps by itself"</span><span class="p">)</span>
+            <span class="k">raise</span> <span class="ne">RuntimeError</span><span class="p">(</span><span class="s2">&quot;The native loop is running; it steps by itself&quot;</span><span class="p">)</span>
         <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">_configured</span><span class="p">:</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">_configure</span><span class="p">()</span>
         <span class="n">robot</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">robot</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_loop</span><span class="o">.</span><span class="n">step_once</span><span class="p">(</span><span class="n">robot</span><span class="o">.</span><span class="n">torque_controller</span> <span class="k">if</span> <span class="n">robot</span><span class="o">.</span><span class="n">real</span> <span class="k">else</span> <span class="kc">None</span><span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_sync_world</span><span class="p">()</span>
-        <span class="n">viewer</span> <span class="o">=</span> <span class="kc">None</span> <span class="k">if</span> <span class="n">robot</span><span class="o">.</span><span class="n">real</span> <span class="k">else</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">robot</span><span class="p">,</span> <span class="s2">"viewer"</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_drain_recording</span><span class="p">()</span>
+        <span class="n">viewer</span> <span class="o">=</span> <span class="kc">None</span> <span class="k">if</span> <span class="n">robot</span><span class="o">.</span><span class="n">real</span> <span class="k">else</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">robot</span><span class="p">,</span> <span class="s2">&quot;viewer&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
         <span class="k">if</span> <span class="n">viewer</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
             <span class="n">viewer</span><span class="o">.</span><span class="n">sync</span><span class="p">()</span></div>
 
