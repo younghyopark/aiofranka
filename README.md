@@ -402,10 +402,11 @@ Its impedance, pid, osc and torque laws are ports of `FrankaController`'s. Stepp
 
 What changes:
 
-- A subclass's `step()` would never run, so `NativeFrankaController` refuses one: write it as a control law (below).
+- A subclass's `step()` would never run, so `NativeFrankaController` refuses one: write it as a control law, and log every cycle with `record()` (both below).
 - Attributes the loop reads (`kp`, `q_desired`, `ee_desired`, ...) are views of its memory. Assigning one copies the value in, and the loop takes it whole at its next cycle.
 - While the loop runs, `robot.data` and `robot.robot_state` follow it, updated from the event loop about every millisecond. In simulation, the loop owns the simulated arm.
 - On Linux, the loop's thread runs at SCHED_FIFO priority 80, which needs an rtprio limit (`ulimit -r`) of at least that. Set `controller.realtime_priority = 0` before `start()` for normal priority.
+- The thread starts on the CPUs of the thread that calls `start()`. Set `controller.realtime_cpu` before `start()` to pin it to a CPU of its own, and keep Python's threads at normal priority: another SCHED_FIFO thread of the same priority on that CPU would hold the loop off until it yields.
 
 On an FR3 driven from a Linux PREEMPT_RT laptop, tracking 2 cm OSC circles for 15 s per test, the native loop sent every command in time while the same process blocked its event loop for 300 ms every second, ran 4 threads holding the GIL, ran 20-thread BLAS, or collected garbage over a 3 M object heap: 0 robot states missed, the robot's command success rate never below 0.98. The Python loop dropped to 0.92 with no load and stopped with `communication_constraints_violation` under the BLAS load. Saturating every core of that laptop, even at nice 19, stalled its networking and stopped either loop; with the robot NIC's interrupt cores left free, the native loop was unaffected.
 
@@ -417,6 +418,23 @@ pip install --no-build-isolation -e .
 ```
 
 It uses pylibfranka's libfranka and must be rebuilt for another libfranka minor version. Built with other pybind11 internals than pylibfranka (e.g. the official Linux pylibfranka 0.21.2, built with pybind11 3.0), it updates `robot.robot_state` in place instead of replacing it.
+
+### Recording every cycle
+
+`controller.record()` logs every cycle of the loop. After sending the torques, the loop writes the chosen fields into a buffer in C++ without waiting for Python, and the controller moves them to Python about every 10 ms, so a blocked event loop loses nothing:
+
+```python
+with controller.record(["time", "q", "dq", "tau", "tau_J_d"], path="control.npz") as recording:
+    await run_policy(controller)
+data = recording.data()  # {"time": (n,), "q": (n, 7), ...}, one row per cycle
+```
+
+The fields are those of the cycle (`cycle`, `time`, `wall_time`, `busy`, `q`, `dq`, `ee`, `tcp`, `jac`, `mm`, `last_torque`, `tau`, `robot_mode`), the controller's attributes as the cycle used them (`q_desired`, `ee_desired`, `kp`, ..., and the parameters of registered control laws), and every number of the robot state (`tau_J`, `tau_J_d`, `tau_ext_hat_filtered`, `O_F_ext_hat_K`, `control_command_success_rate`, ...; NaN in simulation). Without fields, `record()` takes `aiofranka.native.RECORD_FIELDS`.
+
+- `tau` is the torque sent, after the rate limit and clip. The robot echoes each command it got in the `tau_J_d` of its next state, rounded to float32, so the rows show which commands arrived.
+- `wall_time` is the host's `time.time()` when the robot state arrived, and `busy` the seconds from then to the command.
+- With a `path`, `stop()` saves the rows there, as does a loop that stops with an error before the process exits. `recording.save(path)` saves the rows so far.
+- The buffer holds `seconds` of cycles (default 60). If Python does not take the rows for longer, the loop drops new ones and `recording.dropped` counts them.
 
 ### Custom control laws
 

@@ -1,5 +1,17 @@
 # Changelog
 
+## Unreleased
+
+### Highlights
+
+- `NativeFrankaController.record()` logs every cycle of the native loop: the state, the targets and gains the cycle used, the torque sent and any number of the robot state, with the host time each state arrived. The loop writes the rows into a buffer in C++ without waiting for Python, so a blocked event loop loses none, and `stop()` returns them as numpy arrays or saves them to an .npz file, as does a loop that stops with an error.
+
+### Changes
+
+- `NativeFrankaController.realtime_cpu` pins the native loop's thread to a CPU on Linux. `NativeServerController` uses it instead of the last core when it is set.
+- The system identification collectors `04_collect_joint_sysid.py` and `06_collect_osc_sysid.py` run on `NativeFrankaController`. They set the targets at the configuration's policy rate, as a policy would, and record every cycle with `record()`; what they share is in `examples/sysid.py`. Their plans are the same as before. `06` plans once, after connecting, with the payload in the model.
+- `05_fit_joint_sysid.py` and `07_fit_osc_sysid.py` replay the target each cycle used rather than one per policy step from the window's start, so they fit recordings whose targets changed between policy steps. Earlier recordings replay as before.
+
 ## 0.7.1 - 2026-10-05
 
 ### Changes

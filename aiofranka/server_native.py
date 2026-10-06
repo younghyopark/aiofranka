@@ -48,8 +48,10 @@ class NativeServerController(NativeFrankaController):
             if sys.platform == "darwin":
                 self._launch()
             else:
-                # The last core, at SCHED_FIFO priority 80, like ServerController.
-                self._launch(cpu=(os.cpu_count() or 1) - 1, fifo_priority=80)
+                # Unless realtime_cpu says otherwise, the last core at SCHED_FIFO priority 80,
+                # like ServerController.
+                cpu = self.realtime_cpu if self.realtime_cpu is not None else (os.cpu_count() or 1) - 1
+                self._launch(cpu=cpu, fifo_priority=80)
             self.task = asyncio.create_task(self._run())
         await asyncio.sleep(1)
         return self.task

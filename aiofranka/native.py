@@ -20,7 +20,8 @@ control_law().
 
 What changes:
     - The loop runs in C++, so a subclass's step() would never run: NativeFrankaController
-      refuses one. Write the step as a control law instead.
+      refuses one. Write the step as a control law instead, and log every cycle with
+      record().
     - Attributes the loop reads (kp, q_desired, ee_desired, ...) are views of its memory.
       Assigning one copies the value in, and the loop takes it whole at its next cycle.
     - While the loop runs, robot.data and robot.robot_state follow it from the event loop,
@@ -37,6 +38,7 @@ import sys
 import threading
 import time
 import weakref
+from pathlib import Path
 
 import mujoco
 import numpy as np
@@ -47,6 +49,10 @@ logger = logging.getLogger(__name__)
 
 # Controller types whose torque FrankaController keeps in .torque, which torque mode then sends.
 _KEEPS_TORQUE = ("impedance", "pid")
+
+# What NativeFrankaController.record() records when it is not given fields.
+RECORD_FIELDS = ("cycle", "time", "wall_time", "busy", "q", "dq", "tcp", "q_desired", "ee_desired",
+                 "tau", "tau_J_d", "tau_J", "control_command_success_rate")
 
 _BUILD_HELP = """aiofranka's native control loop, the extension aiofranka._native, is not built.
 
@@ -260,6 +266,121 @@ class _Param:
         controller._assign(self.name, value)
 
 
+class Recording:
+    """
+    Every cycle of the native loop, from NativeFrankaController.record().
+
+    The loop writes a row per cycle into a buffer in C++, which the controller moves to
+    Python about every 10 ms. stop() ends the recording; using it in a with block stops it
+    at the end of the block.
+
+    Attributes:
+        fields (tuple): The recorded fields
+        path (Path): Where stop() saves the rows (.npz), or None
+    """
+
+    def __init__(self, loop, recorder, fields, dtype, path):
+        self.fields = tuple(fields)
+        self.path = None if path is None else Path(path)
+        self._loop = loop
+        self._recorder = recorder  # until stop(), which keeps its counts
+        self._counts = None
+        self._dtype = dtype
+        self._chunks = []
+        self._lock = threading.Lock()
+        self._active = True
+
+    @property
+    def recording(self):
+        """Whether the loop still records into it."""
+        return self._active
+
+    @property
+    def rows(self):
+        """Rows the loop recorded so far."""
+        recorder = self._recorder
+        return self._counts[0] if recorder is None else recorder.rows
+
+    @property
+    def dropped(self):
+        """Rows the loop dropped because Python had not taken the earlier ones in time."""
+        recorder = self._recorder
+        return self._counts[1] if recorder is None else recorder.dropped
+
+    def _drain(self):
+        with self._lock:
+            if self._recorder is None:
+                return
+            chunk = self._recorder.drain()
+            if chunk.size:
+                self._chunks.append(chunk)
+
+    def data(self):
+        """
+        The rows so far.
+
+        Returns:
+            dict: {field: numpy array with one row per cycle, oldest first}
+        """
+        self._drain()
+        with self._lock:
+            if len(self._chunks) > 1:
+                self._chunks = [np.concatenate(self._chunks)]
+            raw = self._chunks[0] if self._chunks else np.zeros(0, np.uint8)
+        rows = raw.view(self._dtype)
+        return {name: np.array(rows[name]) for name in self.fields}
+
+    def save(self, path=None):
+        """
+        Save the rows so far to an .npz file, with one array per field.
+
+        Args:
+            path (str or Path): Where (default: the recording's path)
+
+        Returns:
+            Path: The file
+        """
+        path = Path(path if path is not None else self.path)
+        data = self.data()
+        path.parent.mkdir(parents=True, exist_ok=True)
+        # Written whole or not at all.
+        partial = path.with_name(f".{path.stem}.partial.npz")
+        np.savez(partial, **data)
+        partial.replace(path)
+        return path
+
+    def stop(self):
+        """
+        Stop recording, and save to the recording's path if it has one.
+
+        Returns:
+            dict: data()
+        """
+        if self._active:
+            self._active = False
+            self._loop.set_recorder(None)
+            self._drain()
+            with self._lock:
+                # The rows are in Python now: let the buffer in C++ go.
+                recorder, self._recorder = self._recorder, None
+                self._counts = (recorder.rows, recorder.dropped)
+            if self.path is not None:
+                self.save()
+                if self.dropped:
+                    logger.warning(f"The recording in {self.path} lacks {self.dropped} rows the loop dropped")
+        return self.data()
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *exc):
+        self.stop()
+
+    def __repr__(self):
+        state = "recording" if self._active else "stopped"
+        return f"<Recording {state}, {self.rows} rows of {', '.join(self.fields)}>"
+
+
 class NativeFrankaController(FrankaController):
     """
     FrankaController with its 1 kHz control loop in C++.
@@ -296,8 +417,15 @@ class NativeFrankaController(FrankaController):
     # limit (ulimit -r) of at least this, as a PREEMPT_RT setup for libfranka has.
     realtime_priority = 80
 
-    # Seconds between syncs of the MuJoCo viewer in simulation.
+    # CPU that the loop's thread runs on, on Linux. None leaves it on the CPUs of the thread
+    # that calls start(), whose scheduling it would share: give it a CPU of its own that no
+    # other SCHED_FIFO thread uses.
+    realtime_cpu = None
+
+    # Seconds between syncs of the MuJoCo viewer in simulation, and between moves of the
+    # recorded rows to Python.
     _VIEWER_PERIOD = 1 / 60
+    _DRAIN_PERIOD = 0.01
 
     def __init__(self, robot):
         if type(self).step is not NativeFrankaController.step:
@@ -323,6 +451,7 @@ class NativeFrankaController(FrankaController):
         attributes["_models"] = {}        # model copies the loop may use, by epoch
         attributes["_configured"] = False
         attributes["_torque_diff_limit"] = 990.0
+        attributes["_recording"] = None
         super().__init__(robot)
 
     # ── Attributes ────────────────────────────────────────────────────────────
@@ -541,6 +670,98 @@ class NativeFrankaController(FrankaController):
         if controller_type in self._laws:
             self._loop.reset_memory()
 
+    # ── Recording ─────────────────────────────────────────────────────────────
+
+    def record(self, fields=None, seconds=60.0, path=None):
+        """
+        Record every cycle of the native loop, from its next one on.
+
+        Each cycle, after sending the torques, the loop writes the fields into a buffer in
+        C++ without waiting for Python, and the controller moves them to Python about every
+        10 ms. If the event loop is blocked for longer than `seconds`, the loop drops rows
+        and Recording.dropped counts them.
+
+        Fields, by name:
+
+        - of the cycle: cycle; time, the robot's [s] (in simulation, the simulation's);
+          wall_time, the host's time.time() when the robot state arrived [s]; busy, from
+          then to the torque command [s]; q, dq, ee (flange pose), tcp (ee @
+          control_transform), jac, mm; last_torque, the robot's tau_J_d (in simulation,
+          the last command); tau, the torque sent, after the rate limit and clip;
+          robot_mode (-1 in simulation)
+        - the controller's attributes as the cycle used them: q_desired, ee_desired, kp,
+          kd, ee_kp, ..., mode, and the parameters of registered control laws
+        - every number of the robot state (NaN in simulation): tau_J, tau_J_d, dtau_J, q_d,
+          dq_d, theta, dtheta, tau_ext_hat_filtered, O_F_ext_hat_K, K_F_ext_hat_K,
+          control_command_success_rate, O_T_EE (flat and column-major, as in pylibfranka), ...
+
+        Args:
+            fields (list): Fields to record (default: aiofranka.native.RECORD_FIELDS)
+            seconds (float): Size of the buffer in C++, in seconds of cycles
+            path (str or Path): An .npz file to save the rows to when the recording stops
+
+        Returns:
+            Recording: The rows; stop() it, or use it in a with block
+
+        Raises:
+            ValueError: If a field is unknown
+            RuntimeError: If another recording is running
+
+        Example:
+            >>> with controller.record(["time", "q", "tau", "tau_J_d"], path="control.npz"):
+            ...     await run_policy(controller)
+        """
+        current = self._recording
+        if current is not None and current.recording:
+            raise RuntimeError("A recording is running already; stop() it first")
+        if isinstance(fields, str):
+            raise TypeError("fields is a list of field names")
+        names = list(RECORD_FIELDS if fields is None else fields)
+        table = self._record_fields()
+        unknown = [name for name in names if name not in table]
+        if unknown:
+            raise ValueError(f"Cannot record {', '.join(map(repr, unknown))}. Fields: {', '.join(sorted(table))}")
+        if len(set(names)) != len(names):
+            raise ValueError("A field is listed twice")
+        slices, formats, offsets, row = [], [], [], 0
+        for name in names:
+            source, offset, shape, kind = table[name]
+            size = 8 * int(np.prod(shape, dtype=int))
+            slices.append((source, offset, size))
+            formats.append((np.dtype(kind), shape) if shape else np.dtype(kind))
+            offsets.append(row)
+            row += size
+        dtype = np.dtype({"names": names, "formats": formats, "offsets": offsets, "itemsize": row})
+        recorder = self._native.Recorder(slices, max(round(seconds * 1000), 1))
+        recording = Recording(self._loop, recorder, names, dtype, path)
+        self._loop.set_recorder(recorder)
+        self.__dict__["_recording"] = recording
+        return recording
+
+    def _record_fields(self):
+        """{field: (source, offset, shape, dtype)} of what record() can take."""
+        native = self._native
+        sources = native.RECORD_SOURCES
+        table = {}
+        for name, offset, shape, kind in native.ROBOT_LAYOUT:
+            table[name] = (sources["robot"], offset, tuple(shape), kind)
+        for name, offset, shape, kind in native.PARAMS_LAYOUT:
+            if name != "custom":
+                table[name] = (sources["params"], offset, tuple(shape), kind)
+        for name, (offset, shape) in self._custom.items():
+            table[name] = (sources["params"], offset, tuple(shape), "f8")
+        for name, offset, shape, kind in native.STATE_LAYOUT:
+            table[name] = (sources["state"], offset, tuple(shape), kind)
+        table["q"], table["dq"] = table["qpos"], table["qvel"]  # the robot's, in its names
+        for name, offset, shape, kind in native.RECORD_EXTRA_LAYOUT:
+            table[name] = (sources["extra"], offset, tuple(shape), kind)
+        return table
+
+    def _drain_recording(self):
+        recording = self._recording
+        if recording is not None:
+            recording._drain()
+
     # ── The loop ──────────────────────────────────────────────────────────────
 
     def _configure(self):
@@ -568,11 +789,15 @@ class NativeFrankaController(FrankaController):
         # RobotInterface asks the loop for states while it runs, and tells it about payloads.
         robot._native_ref = weakref.ref(self)
 
-    def _launch(self, macos_qos=None, cpu=-1, fifo_priority=None):
+    def _launch(self, macos_qos=None, cpu=None, fifo_priority=None):
+        linux = sys.platform.startswith("linux")
         if macos_qos is None:
             macos_qos = os.environ.get("LIBFRANKA_MACOS_BUSY_WAIT") != "0"
         if fifo_priority is None:
-            fifo_priority = self.realtime_priority if sys.platform.startswith("linux") else 0
+            fifo_priority = self.realtime_priority if linux else 0
+        if cpu is None:
+            cpu = self.realtime_cpu if linux else None
+        cpu = -1 if cpu is None else int(cpu)
         self._configure()
         robot = self.robot
         self._loop.start(robot.torque_controller if robot.real else None,
@@ -626,7 +851,7 @@ class NativeFrankaController(FrankaController):
         loop = self._loop
         robot = self.robot
         viewer = None if robot.real else getattr(robot, "viewer", None)
-        last_stats = last_viewer = time.perf_counter()
+        last_stats = last_viewer = last_drain = time.perf_counter()
         status_checked = False
         try:
             while True:
@@ -634,6 +859,9 @@ class NativeFrankaController(FrankaController):
                 self._sync_world()
                 self._tick()
                 now = time.perf_counter()
+                if now - last_drain >= self._DRAIN_PERIOD:
+                    self._drain_recording()
+                    last_drain = now
                 if not status_checked and now - last_stats > 0.05:
                     status_checked = True
                     if loop.realtime_status():
@@ -651,6 +879,7 @@ class NativeFrankaController(FrankaController):
             loop.request_stop()
             loop.join()
             self._sync_world()
+            self._drain_recording()
         return loop.error() or None
 
     def loop_stats(self, reset=False):
@@ -692,6 +921,13 @@ class NativeFrankaController(FrankaController):
         except Exception as e:
             error_str = str(e)
             print(f"Error in control loop: {error_str}")
+            recording = self._recording
+            if recording is not None and recording.recording and recording.path is not None:
+                try:
+                    recording.stop()
+                    print(f"Saved the recording to {recording.path}")
+                except Exception as save_err:
+                    print(f"Could not save the recording to {recording.path}: {save_err}")
             if self.error_callback is not None:
                 try:
                     self.error_callback(error_str)
@@ -727,6 +963,7 @@ class NativeFrankaController(FrankaController):
         robot = self.robot
         self._loop.step_once(robot.torque_controller if robot.real else None)
         self._sync_world()
+        self._drain_recording()
         viewer = None if robot.real else getattr(robot, "viewer", None)
         if viewer is not None:
             viewer.sync()

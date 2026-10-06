@@ -6,6 +6,7 @@
 // control law, and sends the torques. Python writes the controller's attributes into a
 // staging copy of Params, which the loop copies at the start of each cycle, and reads what
 // the loop did from a snapshot. Neither side waits for the other: the loop only try-locks.
+// A recording takes chosen fields of every cycle into a ring that Python drains.
 //
 // libfranka is not linked. aiofranka.native loads pylibfranka's copy with RTLD_GLOBAL
 // before importing this module, so the vendored headers (include/franka) must be those of
@@ -21,15 +22,21 @@
 #include <franka/duration.h>
 #include <franka/robot_state.h>
 
+#include <algorithm>
 #include <atomic>
 #include <chrono>
+#include <cmath>
 #include <cstddef>
 #include <cstring>
+#include <limits>
+#include <memory>
 #include <mutex>
 #include <stdexcept>
 #include <string>
 #include <thread>
+#include <tuple>
 #include <utility>
+#include <vector>
 
 #include <pthread.h>
 #if defined(__APPLE__)
@@ -164,6 +171,121 @@ struct CustomLaw {
   std::string name;
   LawFn fn = nullptr;
   int64_t memory_size = 0;
+};
+
+// What a recording can take of a cycle besides the law's state, the controller's attributes
+// and the robot state.
+struct RecordExtra {
+  double wall_time = 0;     // host clock, as time.time(), when the cycle's state arrived [s]
+  double busy = 0;          // from the state's arrival to the torque command [s]
+  int64_t robot_mode = -1;  // franka::RobotMode, -1 in simulation
+  double tau[7]{};          // the torque sent, after the rate limit and clip [Nm]
+  double tcp[16]{};         // the flange pose times control_transform
+};
+
+// Where a recorded field comes from.
+enum Source : int { kFromState = 0, kFromParams = 1, kFromRobot = 2, kFromExtra = 3, kSources = 4 };
+
+std::size_t source_size(int source) {
+  switch (source) {
+    case kFromState:
+      return sizeof(LawState);
+    case kFromParams:
+      return sizeof(Params);
+    case kFromRobot:
+      return sizeof(franka::RobotState);
+    case kFromExtra:
+      return sizeof(RecordExtra);
+    default:
+      return 0;
+  }
+}
+
+// A recording: chosen fields of every cycle, in a ring with one producer, the loop, which
+// never waits, and one consumer, drain(). When the ring is full, the loop drops the row and
+// counts it.
+class Recorder {
+ public:
+  struct Slice {
+    int source;
+    std::size_t offset;
+    std::size_t bytes;
+  };
+
+  Recorder(std::vector<Slice> slices, int64_t capacity)
+      : slices_(std::move(slices)), capacity_(capacity) {
+    if (capacity_ < 1) {
+      throw std::invalid_argument("a recording needs room for at least one row");
+    }
+    for (const Slice& s : slices_) {
+      const std::size_t size = source_size(s.source);
+      if (size == 0 || s.offset % 8 != 0 || s.bytes % 8 != 0 || s.bytes > size ||
+          s.offset > size - s.bytes) {
+        throw std::out_of_range("no such field to record");
+      }
+      row_bytes_ += s.bytes;
+    }
+    if (row_bytes_ == 0) {
+      throw std::invalid_argument("a recording needs at least one field");
+    }
+    // Writes every page now, so that the loop never faults one in.
+    buffer_.assign(static_cast<std::size_t>(capacity_) * row_bytes_, 0);
+  }
+
+  // The loop: one row from the sources. A missing source (the robot state, in simulation)
+  // gives NaN.
+  void push(const void* const sources[kSources]) {
+    const int64_t head = head_.load(std::memory_order_relaxed);
+    if (head - tail_.load(std::memory_order_acquire) >= capacity_) {
+      dropped_.fetch_add(1, std::memory_order_relaxed);
+      return;
+    }
+    uint8_t* row = buffer_.data() + static_cast<std::size_t>(head % capacity_) * row_bytes_;
+    for (const Slice& s : slices_) {
+      const auto* from = static_cast<const uint8_t*>(sources[s.source]);
+      if (from != nullptr) {
+        std::memcpy(row, from + s.offset, s.bytes);
+      } else {
+        constexpr double nan = std::numeric_limits<double>::quiet_NaN();
+        for (std::size_t i = 0; i < s.bytes; i += sizeof(double)) {
+          std::memcpy(row + i, &nan, sizeof(double));
+        }
+      }
+      row += s.bytes;
+    }
+    head_.store(head + 1, std::memory_order_release);
+  }
+
+  // Python: the rows since the last drain, as bytes.
+  py::array_t<uint8_t> drain() {
+    std::lock_guard<std::mutex> lock(drain_mutex_);
+    const int64_t tail = tail_.load(std::memory_order_relaxed);
+    const int64_t head = head_.load(std::memory_order_acquire);
+    const auto rows = static_cast<std::size_t>(head - tail);
+    py::array_t<uint8_t> out(static_cast<py::ssize_t>(rows * row_bytes_));
+    const auto first = static_cast<std::size_t>(tail % capacity_);
+    const std::size_t before_wrap = std::min(rows, static_cast<std::size_t>(capacity_) - first);
+    uint8_t* to = out.mutable_data();
+    std::memcpy(to, buffer_.data() + first * row_bytes_, before_wrap * row_bytes_);
+    std::memcpy(to + before_wrap * row_bytes_, buffer_.data(), (rows - before_wrap) * row_bytes_);
+    tail_.store(head, std::memory_order_release);
+    return out;
+  }
+
+  std::size_t row_bytes() const { return row_bytes_; }
+  int64_t capacity() const { return capacity_; }
+  int64_t rows() const { return head_.load(std::memory_order_acquire); }
+  int64_t dropped() const { return dropped_.load(std::memory_order_relaxed); }
+
+ private:
+  std::vector<Slice> slices_;
+  int64_t capacity_;
+  std::size_t row_bytes_ = 0;
+  std::vector<uint8_t> buffer_;
+  alignas(64) std::atomic<int64_t> head_{0};  // rows written, by the loop
+  alignas(64) std::atomic<int64_t> tail_{0};  // rows drained, by Python
+  std::atomic<int64_t> dropped_{0};
+  std::mutex drain_mutex_;
 };
 
 std::string apply_realtime(const Realtime& rt) {
@@ -478,6 +600,11 @@ class Loop {
     }
     franka::ActiveControlBase* control =
         active_control.is_none() ? nullptr : active_control_pointer(active_control);
+    stepping_.store(true);
+    struct Done {
+      std::atomic<bool>& stepping;
+      ~Done() { stepping.store(false); }
+    } done{stepping_};
     py::gil_scoped_release release;
     if (control != nullptr) {
       cycle_real(control);
@@ -489,12 +616,34 @@ class Loop {
   void request_stop() { stop_.store(true, std::memory_order_release); }
 
   void join() {
-    if (thread_.joinable()) {
+    {
       py::gil_scoped_release release;
-      thread_.join();
+      if (thread_.joinable()) {
+        thread_.join();
+      }
+      std::lock_guard<std::mutex> lock(recorder_mutex_);
+      if (!stepping_.load()) {
+        retired_recorders_.clear();
+      }
     }
     active_control_owner_ = py::none();
     active_control_ = nullptr;
+  }
+
+  // Records into a recorder from the next cycle on, or stops recording with None. A recorder
+  // that a cycle may still be writing to is released only once that cycle has ended.
+  void set_recorder(std::shared_ptr<Recorder> recorder) {
+    py::gil_scoped_release release;
+    std::lock_guard<std::mutex> lock(recorder_mutex_);
+    std::shared_ptr<Recorder> old = std::move(recorder_owner_);
+    recorder_owner_ = std::move(recorder);
+    recorder_.store(recorder_owner_.get());
+    if (old != nullptr) {
+      retired_recorders_.push_back(std::move(old));
+    }
+    if (!retired_recorders_.empty() && no_cycle_since_swap()) {
+      retired_recorders_.clear();
+    }
   }
 
   bool running() const { return running_.load(std::memory_order_acquire); }
@@ -621,6 +770,27 @@ class Loop {
     }
   }
 
+  // After recorder_ changed: waits until no cycle that may have read the old value still
+  // runs, which is when one more cycle has ended. False if that took over 2 s. Called
+  // without the GIL.
+  bool no_cycle_since_swap() {
+    if (!running() && !stepping_.load()) {
+      return true;
+    }
+    const int64_t seen = cycles_done_.load();
+    const Clock::time_point deadline = Clock::now() + std::chrono::seconds(2);
+    while (cycles_done_.load() == seen) {
+      if (!running() && !stepping_.load()) {
+        return true;
+      }
+      if (Clock::now() > deadline) {
+        return false;
+      }
+      std::this_thread::sleep_for(std::chrono::microseconds(200));
+    }
+    return true;
+  }
+
   static void check_field(std::size_t offset, std::size_t bytes) {
     if (offset % 8 != 0 || offset + bytes > sizeof(Params)) {
       throw std::out_of_range("no such field in Params");
@@ -713,6 +883,7 @@ class Loop {
   // Returns when the cycle started.
   Clock::time_point begin_cycle() {
     const Clock::time_point now = Clock::now();
+    wall_start_ = std::chrono::system_clock::now();
     if (have_last_start_) {
       local_stats_.add(std::chrono::duration<double>(now - last_start_).count());
     }
@@ -822,9 +993,10 @@ class Loop {
     std::array<double, 7> command{};
     std::copy(tau, tau + kJoints, command.begin());
     control->writeOnce(franka::Torques(command));
-    local_stats_.add_busy(std::chrono::duration<double>(Clock::now() - start).count());
+    const double busy = std::chrono::duration<double>(Clock::now() - start).count();
+    local_stats_.add_busy(busy);
     local_stats_.add_robot(read.second.toSec(), robot.control_command_success_rate);
-    finish_cycle(s, tau, s.qpos, s.qvel, s.last_torque, s.time, &robot);
+    finish_cycle(s, tau, s.qpos, s.qvel, s.last_torque, s.time, &robot, busy);
   }
 
   void cycle_sim() {
@@ -845,13 +1017,36 @@ class Loop {
     std::copy(tau, tau + kJoints, arrays_.ctrl);
     mj_.step(model_, arrays_.data);
     world_time_ += timestep_;
-    local_stats_.add_busy(std::chrono::duration<double>(Clock::now() - start).count());
-    finish_cycle(s, tau, arrays_.qpos, arrays_.qvel, arrays_.ctrl, world_time_, nullptr);
+    const double busy = std::chrono::duration<double>(Clock::now() - start).count();
+    local_stats_.add_busy(busy);
+    finish_cycle(s, tau, arrays_.qpos, arrays_.qvel, arrays_.ctrl, world_time_, nullptr, busy);
+  }
+
+  // A row of the recording, if there is one.
+  void record(const LawState& s, const double tau[7], const franka::RobotState* robot,
+              double busy) {
+    Recorder* recorder = recorder_.load();
+    if (recorder != nullptr) {
+      RecordExtra extra;
+      extra.wall_time = std::chrono::duration<double>(wall_start_.time_since_epoch()).count();
+      extra.busy = busy;
+      extra.robot_mode = robot != nullptr ? static_cast<int64_t>(robot->robot_mode) : -1;
+      std::copy(tau, tau + kJoints, extra.tau);
+      la::Mat<4, 4> flange{}, transform{};
+      std::copy(s.ee, s.ee + 16, flange.begin());
+      std::copy(active_.control_transform, active_.control_transform + 16, transform.begin());
+      const la::Mat<4, 4> tcp = la::matmul<4, 4, 4>(flange, transform);
+      std::copy(tcp.begin(), tcp.end(), extra.tcp);
+      const void* const sources[kSources] = {&s, &active_, robot, &extra};
+      recorder->push(sources);
+    }
+    cycles_done_.fetch_add(1);
   }
 
   void finish_cycle(const LawState& s, const double tau[7], const double* world_qpos,
                     const double* world_qvel, const double* world_ctrl, double world_time,
-                    const franka::RobotState* robot) {
+                    const franka::RobotState* robot, double busy) {
+    record(s, tau, robot, busy);
     ++cycle_;
     std::unique_lock<std::mutex> lock(snapshot_mutex_, std::try_to_lock);
     if (!lock.owns_lock()) {
@@ -918,8 +1113,17 @@ class Loop {
   double torque_[7]{};
   double memory_[kMemory]{};
   Clock::time_point last_start_{};
+  std::chrono::system_clock::time_point wall_start_{};
   bool have_last_start_ = false;
   Stats local_stats_{};
+
+  // recording: recorder_ is what cycles write to; the owners keep it alive
+  std::atomic<Recorder*> recorder_{nullptr};
+  std::mutex recorder_mutex_;  // Python's, for the owners
+  std::shared_ptr<Recorder> recorder_owner_;
+  std::vector<std::shared_ptr<Recorder>> retired_recorders_;  // a stalled cycle may still use
+  std::atomic<int64_t> cycles_done_{0};
+  std::atomic<bool> stepping_{false};
 
   // custom laws
   std::array<CustomLaw, kMaxLaws> laws_{};
@@ -965,6 +1169,66 @@ MjArrays mj_arrays(const py::dict& a) {
 
 py::tuple field(const char* name, std::size_t offset, py::tuple shape, const char* dtype) {
   return py::make_tuple(name, offset, shape, dtype);
+}
+
+// The numbers in franka::RobotState, by offset, for recordings. Matrices are flat and
+// column-major, as in pylibfranka.
+py::tuple robot_layout() {
+  const franka::RobotState r{};
+  const char* base = reinterpret_cast<const char*>(&r);
+  py::list fields;
+  auto add = [&](const char* name, const double* values, py::tuple shape) {
+    const auto offset = static_cast<std::size_t>(reinterpret_cast<const char*>(values) - base);
+    fields.append(field(name, offset, std::move(shape), "f8"));
+  };
+#define AIOFRANKA_ARRAY(name) add(#name, r.name.data(), py::make_tuple(r.name.size()))
+#define AIOFRANKA_SCALAR(name) add(#name, &r.name, py::make_tuple())
+  AIOFRANKA_ARRAY(O_T_EE);
+  AIOFRANKA_ARRAY(O_T_EE_d);
+  AIOFRANKA_ARRAY(F_T_EE);
+  AIOFRANKA_ARRAY(F_T_NE);
+  AIOFRANKA_ARRAY(NE_T_EE);
+  AIOFRANKA_ARRAY(EE_T_K);
+  AIOFRANKA_SCALAR(m_ee);
+  AIOFRANKA_ARRAY(I_ee);
+  AIOFRANKA_ARRAY(F_x_Cee);
+  AIOFRANKA_SCALAR(m_load);
+  AIOFRANKA_ARRAY(I_load);
+  AIOFRANKA_ARRAY(F_x_Cload);
+  AIOFRANKA_SCALAR(m_total);
+  AIOFRANKA_ARRAY(I_total);
+  AIOFRANKA_ARRAY(F_x_Ctotal);
+  AIOFRANKA_ARRAY(elbow);
+  AIOFRANKA_ARRAY(elbow_d);
+  AIOFRANKA_ARRAY(elbow_c);
+  AIOFRANKA_ARRAY(delbow_c);
+  AIOFRANKA_ARRAY(ddelbow_c);
+  AIOFRANKA_ARRAY(tau_J);
+  AIOFRANKA_ARRAY(tau_J_d);
+  AIOFRANKA_ARRAY(dtau_J);
+  AIOFRANKA_ARRAY(q);
+  AIOFRANKA_ARRAY(q_d);
+  AIOFRANKA_ARRAY(dq);
+  AIOFRANKA_ARRAY(dq_d);
+  AIOFRANKA_ARRAY(ddq_d);
+  AIOFRANKA_ARRAY(joint_contact);
+  AIOFRANKA_ARRAY(cartesian_contact);
+  AIOFRANKA_ARRAY(joint_collision);
+  AIOFRANKA_ARRAY(cartesian_collision);
+  AIOFRANKA_ARRAY(tau_ext_hat_filtered);
+  AIOFRANKA_ARRAY(O_F_ext_hat_K);
+  AIOFRANKA_ARRAY(K_F_ext_hat_K);
+  AIOFRANKA_ARRAY(O_dP_EE_d);
+  AIOFRANKA_ARRAY(O_ddP_O);
+  AIOFRANKA_ARRAY(O_T_EE_c);
+  AIOFRANKA_ARRAY(O_dP_EE_c);
+  AIOFRANKA_ARRAY(O_ddP_EE_c);
+  AIOFRANKA_ARRAY(theta);
+  AIOFRANKA_ARRAY(dtheta);
+  AIOFRANKA_SCALAR(control_command_success_rate);
+#undef AIOFRANKA_ARRAY
+#undef AIOFRANKA_SCALAR
+  return py::tuple(fields);
 }
 
 }  // namespace
@@ -1016,8 +1280,35 @@ PYBIND11_MODULE(_native, m) {
       field("jac", offsetof(LawState, jac), py::make_tuple(6, 7), "f8"),
       field("mm", offsetof(LawState, mm), py::make_tuple(7, 7), "f8"),
       field("last_torque", offsetof(LawState, last_torque), seven, "f8"));
+  m.attr("ROBOT_LAYOUT") = robot_layout();
+  m.attr("RECORD_EXTRA_LAYOUT") = py::make_tuple(
+      field("wall_time", offsetof(RecordExtra, wall_time), scalar, "f8"),
+      field("busy", offsetof(RecordExtra, busy), scalar, "f8"),
+      field("robot_mode", offsetof(RecordExtra, robot_mode), scalar, "i8"),
+      field("tau", offsetof(RecordExtra, tau), seven, "f8"),
+      field("tcp", offsetof(RecordExtra, tcp), pose, "f8"));
+  m.attr("RECORD_SOURCES") =
+      py::dict(py::arg("state") = int(kFromState), py::arg("params") = int(kFromParams),
+               py::arg("robot") = int(kFromRobot), py::arg("extra") = int(kFromExtra));
 
   m.def("has_pylibfranka_types", &pylibfranka_types);
+
+  py::class_<Recorder, std::shared_ptr<Recorder>>(
+      m, "Recorder", "Chosen fields of every cycle, in a ring that the loop fills and drain() empties.")
+      .def(py::init([](const std::vector<std::tuple<int, std::size_t, std::size_t>>& slices,
+                       int64_t capacity) {
+             std::vector<Recorder::Slice> parts;
+             for (const auto& [source, offset, bytes] : slices) {
+               parts.push_back(Recorder::Slice{source, offset, bytes});
+             }
+             return std::make_shared<Recorder>(std::move(parts), capacity);
+           }),
+           py::arg("slices"), py::arg("capacity"))
+      .def("drain", &Recorder::drain)
+      .def_property_readonly("row_bytes", &Recorder::row_bytes)
+      .def_property_readonly("capacity", &Recorder::capacity)
+      .def_property_readonly("rows", &Recorder::rows)
+      .def_property_readonly("dropped", &Recorder::dropped);
 
   py::class_<FakeActiveControl>(m, "_FakeActiveControl",
                                 "A simulated robot for tests, which answers readOnce() and "
@@ -1090,5 +1381,6 @@ PYBIND11_MODULE(_native, m) {
       .def("sync_world", &Loop::sync_world)
       .def("robot_state", &Loop::robot_state)
       .def("copy_robot_state_into", &Loop::copy_robot_state_into)
+      .def("set_recorder", &Loop::set_recorder, py::arg("recorder").none(true))
       .def("stats", &Loop::stats, py::arg("reset") = false);
 }

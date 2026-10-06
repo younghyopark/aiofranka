@@ -160,9 +160,11 @@ class Simulator:
         step_limit = run.rate_limit * self.physics_dt
         out = np.empty((len(ticks), length // self.every, 7))
         elapsed = 0  # ticks since the window start
-        for step in range(length // self.period):
-            target = run.q_des[ticks + step * self.period]  # the policy's action, held for the step
+        for _step in range(length // self.period):
             for _ in range(self.decimation):
+                # The target the robot's controller had then: the policy's action, held
+                # from when it was set, at whatever tick that was.
+                target = run.q_des[ticks + elapsed]
                 tau = kp * (target - fields["qpos"]) - kd * fields["qvel"]
                 tau = previous + np.clip(tau - previous, -step_limit, step_limit)
                 tau = np.clip(tau, -run.torque_limit, run.torque_limit)

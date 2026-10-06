@@ -358,9 +358,11 @@ IP as an optional argument and runs in MuJoCo without it:
 - ``03_zero_torque.py``: Stream zero torque, so the robot only compensates gravity. With a new tool
   on the flange, the arm should stay still; if it drifts, identify the tool with
   ``aiofranka tool identify NAME`` (see :ref:`payload-identification`).
-- ``04_collect_joint_sysid.py``: Record steps, multisines and slow ramps with joint impedance at three
+- ``04_collect_joint_sysid.py``: Play steps, multisines and slow ramps with joint impedance at three
   poses, about 1.5 minutes, with a controller configuration (``--activate configs/joint_impedance.yaml``,
-  see :ref:`controller-configurations`)
+  see :ref:`controller-configurations`). It sets the targets at the configuration's policy rate, as a
+  policy would, and records every 1 kHz cycle with ``NativeFrankaController.record()``. What it
+  shares with ``06`` is in ``sysid.py``.
 - ``05_fit_joint_sysid.py``: Fit kp, kd, damping and friction loss of each joint to the
   configuration's latest recording with CMA-ES, simulating at your physics step (``--activate``,
   ``--physics_dt``; ``--traj`` for another recording), and add the fit to the configuration's
@@ -370,6 +372,8 @@ IP as an optional argument and runs in MuJoCo without it:
   (``--activate configs/osc.yaml``), about 2 minutes
 - ``07_fit_osc_sysid.py``: Fit ee_kp, ee_kd, null_kp, null_kd and each joint's damping and friction
   loss to an OSC recording, weighing the TCP response and the joints
+- ``08_native_custom_law.py``: Hold the arm with a PID law written in Python, which the native loop
+  runs compiled with Numba (see :doc:`native`)
 
 Research scripts (system identification, SpaceMouse teleoperation, Robotiq gripper) are on the
 `research-scripts <https://github.com/younghyopark/aiofranka/tree/research-scripts>`_ branch.

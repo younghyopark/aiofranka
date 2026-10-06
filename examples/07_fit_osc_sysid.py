@@ -240,9 +240,11 @@ class Simulator:
         out = {"q": np.empty((len(ticks), samples, 7)), "pos": np.empty((len(ticks), samples, 3)),
                "rot": np.empty((len(ticks), samples, 3, 3))}
         elapsed = 0  # ticks since the window start
-        for step in range(length // self.period):
-            goal = run.ee_des[ticks + step * self.period]  # the policy's action, held for the step
+        for _step in range(length // self.period):
             for _ in range(self.decimation):
+                # The target the robot's controller had then: the policy's action, held
+                # from when it was set, at whatever tick that was.
+                goal = run.ee_des[ticks + elapsed]
                 tau = self.torque(fields, goal, per_sim, per_sim["null_target"], per_sim["armature"], previous)
                 fields["ctrl"][:] = tau
                 previous = tau

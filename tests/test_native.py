@@ -9,13 +9,17 @@ simulates the arm at 1 kHz.
 
 import asyncio
 import contextlib
+import glob
 import inspect
 import io
 import os
+import sys
+import tempfile
 import threading
 import time
 import types
 import unittest
+from pathlib import Path
 
 import mujoco
 import numpy as np
@@ -26,7 +30,8 @@ from aiofranka.payload import MODEL_PATH
 from test_payload import HOME, simulated_robot
 
 try:
-    from aiofranka.native import NativeFrankaController, _mujoco_functions, control_law, load_native
+    from aiofranka.native import (RECORD_FIELDS, NativeFrankaController, _mujoco_functions, control_law,
+                                  load_native)
 
     load_native()
     NATIVE_ERROR = None
@@ -392,6 +397,148 @@ class FakeRobotTest(unittest.TestCase):
 
 
 @needs_native
+class RecordingTest(unittest.TestCase):
+    def test_records_every_step_exactly(self):
+        controller = NativeFrankaController(robot_at(HOME))
+        controller.switch("impedance")
+        controller.q_desired = controller.q_desired + 0.05
+        recording = controller.record()
+        states, commands = [], []
+        for _ in range(50):
+            controller.step()
+            states.append(controller.state["qpos"].copy())
+            commands.append(controller.last_command.copy())
+        data = recording.stop()
+        controller.step()  # after stop(): not recorded
+        self.assertEqual(list(data), list(RECORD_FIELDS))
+        np.testing.assert_array_equal(data["cycle"], np.arange(50))
+        np.testing.assert_array_equal(data["q"], states)
+        np.testing.assert_array_equal(data["tau"], commands)
+        np.testing.assert_array_equal(data["q_desired"], np.tile(controller.q_desired, (50, 1)))
+        self.assertTrue(np.isnan(data["tau_J"]).all())  # no robot state in simulation
+        self.assertEqual(recording.rows, 50)
+        self.assertEqual(len(recording.data()["cycle"]), 50)
+
+    def test_records_every_robot_state_while_python_is_blocked(self):
+        robot = fake_robot()
+        controller = NativeFrankaController(robot)
+        fields = ["cycle", "time", "wall_time", "busy", "tau", "tau_J_d", "last_torque", "tcp", "ee",
+                  "control_transform", "control_command_success_rate", "robot_mode", "O_T_EE"]
+
+        async def run():
+            await controller.start()
+            try:
+                recording = controller.record(fields, seconds=1.0)
+                started = time.time()
+                time.sleep(0.4)  # the event loop is blocked: the rows wait in C++
+                await asyncio.sleep(0.2)
+                return recording.stop(), started, recording.dropped
+            finally:
+                await controller.stop()
+
+        data, started, dropped = quietly(run())
+        self.assertEqual(dropped, 0)
+        self.assertGreater(len(data["cycle"]), 450)
+        np.testing.assert_array_equal(np.diff(data["cycle"]), 1)
+        np.testing.assert_allclose(np.diff(data["time"]), 1e-3)  # a robot state per row
+        # The robot echoes the command it got in the next state.
+        np.testing.assert_array_equal(data["tau_J_d"][1:], data["tau"][:-1])
+        np.testing.assert_array_equal(data["last_torque"], data["tau_J_d"])
+        np.testing.assert_array_equal(data["control_command_success_rate"], 1.0)
+        np.testing.assert_array_equal(data["robot_mode"], 2)  # franka::RobotMode::kMove
+        self.assertTrue(np.isfinite(data["O_T_EE"]).all())
+        np.testing.assert_allclose(data["tcp"], data["ee"] @ data["control_transform"], rtol=0, atol=1e-15)
+        self.assertTrue(0 < data["busy"].min() and data["busy"].max() < 0.01)
+        self.assertLess(abs(data["wall_time"][0] - started), 0.1)
+        self.assertGreater(np.diff(data["wall_time"]).min(), 0.0)
+
+    def test_a_full_buffer_drops_rows_and_counts_them(self):
+        controller = NativeFrankaController(robot_at(HOME))
+        controller._configure()
+        recording = controller.record(["cycle"], seconds=0.01)  # 10 rows
+        for _ in range(25):
+            controller._loop.step_once(None)  # nothing drains in between
+        self.assertEqual((recording.rows, recording.dropped), (10, 15))
+        np.testing.assert_array_equal(recording.stop()["cycle"], np.arange(10))
+
+    def test_starting_and_stopping_while_the_loop_runs(self):
+        controller = NativeFrankaController(robot_at(HOME))
+
+        async def run():
+            await controller.start()
+            try:
+                lengths = []
+                for _ in range(100):
+                    with controller.record(["cycle", "q", "tcp"], seconds=0.05) as recording:
+                        await asyncio.sleep(0.003)
+                    data = recording.data()
+                    np.testing.assert_array_equal(np.diff(data["cycle"]), 1)
+                    lengths.append(len(data["cycle"]))
+                return lengths, controller.running
+            finally:
+                await controller.stop()
+
+        lengths, running = quietly(run())
+        self.assertTrue(running)
+        self.assertGreater(sum(lengths), 100)
+
+    def test_saves_to_its_path_when_the_loop_fails(self):
+        robot = fake_robot(fail_after=1500, fail_message="Reflex: fake")
+        controller = NativeFrankaController(robot)
+        controller.error_callback = lambda error: None
+        with tempfile.TemporaryDirectory() as folder:
+            path = Path(folder) / "logs" / "control.npz"
+
+            async def run():
+                await controller.start()  # takes 1 s
+                controller.record(["cycle", "tau"], path=path)
+                await asyncio.sleep(2)
+
+            with self.assertRaises(SystemExit):
+                quietly(run())
+            saved = np.load(path)
+            self.assertEqual(sorted(saved.files), ["cycle", "tau"])
+            self.assertGreater(len(saved["cycle"]), 100)  # up to the failure
+            np.testing.assert_array_equal(np.diff(saved["cycle"]), 1)
+
+    def test_refuses_unknown_fields_and_a_second_recording(self):
+        controller = NativeFrankaController(robot_at(HOME))
+        with self.assertRaises(ValueError):
+            controller.record(["q", "no such field"])
+        with self.assertRaises(ValueError):
+            controller.record(["q", "q"])
+        with self.assertRaises(TypeError):
+            controller.record("q")
+        recording = controller.record(["q"])
+        with self.assertRaises(RuntimeError):
+            controller.record(["dq"])
+        recording.stop()
+        controller.record(["dq"]).stop()
+
+    @unittest.skipUnless(sys.platform.startswith("linux"), "CPU pinning is Linux only")
+    def test_realtime_cpu_pins_the_loop(self):
+        controller = NativeFrankaController(robot_at(HOME))
+        controller.realtime_cpu = cpu = max(os.sched_getaffinity(0))
+        controller.realtime_priority = 0  # needs no rtprio limit
+        before = set(glob.glob("/proc/self/task/*"))
+
+        async def run():
+            await controller.start()
+            try:
+                pinned = []
+                for task in set(glob.glob("/proc/self/task/*")) - before:
+                    with open(f"{task}/status") as status:
+                        pinned += [line.split()[1] for line in status if line.startswith("Cpus_allowed_list")]
+                return pinned, controller._loop.realtime_status()
+            finally:
+                await controller.stop()
+
+        pinned, status = quietly(run())
+        self.assertIn(str(cpu), pinned)
+        self.assertEqual(status, "")
+
+
+@needs_native
 @unittest.skipUnless(HAS_NUMBA, "custom control laws need numba")
 class CustomLawTest(unittest.TestCase):
     def test_a_law_written_in_python_matches_the_builtin_one(self):
@@ -440,6 +587,22 @@ class CustomLawTest(unittest.TestCase):
 
         with self.assertRaises(ValueError):
             controller.register_law(clash)
+
+    def test_records_a_law_parameter(self):
+        @control_law(params={"gain": 7})
+        def scaled(s, p, m, tau):
+            tau[:] = p.gain * (p.q_desired - s.qpos)
+
+        controller = NativeFrankaController(robot_at(HOME))
+        controller.switch(scaled)
+        controller.gain = 3.0
+        recording = controller.record(["gain", "mode", "tau"])
+        controller.step()
+        controller.gain = 4.0
+        controller.step()
+        data = recording.stop()
+        np.testing.assert_array_equal(data["gain"], [[3.0] * 7, [4.0] * 7])
+        np.testing.assert_array_equal(data["mode"], load_native().MODES["custom"])
 
     def test_switching_back_and_forth_while_running(self):
         @control_law
