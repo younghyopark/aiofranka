@@ -1,5 +1,15 @@
 # Changelog
 
+## Unreleased
+
+### Highlights
+
+- `aiofranka.Robot` and `aiofranka.Controller` are the API: the robot is the arm, its connection, its MuJoCo model with the tool, and its state (`robot.state`, whoever drives it); the controller drives it with the native 1 kHz loop. `Controller`'s methods are plain calls: it runs its event loop in a thread of its own, so a script can block, sleep or run a policy while the loop holds the arm, with no asyncio and no second process. It has `NativeFrankaController`'s modes, gains, targets, control laws, `record()`, `activate()`, `set_tcp()` and `identify_payload()`, refuses a second controller on the same robot, and raises a loop error, e.g. a reflex, from the next call; Ctrl+C in `move()` stops the motion with the arm holding. `with Controller(robot) as controller:` starts and stops it.
+
+### Changes
+
+- `Robot.payload` is the payload the robot compensates, `Controller.error` the error that stopped the loop, and `Controller.check_tool()` checks a configuration's tool against Desk, as for `NativeFrankaController`.
+
 ## 0.8.0 - 2026-10-06
 
 ### Highlights

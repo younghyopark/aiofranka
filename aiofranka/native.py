@@ -919,21 +919,24 @@ class NativeFrankaController(FrankaController):
         except asyncio.CancelledError:
             raise
         except Exception as e:
-            error_str = str(e)
-            print(f"Error in control loop: {error_str}")
-            recording = self._recording
-            if recording is not None and recording.recording and recording.path is not None:
-                try:
-                    recording.stop()
-                    print(f"Saved the recording to {recording.path}")
-                except Exception as save_err:
-                    print(f"Could not save the recording to {recording.path}: {save_err}")
-            if self.error_callback is not None:
-                try:
-                    self.error_callback(error_str)
-                except Exception as cb_err:
-                    print(f"Error in error_callback: {cb_err}")
+            self._report(str(e))
             sys.exit(1)  # Kill the entire script
+
+    def _report(self, error_str):
+        """Print the loop's error, save a recording that has a path, and call error_callback."""
+        print(f"Error in control loop: {error_str}")
+        recording = self._recording
+        if recording is not None and recording.recording and recording.path is not None:
+            try:
+                recording.stop()
+                print(f"Saved the recording to {recording.path}")
+            except Exception as save_err:
+                print(f"Could not save the recording to {recording.path}: {save_err}")
+        if self.error_callback is not None:
+            try:
+                self.error_callback(error_str)
+            except Exception as cb_err:
+                print(f"Error in error_callback: {cb_err}")
 
     async def start(self):
         """

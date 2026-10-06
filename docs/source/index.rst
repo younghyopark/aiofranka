@@ -40,6 +40,7 @@ Contents
    :maxdepth: 2
    :caption: API Reference
 
+   api/franka
    api/native
    api/controller
    api/remote
