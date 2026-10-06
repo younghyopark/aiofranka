@@ -11,6 +11,7 @@
 - `NativeFrankaController.realtime_cpu` pins the native loop's thread to a CPU on Linux. `NativeServerController` uses it instead of the last core when it is set.
 - The system identification collectors `04_collect_joint_sysid.py` and `06_collect_osc_sysid.py` run on `NativeFrankaController`. They set the targets at the configuration's policy rate, as a policy would, and record every cycle with `record()`; what they share is in `examples/sysid.py`. Their plans are the same as before. `06` plans once, after connecting, with the payload in the model.
 - `05_fit_joint_sysid.py` and `07_fit_osc_sysid.py` replay the target each cycle used rather than one per policy step from the window's start, so they fit recordings whose targets changed between policy steps. Earlier recordings replay as before.
+- `aiofranka rt-benchmark` benchmarks the native loop (`NativeFrankaController`) by default, as `start()` runs it (at SCHED_FIFO priority 80 on Linux), and records every cycle with `record()`. It holds the current pose in gravcomp, impedance and OSC in turn and compares them; `--mode` picks the modes, and one mode prints the full report. `--python` benchmarks the Python loop instead, now with `FrankaController`'s laws, and keeps its per-phase breakdown; without the native extension it falls back to that. Like `tool identify`, it switches from Programming to Execution and refuses to run beside a server. `--v2`, which only changed the report's label, is gone.
 
 ## 0.7.1 - 2026-10-05
 

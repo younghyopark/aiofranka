@@ -101,7 +101,7 @@ done
 
 ## Benchmark Results
 
-All benchmarks run with `aiofranka rt-benchmark --duration 10` on the real robot.
+All benchmarks run with `aiofranka rt-benchmark --python --mode gravcomp --duration 10` on the real robot.
 
 ### Python-side Optimizations (--all-combos)
 
@@ -220,19 +220,30 @@ Add the commands to `/etc/rc.local` or create a udev rule that triggers when `en
 Use the built-in benchmark tool to measure your system's RT performance:
 
 ```bash
-# Basic benchmark
+# Hold the current pose in gravcomp, impedance and OSC on the native (C++) loop,
+# as NativeFrankaController runs it, and compare the modes
 aiofranka rt-benchmark --duration 10
 
-# With RT tuning
-aiofranka rt-benchmark --cpu-pin 31 --sched-fifo --duration 10
+# One mode, with its full report
+aiofranka rt-benchmark --mode osc --duration 10
 
-# Compare all combinations automatically
+# Pin the native loop's thread to a CPU of its own (Linux; it runs at SCHED_FIFO 80)
+aiofranka rt-benchmark --cpu-pin 31 --duration 10
+
+# The Python loop, FrankaController's, with RT tuning
+aiofranka rt-benchmark --python --cpu-pin 31 --sched-fifo --duration 10
+
+# Compare all combinations of the Python loop's settings automatically
 aiofranka rt-benchmark --all-combos --duration 10
 ```
 
-The benchmark runs a 1kHz impedance hold loop on the real robot and reports:
+Each mode holds the current pose: gravcomp with kp 0 and kd 4, impedance with kp 80 and
+kd 4, OSC with the gains of `examples/02_osc_hold.py`. The native loop records every cycle
+with `NativeFrankaController.record()`. Several modes print a comparison table; one mode
+prints its full report:
 - Iteration timing statistics (mean, std, percentiles, max)
-- Per-phase breakdown (readOnce, mj_fwd, state_build, ctrl_law, shm_write)
-- Jitter attribution (which phase caused each out-of-spec iteration)
-- Top 10 worst iterations with full phase detail
+- Response time from readOnce to writeOnce, skipped robot states and dropped commands
+- Per-phase breakdown (readOnce, mj_fwd, state_build, ctrl_law, shm_write), with `--python`
+- Jitter attribution (which phase caused each out-of-spec iteration), with `--python`
+- Top 10 worst iterations with full phase detail, with `--python`
 - ASCII histogram of iteration time distribution

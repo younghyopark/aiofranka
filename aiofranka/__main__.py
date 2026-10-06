@@ -1748,13 +1748,42 @@ RESPONSE_BUDGET_US = 300.0
 # so look this many iterations back for its cause.
 DROP_LOOKBACK = 3
 
+# The modes rt-benchmark holds the current pose in: the controller type and its gains.
+BENCH_MODES = {
+    "gravcomp": ("impedance", {"kp": 0.0, "kd": 4.0}),  # aiofranka gravcomp, damped
+    "impedance": ("impedance", {"kp": 80.0, "kd": 4.0}),  # examples/01_joint_impedance.py
+    "osc": ("osc", {"ee_kp": 100.0, "ee_kd": 20.0, "null_kp": 9.0, "null_kd": 6.0}),  # examples/02_osc_hold.py
+}
 
-def _analyze_fci_timing(phase_all, success_rate_all, robot_time_all):
+# What the native benchmark records of every cycle.
+NATIVE_BENCH_FIELDS = ["wall_time", "busy", "time", "control_command_success_rate"]
+
+
+def _hold(controller, mode):
+    """Hold the current pose in a mode of BENCH_MODES.
+
+    The targets move to the current pose before the gains change, so that new
+    gains pull the arm nowhere, e.g. after gravcomp let it drift.
+    """
+    import numpy as np
+
+    controller_type, gains = BENCH_MODES[mode]
+    controller.initialize()
+    for name, value in gains.items():
+        setattr(controller, name, np.full(len(getattr(controller, name)), value))
+    controller.switch(controller_type)
+
+
+def _response(phase_all):
+    """The Python loop's response time [us]: mj_fwd + state_build + ctrl_law."""
+    return phase_all[:, 1] + phase_all[:, 2] + phase_all[:, 3]
+
+
+def _analyze_fci_timing(response, success_rate_all, robot_time_all):
     """Compute the timing metrics that matter on the robot's side of the loop.
 
-    - response: time from readOnce() returning to writeOnce() returning
-      (mj_fwd + state_build + ctrl_law), i.e. how long the robot waits for the
-      command after its state reached us.
+    - response: time from readOnce() returning to writeOnce() returning [us],
+      i.e. how long the robot waits for the command after its state reached us.
     - skipped states: gaps in robot_state.time larger than 1 ms. The loop never
       saw these states and sent no command for them.
     - dropped commands: control_command_success_rate is the fraction of the last
@@ -1763,8 +1792,6 @@ def _analyze_fci_timing(phase_all, success_rate_all, robot_time_all):
       commands. Drop events are the iterations where the rate decreases.
     """
     import numpy as np
-
-    response = phase_all[:, 1] + phase_all[:, 2] + phase_all[:, 3]
 
     robot_ms = np.rint(robot_time_all * 1000.0).astype(np.int64)
     skipped = np.zeros(len(robot_ms), dtype=np.int64)
@@ -1797,9 +1824,12 @@ def _analyze_fci_timing(phase_all, success_rate_all, robot_time_all):
     }
 
 
-def _run_bench_loop(robot, duration, cpu_pin=None, sched_fifo=None,
+def _run_bench_loop(robot, controller, duration, cpu_pin=None, sched_fifo=None,
                     disable_gc=False, mlock=False, prealloc=False):
-    """Run the core benchmark loop.
+    """Run the Python loop: each cycle reads robot.state and runs the
+    FrankaController's law, as FrankaController.step() does, timed by phase.
+    With prealloc, it sends the gravcomp law instead, written without
+    allocations (for --all-combos).
 
     Returns (dt_array, phase_array, phase_names, success_rate_array,
     robot_time_array), where robot_time_array holds robot_state.time in seconds.
@@ -1840,14 +1870,7 @@ def _run_bench_loop(robot, duration, cpu_pin=None, sched_fifo=None,
 
     # Warm up (500 iterations = 0.5s)
     for _ in range(500):
-        robot_state, _ = tc.readOnce()
-        data.qpos[:] = robot_state.q
-        data.qvel[:] = robot_state.dq
-        data.ctrl[:] = robot_state.tau_J_d
-        mujoco.mj_forward(model, data)
-        torque_cmd = pylibfranka.Torques([0.0] * 7)
-        torque_cmd.motion_finished = False
-        tc.writeOnce(torque_cmd)
+        controller.step()
 
     # Apply RT tuning
     old_affinity = None
@@ -1900,6 +1923,7 @@ def _run_bench_loop(robot, duration, cpu_pin=None, sched_fifo=None,
             mujoco.mj_fullM(model, data, _mm)
             t3 = time.perf_counter()
 
+            # The gravcomp law: damping only
             np.copyto(_q, data.qpos)
             np.copyto(_dq, data.qvel)
             np.subtract(_q, _q, out=_tau)
@@ -1925,6 +1949,7 @@ def _run_bench_loop(robot, duration, cpu_pin=None, sched_fifo=None,
             robot_time_all[i] = robot_state.time.to_sec()
             last_t = t0
     else:
+        law = getattr(controller, f"_{controller.type}_step")
         last_t = time.perf_counter()
         for i in range(n_iters):
             t0 = time.perf_counter()
@@ -1937,32 +1962,20 @@ def _run_bench_loop(robot, duration, cpu_pin=None, sched_fifo=None,
             mujoco.mj_forward(model, data)
             t2 = time.perf_counter()
 
-            ee_xyz = data.site(site_id).xpos
-            ee_mat = data.site(site_id).xmat.reshape(3, 3)
-            ee = np.eye(4)
-            ee[:3, :3] = ee_mat
-            ee[:3, 3] = ee_xyz
-            jac = np.zeros((6, 7))
-            mujoco.mj_jacSite(model, data, jac[:3], jac[3:], site_id)
-            mm = np.zeros((7, 7))
-            mujoco.mj_fullM(model, data, mm)
-            t3 = time.perf_counter()
-
-            q = np.array(data.qpos)
-            dq = np.array(data.qvel)
-            kp = np.ones(7) * 80
-            kd = np.ones(7) * 4
-            tau = kp * (q - q) - kd * dq
-            torque_cmd = pylibfranka.Torques(tau.tolist())
-            torque_cmd.motion_finished = False
-            tc.writeOnce(torque_cmd)
-            t4 = time.perf_counter()
-
-            _ = {
+            # robot.state
+            state = {
                 "qpos": np.array(data.qpos), "qvel": np.array(data.qvel),
-                "ee": ee.copy(), "jac": jac.copy(), "mm": mm.copy(),
+                "ee": robot._ee(), "jac": robot._jacobian(), "mm": robot._mass_matrix(),
                 "last_torque": np.array(data.ctrl),
             }
+            t3 = time.perf_counter()
+
+            controller.state = state
+            law(state)  # sends the torque with writeOnce()
+            t4 = time.perf_counter()
+
+            # The copy the server writes to shared memory
+            _ = {key: value.copy() for key, value in state.items()}
             t5 = time.perf_counter()
 
             dt_all[i] = (t0 - last_t) * 1e6
@@ -1996,285 +2009,131 @@ def _run_bench_loop(robot, duration, cpu_pin=None, sched_fifo=None,
     return dt_all, phase_all, PHASES, success_rate_all, robot_time_all
 
 
-def _run_all_combos(args):
-    """Run benchmark with all RT setting combinations and print comparison."""
+async def _run_native_modes(controller, modes, duration):
+    """Hold the current pose in each mode on the native loop, recording every cycle.
+
+    The loop starts as NativeFrankaController.start() starts it, with the event
+    loop mirroring it into robot.data, as in a program.
+
+    Returns:
+        dict: {mode: run}, where run has dt, the periods [us]; response [us],
+            success_rate and robot_time [s] of each cycle; phases, None; and
+            lost, the cycles the recording lost.
+    """
+    import asyncio
+
     import numpy as np
-    from aiofranka.robot import RobotInterface
-    from aiofranka.server import (
-        _DeskClientV2, _load_token_state, _save_token_state, _clear_token,
-    )
 
-    robot_ip = _resolve_ip(args.ip)
-    username, password = _resolve_credentials(args)
-    protocol = args.protocol
-    duration = args.duration
-
-    print(f"\n  {BOLD}aiofranka rt-benchmark{RST} {DIM}|{RST} all combos {DIM}({robot_ip}){RST}")
-    print(f"  {DIM}Duration: {duration:.0f}s per run{RST}\n")
-
-    # --- Setup ---
-    setup_total = 4
+    runs = {}
+    _hold(controller, modes[0])
+    await controller.start()  # robot.start(), then the loop; holds modes[0] for 1 s
     try:
-        client = _DeskClientV2(robot_ip, username, password, protocol=protocol)
-        saved_token, saved_token_id = _load_token_state(robot_ip)
-        if saved_token is not None:
-            client._token = saved_token
-            client._token_id = saved_token_id
-            if not client.validate_token():
-                client._token = None
-                client._token_id = None
-        if client._token is None:
-            _cli_run_with_spinner("Acquiring control token", 1, setup_total,
-                                  client.take_token, timeout=15)
-        else:
-            print(_cli_step_line(1, setup_total, "Acquiring control token",
-                                 f"{GREEN}done{RST} {DIM}(reused){RST}"))
-        _cli_run_with_spinner("Recovering safety errors", 2, setup_total,
-                              client.recover_errors)
-        if client.are_joints_unlocked():
-            print(_cli_step_line(3, setup_total, "Unlocking joints",
-                                 f"{GREEN}done{RST} {DIM}(already){RST}"))
-        else:
-            _cli_run_with_spinner("Unlocking joints", 3, setup_total,
-                                  client.unlock)
-        if client.is_fci_active():
-            print(_cli_step_line(4, setup_total, "Activating FCI",
-                                 f"{GREEN}done{RST} {DIM}(already){RST}"))
-        else:
-            _cli_run_with_spinner("Activating FCI", 4, setup_total,
-                                  client.activate_fci)
-        _save_token_state(robot_ip, client._token, client._token_id)
-    except Exception:
-        try:
-            client.release_token(best_effort=True)
-            _clear_token(robot_ip)
-        except Exception:
-            pass
-        raise
-
-    robot = RobotInterface(robot_ip, read_tool=False)
-    robot.start()
-
-    # Use last P-core (i9-14900K: cores 0-15 are P-cores, 16-31 are E-cores)
-    n_cpus = os.cpu_count() or 1
-    # Pick last core (often least busy) and a mid-range core
-    last_core = n_cpus - 1
-    # (label, cpu_pin, sched_fifo, disable_gc, mlock, prealloc)
-    C = last_core
-    combos = [
-        ("baseline",              None, None, False, False, False),
-        (f"cpu={C}+FIFO",        C,    80,   False, False, False),
-        (f"cpu={C}+FIFO+nogc",   C,    80,   True,  False, False),
-        (f"cpu={C}+FIFO+mlock",  C,    80,   False, True,  False),
-        (f"cpu={C}+FIFO+prealloc", C,  80,   False, False, True),
-        (f"cpu={C}+FIFO+all",    C,    80,   True,  True,  True),
-    ]
-    if sys.platform == "darwin":
-        # No CPU pinning, SCHED_FIFO or mlockall on macOS
-        combos = [
-            ("baseline",              None, None, False, False, False),
-            ("nogc",                  None, None, True,  False, False),
-            ("prealloc",              None, None, False, False, True),
-            ("nogc+prealloc",         None, None, True,  False, True),
-        ]
-
-    results = []
-    try:
-        for label, cpu_pin, sched_fifo, dis_gc, ml, prealloc in combos:
-            sys.stdout.write(f"  Running: {BOLD}{label}{RST} ...")
-            sys.stdout.flush()
-            dt_all, phase_all, phases, sr_all, rt_all = _run_bench_loop(
-                robot, duration, cpu_pin=cpu_pin, sched_fifo=sched_fifo,
-                disable_gc=dis_gc, mlock=ml, prealloc=prealloc,
-            )
-            dt = dt_all[1:]
-            in_spec = np.sum((dt >= 900) & (dt <= 1100))
-            pct_in = in_spec * 100.0 / len(dt)
-            sr_min = np.min(sr_all)
-            fci = _analyze_fci_timing(phase_all, sr_all, rt_all)
-            resp_p999 = np.percentile(fci["response"], 99.9)
-            results.append({
-                "label": label,
-                "pct_in": pct_in,
-                "mean": np.mean(dt),
-                "std": np.std(dt),
-                "max": np.max(dt),
-                "p99": np.percentile(dt, 99),
-                "p999": np.percentile(dt, 99.9),
-                "sr_min": sr_min,
-                "resp_p999": resp_p999,
-                "dropped": fci["dropped"],
-                "skipped": fci["skipped"],
-            })
-            color = GREEN if pct_in >= 99 else YELLOW if pct_in >= 95 else RED
-            sr_color = GREEN if sr_min >= 0.99 else YELLOW if sr_min >= 0.95 else RED
-            sys.stdout.write(f"\r  {BOLD}{label:<25}{RST} {color}{pct_in:.2f}%{RST} in spec, "
-                             f"std={np.std(dt):.1f}us, p99={np.percentile(dt, 99):.0f}us, "
-                             f"max={np.max(dt):.0f}us, "
-                             f"sr_min={sr_color}{sr_min:.4f}{RST}, "
-                             f"resp_p99.9={resp_p999:.0f}us, dropped={fci['dropped']}, "
-                             f"skipped={fci['skipped']}\n")
-            sys.stdout.flush()
+        for mode in modes:
+            print(f"  Running: {BOLD}{mode}{RST} ...")
+            _hold(controller, mode)
+            await asyncio.sleep(0.5)  # warm up, as the Python loop does
+            recording = controller.record(NATIVE_BENCH_FIELDS, seconds=duration + 10)
+            await asyncio.sleep(duration)
+            data = recording.stop()
+            runs[mode] = {
+                # wall_time: when the cycle's robot state arrived; busy: from then to the command
+                "dt": np.diff(data["wall_time"]) * 1e6,
+                "response": data["busy"] * 1e6,
+                "success_rate": data["control_command_success_rate"],
+                "robot_time": data["time"],
+                "phases": None,
+                "lost": recording.dropped,
+            }
     finally:
-        robot.stop()
-        try:
-            client.release_token(best_effort=True)
-            _clear_token(robot_ip)
-        except Exception:
-            pass
+        controller.running = False  # stops the loop
+        await controller.task
+    return runs
 
-    # --- Comparison table ---
+
+def _run_python_modes(robot, modes, duration, cpu_pin=None, sched_fifo=None):
+    """Hold the current pose in each mode with a FrankaController in the Python loop.
+
+    Returns:
+        dict: {mode: run} as _run_native_modes() returns, with phases, the
+            (names, times [us]) of each cycle's phases, aligned with dt.
+    """
+    from aiofranka.controller import FrankaController
+
+    controller = FrankaController(robot)
+    _hold(controller, modes[0])
+    robot.start()
+    runs = {}
+    for mode in modes:
+        print(f"  Running: {BOLD}{mode}{RST} ...")
+        _hold(controller, mode)
+        dt_all, phase_all, names, success_rate, robot_time = _run_bench_loop(
+            robot, controller, duration, cpu_pin=cpu_pin, sched_fifo=sched_fifo)
+        # dt_all[i] = t0[i] - t0[i-1] is the loop time of iteration i-1, so that
+        # of iteration k is dt_all[k + 1], and its phases are phase_all[k].
+        runs[mode] = {
+            "dt": dt_all[1:],
+            "response": _response(phase_all),
+            "success_rate": success_rate,
+            "robot_time": robot_time,
+            "phases": (names, phase_all[:-1]),
+            "lost": 0,
+        }
+    return runs
+
+
+def _bench_summary(label, dt, success_rate, fci):
+    """The numbers of one run that the comparison table shows."""
+    import numpy as np
+
+    return {
+        "label": label,
+        "pct_in": np.sum((dt >= 900) & (dt <= 1100)) * 100.0 / len(dt),
+        "std": np.std(dt),
+        "p99": np.percentile(dt, 99),
+        "p999": np.percentile(dt, 99.9),
+        "max": np.max(dt),
+        "sr_min": np.min(success_rate),
+        "resp_p999": np.percentile(fci["response"], 99.9),
+        "dropped": fci["dropped"],
+        "skipped": fci["skipped"],
+    }
+
+
+def _print_summary_line(r):
+    color = GREEN if r["pct_in"] >= 99 else YELLOW if r["pct_in"] >= 95 else RED
+    sr_color = GREEN if r["sr_min"] >= 0.99 else YELLOW if r["sr_min"] >= 0.95 else RED
+    print(f"  {BOLD}{r['label']:<25}{RST} {color}{r['pct_in']:.2f}%{RST} in spec, "
+          f"std={r['std']:.1f}us, p99={r['p99']:.0f}us, max={r['max']:.0f}us, "
+          f"sr_min={sr_color}{r['sr_min']:.4f}{RST}, resp_p99.9={r['resp_p999']:.0f}us, "
+          f"dropped={r['dropped']}, skipped={r['skipped']}")
+
+
+def _print_comparison(results, column, mark_best=False):
+    """Print a table of _bench_summary() results; mark_best stars the one most in spec."""
     print(f"\n  {BOLD}=== Comparison ==={RST}\n")
-    print(f"    {'Config':<25} {'In-spec':>8} {'std':>8} {'p99':>8} {'p99.9':>8} {'max':>8} {'sr_min':>8}"
+    print(f"    {column:<25} {'In-spec':>8} {'std':>8} {'p99':>8} {'p99.9':>8} {'max':>8} {'sr_min':>8}"
           f" {'resp99.9':>9} {'dropped':>8} {'skipped':>8}")
     print(f"    {'─'*25} {'─'*8} {'─'*8} {'─'*8} {'─'*8} {'─'*8} {'─'*8} {'─'*9} {'─'*8} {'─'*8}")
-    best = max(results, key=lambda r: r["pct_in"])
+    best = max(results, key=lambda r: r["pct_in"]) if mark_best else None
     for r in results:
-        is_best = r is best
-        marker = f" {GREEN}★{RST}" if is_best else ""
+        marker = f" {GREEN}★{RST}" if r is best else ""
         color = GREEN if r["pct_in"] >= 99 else YELLOW if r["pct_in"] >= 95 else RED
         sr_color = GREEN if r["sr_min"] >= 0.99 else YELLOW if r["sr_min"] >= 0.95 else RED
         print(f"    {r['label']:<25} {color}{r['pct_in']:>7.2f}%{RST} "
               f"{r['std']:>7.1f} {r['p99']:>7.0f} {r['p999']:>7.0f} {r['max']:>7.0f} "
               f"{sr_color}{r['sr_min']:>7.4f}{RST} {r['resp_p999']:>9.0f} "
               f"{r['dropped']:>8} {r['skipped']:>8}{marker}")
-    print(f"\n  {GREEN}Best: {best['label']}{RST}\n")
+    if best is not None:
+        print(f"\n  {GREEN}Best: {best['label']}{RST}")
+    print()
 
 
-def cmd_gripper(args):
-    """Open or close the Robotiq gripper."""
-    from aiofranka.gripper_remote import GripperRemoteController
-
-    gripper = GripperRemoteController(args.port)
-    gripper.start()
-    gripper.speed = args.speed
-    gripper.force = args.force
-
-    if args.open:
-        print("Opening gripper...")
-        gripper.open()
-    else:
-        print("Closing gripper...")
-        gripper.close()
-
-    gripper.wait_until_reached(timeout=5.0)
-    gripper.stop()
-
-
-def cmd_rt_benchmark(args):
-    """Benchmark the 1kHz control loop real-time performance."""
-    import mujoco
+def _print_timing_report(label, duration, dt, success_rate, fci):
+    """Print one run's loop timing, and what the robot saw of it."""
     import numpy as np
-    from aiofranka.robot import RobotInterface
-    from aiofranka.server import (
-        _DeskClientV2, _load_token_state, _save_token_state, _clear_token,
-    )
-
-    robot_ip = _resolve_ip(args.ip)
-    username, password = _resolve_credentials(args)
-    protocol = args.protocol
-    duration = args.duration
-    use_v2 = args.v2
-
-    cpu_pin = args.cpu_pin
-    sched_fifo = args.sched_fifo
-    all_combos = args.all_combos
-
-    if all_combos:
-        _run_all_combos(args)
-        return
-
-    if sys.platform == "darwin" and (cpu_pin is not None or sched_fifo is not None):
-        print(f"\n  {DIM}--cpu-pin and --sched-fifo are not available on macOS, ignoring them{RST}")
-        cpu_pin = sched_fifo = None
-
-    mode_label = "v2 (RT thread)" if use_v2 else "v1 (asyncio)"
-    rt_flags = []
-    if cpu_pin is not None:
-        rt_flags.append(f"cpu={cpu_pin}")
-    if sched_fifo is not None:
-        rt_flags.append(f"FIFO={sched_fifo}")
-    rt_label = f" [{', '.join(rt_flags)}]" if rt_flags else ""
-    print(f"\n  {BOLD}aiofranka rt-benchmark{RST} {DIM}|{RST} {mode_label}{rt_label} {DIM}({robot_ip}){RST}")
-    print(f"  {DIM}Duration: {duration:.0f}s — hold position with zero torque{RST}\n")
-
-    # --- Setup: unlock + FCI ---
-    setup_total = 4
-    try:
-        client = _DeskClientV2(robot_ip, username, password, protocol=protocol)
-        saved_token, saved_token_id = _load_token_state(robot_ip)
-        if saved_token is not None:
-            client._token = saved_token
-            client._token_id = saved_token_id
-            if not client.validate_token():
-                client._token = None
-                client._token_id = None
-
-        if client._token is None:
-            _cli_run_with_spinner("Acquiring control token", 1, setup_total,
-                                  client.take_token, timeout=15)
-        else:
-            print(_cli_step_line(1, setup_total, "Acquiring control token",
-                                 f"{GREEN}done{RST} {DIM}(reused){RST}"))
-
-        _cli_run_with_spinner("Recovering safety errors", 2, setup_total,
-                              client.recover_errors)
-
-        if client.are_joints_unlocked():
-            print(_cli_step_line(3, setup_total, "Unlocking joints",
-                                 f"{GREEN}done{RST} {DIM}(already){RST}"))
-        else:
-            _cli_run_with_spinner("Unlocking joints", 3, setup_total,
-                                  client.unlock)
-
-        if client.is_fci_active():
-            print(_cli_step_line(4, setup_total, "Activating FCI",
-                                 f"{GREEN}done{RST} {DIM}(already){RST}"))
-        else:
-            _cli_run_with_spinner("Activating FCI", 4, setup_total,
-                                  client.activate_fci)
-
-        _save_token_state(robot_ip, client._token, client._token_id)
-
-    except Exception:
-        try:
-            client.release_token(best_effort=True)
-            _clear_token(robot_ip)
-        except Exception:
-            pass
-        raise
-
-    # --- Run benchmark ---
-    print(f"\n  {YELLOW}Running benchmark...{RST}\n")
-
-    robot = RobotInterface(robot_ip, read_tool=False)
-    robot.start()
-
-    PHASES = ["readOnce", "mj_fwd", "state_build", "ctrl_law", "shm_write"]
-
-    try:
-        dt_all, phase_all, PHASES, success_rate, robot_time = _run_bench_loop(
-            robot, duration, cpu_pin=cpu_pin, sched_fifo=sched_fifo
-        )
-    finally:
-        robot.stop()
-        try:
-            client.release_token(best_effort=True)
-            _clear_token(robot_ip)
-        except Exception:
-            pass
-
-    # --- Print report ---
-    # dt_all[i] = t0[i] - t0[i-1] = loop time of iteration i-1
-    # phase_all[i] = phases of iteration i
-    # To align: dt[k] = dt_all[k+1] = loop time of iteration k
-    #           phases[k] = phase_all[k] = phases of iteration k
-    dt = dt_all[1:]       # skip first (no previous t0)
-    phases = phase_all[:-1]  # drop last (no dt for it)
-    total_compute = phases.sum(axis=1)
 
     print(f"  {BOLD}=== RT Benchmark Results ==={RST}")
-    print(f"  {DIM}Samples: {len(dt)}, Duration: {duration:.0f}s, Mode: {mode_label}{rt_label}{RST}\n")
+    print(f"  {DIM}Samples: {len(dt)}, Duration: {duration:.0f}s, Mode: {label}{RST}\n")
 
     # Iteration timing
     print(f"  {BOLD}Iteration timing (target: 1000us){RST}")
@@ -2304,7 +2163,7 @@ def cmd_rt_benchmark(args):
     print()
 
     # Control command success rate
-    sr = success_rate[:-1]  # align with dt (drop last, same as phases)
+    sr = success_rate
     sr_mean = np.mean(sr)
     sr_min = np.min(sr)
     sr_color = GREEN if sr_min >= 0.99 else YELLOW if sr_min >= 0.95 else RED
@@ -2319,7 +2178,6 @@ def cmd_rt_benchmark(args):
     print()
 
     # What the robot sees: response time, skipped states and dropped commands
-    fci = _analyze_fci_timing(phase_all, success_rate, robot_time)
     resp = fci["response"]
     n_ticks = len(resp)
 
@@ -2344,7 +2202,7 @@ def cmd_rt_benchmark(args):
     drop_pct = fci["dropped"] * 100.0 / n_ticks
     drop_color = GREEN if fci["dropped"] == 0 else YELLOW if drop_pct < 1.0 else RED
     print(f"  {BOLD}Dropped commands (robot reused the previous torque){RST}")
-    print(f"    dropped \u2248 {drop_color}{fci['dropped']}{RST} ({drop_pct:.2f}% of ticks) "
+    print(f"    dropped ≈ {drop_color}{fci['dropped']}{RST} ({drop_pct:.2f}% of ticks) "
           f"in {fci['drop_events']} events")
     if fci["drop_events"] > 0:
         print(f"    {DIM}Likely cause, within {DROP_LOOKBACK} iterations before each event:{RST}")
@@ -2353,11 +2211,18 @@ def cmd_rt_benchmark(args):
             print(f"      {cause:<16} {count:>5}  ({pct:5.1f}%)")
     print()
 
+
+def _print_phase_report(dt, names, phases):
+    """Print the Python loop's time per phase, and which phase made the late iterations late."""
+    import numpy as np
+
+    total_compute = phases.sum(axis=1)
+
     # Per-phase breakdown
     print(f"  {BOLD}Per-phase breakdown (us){RST}")
     print(f"    {'Phase':<14} {'mean':>8} {'std':>8} {'p99':>8} {'p99.9':>8} {'max':>8}")
     print(f"    {'─'*14} {'─'*8} {'─'*8} {'─'*8} {'─'*8} {'─'*8}")
-    for j, name in enumerate(PHASES):
+    for j, name in enumerate(names):
         col = phases[:, j]
         print(f"    {name:<14} {np.mean(col):>8.1f} {np.std(col):>8.1f} "
               f"{np.percentile(col, 99):>8.1f} {np.percentile(col, 99.9):>8.1f} "
@@ -2382,7 +2247,7 @@ def cmd_rt_benchmark(args):
         dominant = np.argmax(excess, axis=1)
         print(f"    {'Phase':<14} {'blamed':>7} {'%blamed':>8} {'avg_excess':>11} {'max_excess':>11}")
         print(f"    {'─'*14} {'─'*7} {'─'*8} {'─'*11} {'─'*11}")
-        for j, name in enumerate(PHASES):
+        for j, name in enumerate(names):
             mask_j = dominant == j
             count_j = np.sum(mask_j)
             pct_j = count_j * 100.0 / n_out if n_out > 0 else 0
@@ -2398,17 +2263,21 @@ def cmd_rt_benchmark(args):
         # Show the top 10 worst iterations with per-phase detail
         worst_idx = np.argsort(dt)[-10:][::-1]
         print(f"  {BOLD}Top 10 worst iterations{RST}")
-        header_phases = "  ".join(f"{name:>8}" for name in PHASES)
+        header_phases = "  ".join(f"{name:>8}" for name in names)
         print(f"    {'#':>6} {'dt':>8}  {header_phases}  {'blame':>10}")
-        print(f"    {'─'*6} {'─'*8}  {'─' * (10 * len(PHASES) - 2)}  {'─'*10}")
+        print(f"    {'─'*6} {'─'*8}  {'─' * (10 * len(names) - 2)}  {'─'*10}")
         for idx in worst_idx:
-            phase_vals = "  ".join(f"{phases[idx, j]:>8.1f}" for j in range(len(PHASES)))
+            phase_vals = "  ".join(f"{phases[idx, j]:>8.1f}" for j in range(len(names)))
             blame_j = np.argmax(phases[idx] - phase_medians)
-            blame_name = PHASES[blame_j]
+            blame_name = names[blame_j]
             print(f"    {idx:>6} {dt[idx]:>8.1f}  {phase_vals}  {RED}{blame_name:>10}{RST}")
         print()
 
-    # ASCII histogram of iteration times
+
+def _print_histogram(dt):
+    """Print an ASCII histogram of the iteration times."""
+    import numpy as np
+
     print(f"  {BOLD}Iteration time distribution (us){RST}")
     bin_edges = [0, 800, 900, 950, 1000, 1050, 1100, 1200, 1500, 2000, float('inf')]
     bin_labels = ["<800", "800-900", "900-950", "950-1000", "1000-1050",
@@ -2418,7 +2287,7 @@ def cmd_rt_benchmark(args):
     bar_width = 30
     for label, count in zip(bin_labels, counts):
         bar_len = int(count * bar_width / max_count)
-        bar = "\u2588" * bar_len
+        bar = "█" * bar_len
         pct = count * 100.0 / len(dt)
         if pct > 0.01:
             color_code = GREEN if "950" in label or "1000" in label or "1050" in label else (
@@ -2426,6 +2295,205 @@ def cmd_rt_benchmark(args):
             )
             print(f"    {label:>10} | {color_code}{bar:<{bar_width}}{RST} {count:>6} ({pct:.1f}%)")
     print()
+
+
+def _run_all_combos(args):
+    """Hold the pose in gravcomp on the Python loop with each combination of RT settings, and compare."""
+    from aiofranka.controller import FrankaController
+    from aiofranka.robot import RobotInterface
+    from aiofranka.server import _DeskClientV2, _clear_token
+
+    robot_ip = _resolve_ip(args.ip)
+    username, password = _resolve_credentials(args)
+    duration = args.duration
+
+    print(f"\n  {BOLD}aiofranka rt-benchmark{RST} {DIM}|{RST} all combos {DIM}({robot_ip}){RST}")
+    print(f"  {DIM}Duration: {duration:.0f}s per run — the Python loop holds the pose in gravcomp{RST}\n")
+
+    pid = _check_server_running(robot_ip)
+    if pid is not None:
+        print(f"  {RED}Error:{RST} A server (PID {pid}) is connected to the robot. "
+              f"Stop it with {BOLD}aiofranka stop{RST} first.\n")
+        return
+
+    client = _DeskClientV2(robot_ip, username, password, protocol=args.protocol)
+    _cli_take_control(client, robot_ip)
+    print()
+
+    # Use last P-core (i9-14900K: cores 0-15 are P-cores, 16-31 are E-cores)
+    n_cpus = os.cpu_count() or 1
+    # Pick last core (often least busy) and a mid-range core
+    last_core = n_cpus - 1
+    # (label, cpu_pin, sched_fifo, disable_gc, mlock, prealloc)
+    C = last_core
+    combos = [
+        ("baseline",              None, None, False, False, False),
+        (f"cpu={C}+FIFO",        C,    80,   False, False, False),
+        (f"cpu={C}+FIFO+nogc",   C,    80,   True,  False, False),
+        (f"cpu={C}+FIFO+mlock",  C,    80,   False, True,  False),
+        (f"cpu={C}+FIFO+prealloc", C,  80,   False, False, True),
+        (f"cpu={C}+FIFO+all",    C,    80,   True,  True,  True),
+    ]
+    if sys.platform == "darwin":
+        # No CPU pinning, SCHED_FIFO or mlockall on macOS
+        combos = [
+            ("baseline",              None, None, False, False, False),
+            ("nogc",                  None, None, True,  False, False),
+            ("prealloc",              None, None, False, False, True),
+            ("nogc+prealloc",         None, None, True,  False, True),
+        ]
+
+    results = []
+    robot = None
+    try:
+        robot = RobotInterface(robot_ip, read_tool=False)
+        controller = FrankaController(robot)
+        _hold(controller, "gravcomp")
+        robot.start()
+        for label, cpu_pin, sched_fifo, dis_gc, ml, prealloc in combos:
+            sys.stdout.write(f"  Running: {BOLD}{label}{RST} ...")
+            sys.stdout.flush()
+            dt_all, phase_all, _, sr_all, rt_all = _run_bench_loop(
+                robot, controller, duration, cpu_pin=cpu_pin, sched_fifo=sched_fifo,
+                disable_gc=dis_gc, mlock=ml, prealloc=prealloc,
+            )
+            fci = _analyze_fci_timing(_response(phase_all), sr_all, rt_all)
+            result = _bench_summary(label, dt_all[1:], sr_all, fci)
+            results.append(result)
+            sys.stdout.write("\r")
+            _print_summary_line(result)
+    finally:
+        if robot is not None:
+            robot.stop()
+        try:
+            client.release_token(best_effort=True)
+            _clear_token(robot_ip)
+        except Exception:
+            pass
+
+    _print_comparison(results, "Config", mark_best=True)
+
+
+def cmd_gripper(args):
+    """Open or close the Robotiq gripper."""
+    from aiofranka.gripper_remote import GripperRemoteController
+
+    gripper = GripperRemoteController(args.port)
+    gripper.start()
+    gripper.speed = args.speed
+    gripper.force = args.force
+
+    if args.open:
+        print("Opening gripper...")
+        gripper.open()
+    else:
+        print("Closing gripper...")
+        gripper.close()
+
+    gripper.wait_until_reached(timeout=5.0)
+    gripper.stop()
+
+
+def cmd_rt_benchmark(args):
+    """Benchmark the 1 kHz control loop, holding the current pose in each mode."""
+    import asyncio
+
+    from aiofranka.robot import RobotInterface
+    from aiofranka.server import _DeskClientV2, _clear_token
+
+    if args.all_combos:
+        _run_all_combos(args)
+        return
+
+    robot_ip = _resolve_ip(args.ip)
+    username, password = _resolve_credentials(args)
+    duration = args.duration
+    modes = list(dict.fromkeys(args.mode))
+    native = not args.python
+    cpu_pin = args.cpu_pin
+    sched_fifo = args.sched_fifo
+
+    if sys.platform == "darwin" and (cpu_pin is not None or sched_fifo is not None):
+        print(f"\n  {DIM}--cpu-pin and --sched-fifo are not available on macOS, ignoring them{RST}")
+        cpu_pin = sched_fifo = None
+
+    if native:
+        from aiofranka.native import NativeFrankaController, load_native
+        try:
+            load_native()
+        except ImportError as error:
+            print(f"\n  {YELLOW}The native loop is unavailable, benchmarking the Python loop instead{RST}")
+            print(f"  {DIM}{str(error).splitlines()[0]}{RST}")
+            native = False
+    if native and sched_fifo is None and sys.platform.startswith("linux"):
+        # What NativeFrankaController.start() uses
+        sched_fifo = NativeFrankaController.realtime_priority
+
+    loop_label = "native (C++ loop)" if native else "Python loop"
+    rt_flags = []
+    if cpu_pin is not None:
+        rt_flags.append(f"cpu={cpu_pin}")
+    if sched_fifo:
+        rt_flags.append(f"FIFO={sched_fifo}")
+    rt_label = f" [{', '.join(rt_flags)}]" if rt_flags else ""
+    print(f"\n  {BOLD}aiofranka rt-benchmark{RST} {DIM}|{RST} {loop_label}{rt_label} {DIM}({robot_ip}){RST}")
+    print(f"  {DIM}Duration: {duration:.0f}s per mode — hold the current pose in {', '.join(modes)}{RST}\n")
+
+    pid = _check_server_running(robot_ip)
+    if pid is not None:
+        print(f"  {RED}Error:{RST} A server (PID {pid}) is connected to the robot. "
+              f"Stop it with {BOLD}aiofranka stop{RST} first.\n")
+        return
+
+    client = _DeskClientV2(robot_ip, username, password, protocol=args.protocol)
+    _cli_take_control(client, robot_ip)
+
+    print(f"\n  {YELLOW}Running benchmark...{RST}\n")
+    robot = None
+    status = ""
+    try:
+        robot = RobotInterface(robot_ip, read_tool=False)
+        if native:
+            controller = NativeFrankaController(robot)
+            if cpu_pin is not None:
+                controller.realtime_cpu = cpu_pin
+            if sched_fifo is not None:
+                controller.realtime_priority = sched_fifo
+            runs = asyncio.run(_run_native_modes(controller, modes, duration))
+            status = controller._loop.realtime_status().rstrip("; ")
+        else:
+            runs = _run_python_modes(robot, modes, duration, cpu_pin=cpu_pin, sched_fifo=sched_fifo)
+    finally:
+        if robot is not None:
+            robot.stop()  # stops the native loop first
+        try:
+            client.release_token(best_effort=True)
+            _clear_token(robot_ip)
+        except Exception:
+            pass
+    print()
+
+    if status:
+        print(f"  {YELLOW}Native loop: {status}{RST}\n")
+    for mode, run in runs.items():
+        if run["lost"]:
+            print(f"  {YELLOW}The recording of {mode} lost {run['lost']} cycles{RST}\n")
+
+    if len(modes) == 1:
+        run = runs[modes[0]]
+        fci = _analyze_fci_timing(run["response"], run["success_rate"], run["robot_time"])
+        _print_timing_report(f"{modes[0]}, {loop_label}{rt_label}", duration, run["dt"],
+                             run["success_rate"], fci)
+        if run["phases"] is not None:
+            _print_phase_report(run["dt"], *run["phases"])
+        _print_histogram(run["dt"])
+    else:
+        results = []
+        for mode, run in runs.items():
+            fci = _analyze_fci_timing(run["response"], run["success_rate"], run["robot_time"])
+            results.append(_bench_summary(mode, run["dt"], run["success_rate"], fci))
+        _print_comparison(results, "Mode")
+        print(f"  {DIM}--mode {modes[-1]} prints the full report of one mode.{RST}\n")
 
 
 # ── Entry point ────────────────────────────────────────────────────────────
@@ -2608,14 +2676,23 @@ def main():
     p_bench.add_argument("--username", type=str, default="admin", help="Robot web UI username")
     p_bench.add_argument("--password", type=str, default="admin", help="Robot web UI password")
     p_bench.add_argument("--protocol", type=str, default="https", choices=["http", "https"])
-    p_bench.add_argument("--duration", type=float, default=10.0, help="Benchmark duration in seconds (default: 10)")
-    p_bench.add_argument("--v2", action="store_true", help="Use v2 RT-threaded control loop")
+    p_bench.add_argument("--duration", type=float, default=10.0,
+                         help="Benchmark duration per mode in seconds (default: 10)")
+    p_bench.add_argument("--mode", nargs="+", choices=list(BENCH_MODES), default=list(BENCH_MODES),
+                         help="Modes to hold the current pose in, in turn (default: all): gravcomp "
+                              "(kp 0, kd 4), impedance (kp 80, kd 4), osc (the gains of "
+                              "examples/02_osc_hold.py). One mode prints its full report")
+    p_bench.add_argument("--python", action="store_true",
+                         help="Benchmark the Python loop, FrankaController's, instead of the native "
+                              "C++ loop; adds a per-phase breakdown")
     p_bench.add_argument("--cpu-pin", type=int, default=None, metavar="CORE",
                          help="Pin benchmark thread to specific CPU core (e.g. --cpu-pin 31)")
     p_bench.add_argument("--sched-fifo", type=int, default=None, metavar="PRIO", nargs="?", const=80,
-                         help="Set SCHED_FIFO real-time priority (default: 80, requires root/cap)")
+                         help="Set SCHED_FIFO real-time priority (default: 80, requires root/cap); "
+                              "the native loop runs at 80 without it, 0 turns it off")
     p_bench.add_argument("--all-combos", action="store_true",
-                         help="Run all combinations of RT settings and compare")
+                         help="Hold the pose in gravcomp on the Python loop with each combination "
+                              "of RT settings, and compare")
 
     args = parser.parse_args()
 

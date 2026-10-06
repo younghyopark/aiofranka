@@ -24,7 +24,7 @@ This guide documents the system-level optimizations applied to achieve reliable 
 
 ## Results Summary
 
-All benchmarks: `aiofranka rt-benchmark --cpu-pin 31 --sched-fifo --duration 10`
+All benchmarks: `aiofranka rt-benchmark --python --mode gravcomp --cpu-pin 31 --sched-fifo --duration 10`
 
 | Metric | Before tuning | After tuning | Change |
 |--------|--------------|--------------|--------|
@@ -171,7 +171,7 @@ Run `sudo bash rt_audit.sh` (included in this repo) to check all settings at a g
 ### Benchmarking
 
 ```bash
-aiofranka rt-benchmark --cpu-pin 31 --sched-fifo --duration 10
+aiofranka rt-benchmark --python --mode gravcomp --cpu-pin 31 --sched-fifo --duration 10
 ```
 
 Key things to look at:
